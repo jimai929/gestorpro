@@ -40,6 +40,8 @@ model Sede {
   modoExcepcion ModoExcepcion @default(pin) @map("modo_excepcion")
   creadoEn      DateTime      @default(now()) @map("creado_en")
 
+  compras Compra[]
+
   @@map("sede")
 }
 
@@ -89,4 +91,71 @@ model Auditoria {
   creadoEn  DateTime @default(now()) @map("creado_en")
 
   @@map("auditoria")
+}
+
+// ─── Finanzas · Cuentas por pagar (Fase 1) ──────────────────────────────────
+
+/// Tipo de asiento de un movimiento de dinero. Los movimientos son INMUTABLES:
+/// una corrección se hace con un `reverso` (anula el asiento previo) y, si
+/// aplica, una `correccion` con el monto correcto, encadenados por `corrigeId`.
+enum TipoMovimiento {
+  normal
+  reverso
+  correccion
+}
+
+/// Proveedor al que se le compra mercancía o servicios.
+model Proveedor {
+  id                   String   @id @default(uuid()) @db.Uuid
+  nombre               String
+  identificacionFiscal String?  @map("identificacion_fiscal")
+  activo               Boolean  @default(true)
+  creadoEn             DateTime @default(now()) @map("creado_en")
+
+  compras Compra[]
+
+  @@map("proveedor")
+}
+
+/// Factura de compra (obligación de pago). El saldo NO se persiste aquí: se
+/// deriva en la vista `cuenta_por_pagar` a partir de los pagos. Criterio
+/// devengado: la fecha que cuenta es la de emisión.
+model Compra {
+  id               String    @id @default(uuid()) @db.Uuid
+  proveedorId      String    @map("proveedor_id") @db.Uuid
+  proveedor        Proveedor @relation(fields: [proveedorId], references: [id])
+  sedeId           String    @map("sede_id") @db.Uuid
+  sede             Sede      @relation(fields: [sedeId], references: [id])
+  numeroFactura    String    @map("numero_factura")
+  montoTotal       Decimal   @map("monto_total") @db.Decimal(12, 2)
+  fechaEmision     DateTime  @map("fecha_emision") @db.Date
+  fechaVencimiento DateTime  @map("fecha_vencimiento") @db.Date
+  creadoEn         DateTime  @default(now()) @map("creado_en")
+
+  pagos PagoProveedor[]
+
+  @@unique([proveedorId, numeroFactura], map: "uq_compra_factura")
+  @@index([sedeId])
+  @@map("compra")
+}
+
+/// Pago (abono) a una factura. MOVIMIENTO DE DINERO INMUTABLE: no se edita ni
+/// se borra; se corrige con reverso + corrección (ver TipoMovimiento). El
+/// `usuarioId` proviene del token JWT, nunca del body.
+model PagoProveedor {
+  id           String          @id @default(uuid()) @db.Uuid
+  compraId     String          @map("compra_id") @db.Uuid
+  compra       Compra          @relation(fields: [compraId], references: [id])
+  monto        Decimal         @db.Decimal(12, 2)
+  fechaPago    DateTime        @map("fecha_pago") @db.Date
+  tipo         TipoMovimiento  @default(normal)
+  corrigeId    String?         @map("corrige_id") @db.Uuid
+  corrige      PagoProveedor?  @relation("CorreccionPago", fields: [corrigeId], references: [id])
+  correcciones PagoProveedor[] @relation("CorreccionPago")
+  motivo       String?
+  usuarioId    String          @map("usuario_id") @db.Uuid
+  creadoEn     DateTime        @default(now()) @map("creado_en")
+
+  @@index([compraId])
+  @@map("pago_proveedor")
 }
