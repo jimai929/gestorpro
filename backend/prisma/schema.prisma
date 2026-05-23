@@ -1,0 +1,17 @@
+// Esquema único de toda la app GestorPro (finanzas + asistencia).
+//
+// Tarea 0.1: solo la configuración base (generador del cliente y datasource).
+// Los modelos del núcleo (Sede, Usuario, Auditoria) y el enum Rol entran en la
+// Tarea 0.2; las entidades de cada área se añaden en sus fases respectivas.
+//
+// La URL de conexión vive en prisma.config.ts (lee DATABASE_URL del .env),
+// como exige Prisma 7. El cliente se genera en src/generated/prisma.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno: nunca se commitean los .env reales, solo la plantilla.
+.env
+.env.*
+!.env.example
+
+# Compilados
+dist/
+build/
+
+# Cliente Prisma generado
+**/src/generated/
+
+# Logs y temporales
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude Code (ajustes locales personales)
+.claude/settings.local.json
