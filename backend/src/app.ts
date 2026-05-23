@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import { authPlugin } from './core/auth/auth.plugin.js';
 import { authRoutes } from './core/auth/auth.routes.js';
+import { sedeRoutes } from './core/sede/sede.routes.js';
 import { cuentasPorPagarRoutes } from './finanzas/cuentas-por-pagar/cuentas-por-pagar.routes.js';
 
 /**
@@ -23,6 +24,7 @@ export function construirApp(): FastifyInstance {
   // Núcleo: autenticación (debe registrarse antes que las rutas que la usan).
   app.register(authPlugin);
   app.register(authRoutes, { prefix: '/auth' });
+  app.register(sedeRoutes);
 
   // Finanzas
   app.register(cuentasPorPagarRoutes);
