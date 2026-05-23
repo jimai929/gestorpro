@@ -1,11 +1,8 @@
-import { construirApp } from './app.js';
+// Cargar el entorno de PRIMERO (efecto secundario), antes que cualquier módulo
+// que dependa de las variables (p. ej. el cliente Prisma).
+import './core/entorno.js';
 
-// Carga opcional de variables desde .env (Node 20.12+). No falla si no existe.
-try {
-  process.loadEnvFile();
-} catch {
-  // Sin archivo .env: se usan los valores por defecto.
-}
+import { construirApp } from './app.js';
 
 const PUERTO = Number(process.env.PORT ?? 3000);
 const HOST = process.env.HOST ?? '0.0.0.0';

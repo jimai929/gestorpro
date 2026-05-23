@@ -1,11 +1,12 @@
 // Esquema único de toda la app GestorPro (finanzas + asistencia).
 //
-// Tarea 0.1: solo la configuración base (generador del cliente y datasource).
-// Los modelos del núcleo (Sede, Usuario, Auditoria) y el enum Rol entran en la
-// Tarea 0.2; las entidades de cada área se añaden en sus fases respectivas.
+// Núcleo de datos (Tarea 0.2): las entidades transversales que usan ambas
+// áreas. Las entidades de finanzas (Fases 1-3) y de asistencia (Fases 4-6) se
+// añaden aquí mismo en sus fases. La URL de conexión vive en prisma.config.ts.
 //
-// La URL de conexión vive en prisma.config.ts (lee DATABASE_URL del .env),
-// como exige Prisma 7. El cliente se genera en src/generated/prisma.
+// Convención: tablas y columnas en snake_case (vía @@map/@map). Así el SQL
+// manual del proyecto (vistas, índices parciales, REVOKE) queda legible sin
+// comillas. El cliente Prisma se genera en src/generated/prisma.
 
 generator client {
   provider = "prisma-client"
@@ -14,4 +15,61 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+/// Rol de un usuario del sistema. Determina la autorización en cada ruta.
+enum Rol {
+  empleado
+  supervisor
+  administrador
+}
+
+/// Mecanismo permitido para el fichaje de excepción en una sede. Lo consume la
+/// asistencia (Fase 4); se declara desde el núcleo porque vive en `Sede`.
+enum ModoExcepcion {
+  pin
+  supervisor
+  ambos
+}
+
+/// Sede física de la empresa (un cliente puede tener varias).
+model Sede {
+  id            String        @id @default(uuid()) @db.Uuid
+  nombre        String
+  activo        Boolean       @default(true)
+  modoExcepcion ModoExcepcion @default(pin) @map("modo_excepcion")
+  creadoEn      DateTime      @default(now()) @map("creado_en")
+
+  @@map("sede")
+}
+
+/// Cuenta de acceso al sistema. La crea un administrador (no hay registro
+/// abierto). La contraseña SIEMPRE se guarda hasheada en `passwordHash`,
+/// nunca en texto plano.
+model Usuario {
+  id           String   @id @default(uuid()) @db.Uuid
+  nombre       String
+  email        String   @unique
+  rol          Rol      @default(empleado)
+  passwordHash String   @map("password_hash")
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now()) @map("creado_en")
+
+  @@map("usuario")
+}
+
+/// Bitácora append-only: SOLO inserción, nunca update ni delete. Se escribe
+/// únicamente a través del repositorio de auditoría (Fase 1) y se refuerza con
+/// un REVOKE en Postgres. No tiene relaciones para mantener su superficie
+/// cerrada y desacoplada.
+model Auditoria {
+  id        String   @id @default(uuid()) @db.Uuid
+  entidad   String
+  entidadId String   @map("entidad_id")
+  accion    String
+  usuarioId String   @map("usuario_id") @db.Uuid
+  detalle   Json?
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  @@map("auditoria")
 }
