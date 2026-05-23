@@ -1,0 +1,15 @@
+# Normaliza los finales de línea a LF en el repositorio. El proyecto nace en
+# Windows y migra a Mac vía Git: con esto el código viaja con LF consistente y
+# no se ensucia el diff por CRLF.
+* text=auto eol=lf
+
+# Archivos que deben conservar CRLF en Windows.
+*.ps1 text eol=crlf
+
+# Binarios: que Git no intente normalizarlos.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
