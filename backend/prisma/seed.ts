@@ -1,18 +1,48 @@
+// Cargar el entorno antes de importar el cliente Prisma (que lee DATABASE_URL).
+import '../src/core/entorno.js';
+import { prisma } from '../src/core/prisma.js';
+import { hashearContrasena } from '../src/core/auth/contrasena.js';
+import { Rol } from '../src/generated/prisma/enums.js';
+
 /**
  * Semilla de la base de datos de GestorPro.
  *
- * Stub de la Tarea 0.1: todavía no hay modelos en el schema (el núcleo de datos
- * llega en la Tarea 0.2 y el usuario administrador inicial en la 0.3). Cuando
- * existan, este archivo poblará los datos base usando el cliente Prisma
- * generado en `src/generated/prisma`.
+ * Crea una sede base y el usuario administrador inicial (los usuarios los crea
+ * un administrador; no hay registro abierto). Idempotente: se puede correr
+ * varias veces sin duplicar.
  */
 async function main(): Promise<void> {
-  console.log(
-    'Semilla pendiente: aún no hay modelos que poblar (ver Tarea 0.2).',
-  );
+  // Sede base (idempotente por nombre).
+  let sede = await prisma.sede.findFirst({ where: { nombre: 'Sede Central' } });
+  if (!sede) {
+    sede = await prisma.sede.create({ data: { nombre: 'Sede Central' } });
+  }
+
+  // Usuario administrador inicial.
+  const email = 'admin@gestorpro.local';
+  const passwordHash = await hashearContrasena('Admin1234*');
+  await prisma.usuario.upsert({
+    where: { email },
+    update: {},
+    create: {
+      nombre: 'Administrador',
+      email,
+      rol: Rol.administrador,
+      passwordHash,
+    },
+  });
+
+  console.log('Semilla aplicada:');
+  console.log(`  Sede:    ${sede.nombre} (${sede.id})`);
+  console.log(`  Usuario: ${email}  /  Admin1234*  (rol administrador)`);
 }
 
-main().catch((error: unknown) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (error: unknown) => {
+    console.error(error);
+    await prisma.$disconnect();
+    process.exit(1);
+  });

@@ -55,7 +55,24 @@ model Usuario {
   activo       Boolean  @default(true)
   creadoEn     DateTime @default(now()) @map("creado_en")
 
+  sesiones SesionRefresco[]
+
   @@map("usuario")
+}
+
+/// Sesión de refresco: un refresh token vivo por inicio de sesión. El token se
+/// guarda HASHEADO (SHA-256), nunca en claro. El logout borra la fila, con lo
+/// que el refresh token queda invalidado del lado del servidor.
+model SesionRefresco {
+  id        String   @id @default(uuid()) @db.Uuid
+  usuarioId String   @map("usuario_id") @db.Uuid
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique @map("token_hash")
+  expiraEn  DateTime @map("expira_en")
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  @@index([usuarioId])
+  @@map("sesion_refresco")
 }
 
 /// Bitácora append-only: SOLO inserción, nunca update ni delete. Se escribe
