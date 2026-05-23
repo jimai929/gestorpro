@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import { authPlugin } from './core/auth/auth.plugin.js';
 import { authRoutes } from './core/auth/auth.routes.js';
+import { cuentasPorPagarRoutes } from './finanzas/cuentas-por-pagar/cuentas-por-pagar.routes.js';
 
 /**
  * Construye la instancia de Fastify con sus plugins y rutas registrados.
@@ -22,6 +23,9 @@ export function construirApp(): FastifyInstance {
   // Núcleo: autenticación (debe registrarse antes que las rutas que la usan).
   app.register(authPlugin);
   app.register(authRoutes, { prefix: '/auth' });
+
+  // Finanzas
+  app.register(cuentasPorPagarRoutes);
 
   // Endpoint de salud: confirma que el servidor está vivo y responde.
   app.get('/health', async () => {

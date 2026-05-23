@@ -19,3 +19,27 @@ export class ErrorAutorizacion extends Error {
     this.name = 'ErrorAutorizacion';
   }
 }
+
+/** Datos inválidos o regla de negocio incumplida. Las rutas lo mapean a 400. */
+export class ErrorValidacion extends Error {
+  constructor(mensaje: string) {
+    super(mensaje);
+    this.name = 'ErrorValidacion';
+  }
+}
+
+/** Recurso no encontrado. Las rutas lo mapean a 404. */
+export class ErrorNoEncontrado extends Error {
+  constructor(mensaje: string) {
+    super(mensaje);
+    this.name = 'ErrorNoEncontrado';
+  }
+}
+
+/** Conflicto con el estado actual (p. ej. duplicado). Las rutas lo mapean a 409. */
+export class ErrorConflicto extends Error {
+  constructor(mensaje: string) {
+    super(mensaje);
+    this.name = 'ErrorConflicto';
+  }
+}
