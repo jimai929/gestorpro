@@ -1,0 +1,107 @@
+/* ── Pantalla de inicio (placeholder) ──────────────────────────── */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+/* ── Bloque de bienvenida ── */
+
+.bienvenida {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.75rem 2rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #1a56db;
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.saludo {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #111928;
+  margin: 0 0 0.25rem;
+}
+
+.detalle {
+  font-size: 0.9375rem;
+  color: #374151;
+  margin: 0 0 0.15rem;
+}
+
+.email {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ── Tarjetas de módulos ── */
+
+.tarjetasModulos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.tarjeta {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid #f3f4f6;
+  transition: box-shadow 0.15s;
+}
+
+.tarjeta:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.iconoModulo {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.tituloModulo {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111928;
+  margin: 0;
+}
+
+.descripcionModulo {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.proximamente {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+  width: fit-content;
+}

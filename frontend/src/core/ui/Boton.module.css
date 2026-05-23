@@ -1,0 +1,74 @@
+/* ── Boton base ─────────────────────────────────────────────────── */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.boton:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Variantes */
+
+.primario {
+  background: #1a56db;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(26, 86, 219, 0.3);
+}
+.primario:hover:not(:disabled) {
+  background: #1648c0;
+}
+
+.secundario {
+  background: #f3f4f6;
+  color: #374151;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.secundario:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.peligro {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+.peligro:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+/* Ancho completo */
+.completo {
+  width: 100%;
+}
+
+/* Spinner inline */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: girar 0.6s linear infinite;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}

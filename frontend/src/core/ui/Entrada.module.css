@@ -1,0 +1,60 @@
+/* ── Entrada base ───────────────────────────────────────────────── */
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.etiqueta {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.entrada {
+  padding: 0.625rem 0.875rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #111928;
+  background: #f9fafb;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.entrada:focus {
+  border-color: #1a56db;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+}
+
+.entrada:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.entrada::placeholder {
+  color: #9ca3af;
+}
+
+.conError {
+  border-color: #dc2626;
+}
+
+.conError:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.mensajeError {
+  font-size: 0.8125rem;
+  color: #b91c1c;
+}
+
+.ayuda {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}

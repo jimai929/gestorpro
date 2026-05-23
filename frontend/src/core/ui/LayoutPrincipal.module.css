@@ -1,0 +1,108 @@
+/* ── Layout principal (pantallas autenticadas) ──────────────────── */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #f3f4f6;
+}
+
+/* ── Barra de navegación ── */
+
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 60px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logoMini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #1a56db;
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.nombreApp {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111928;
+  letter-spacing: -0.3px;
+}
+
+/* ── Sección de usuario ── */
+
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.infoUsuario {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nombreUsuario {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #111928;
+}
+
+.badgeRol {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  background: #eff6ff;
+  color: #1a56db;
+  border-radius: 99px;
+  border: 1px solid #bfdbfe;
+}
+
+.botonSalir {
+  padding: 0.4rem 0.875rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.botonSalir:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+/* ── Contenido principal ── */
+
+.principal {
+  flex: 1;
+  padding: 2rem 1.5rem;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}

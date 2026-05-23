@@ -24,5 +24,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Salidas de Playwright (capturas, trazas de verificación)
+.playwright-mcp/
+gestorpro-home-fase0.png
+
 # Claude Code (ajustes locales personales)
 .claude/settings.local.json
