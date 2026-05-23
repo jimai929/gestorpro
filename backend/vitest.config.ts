@@ -1,17 +1,23 @@
 import { defineConfig } from 'vitest/config';
 
 /**
- * Configuración base de Vitest.
+ * Configuración de Vitest.
  *
- * Los tests de lógica crítica (corrección, jornada, saldos) corren contra un
- * PostgreSQL real vía Testcontainers. El `globalSetup` que levanta ese
- * contenedor efímero se añade en la Tarea 1.2, cuando aparece el primer test
- * que lo necesita. En la Tarea 0.1 no hay tests todavía.
+ * Los tests de lógica crítica corren contra un PostgreSQL real efímero
+ * (Testcontainers). `global-setup` levanta el contenedor y aplica las
+ * migraciones una vez; `setup-entorno` apunta el cliente Prisma a esa base
+ * antes de cada archivo. Un solo proceso (singleFork) para compartir la base.
  */
 export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
     include: ['test/**/*.test.ts'],
+    globalSetup: ['test/global-setup.ts'],
+    setupFiles: ['test/setup-entorno.ts'],
+    // Archivos de test en serie (una sola base compartida del contenedor).
+    fileParallelism: false,
+    testTimeout: 30000,
+    hookTimeout: 180000,
   },
 });

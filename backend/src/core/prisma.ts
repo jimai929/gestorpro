@@ -19,3 +19,14 @@ if (!urlBaseDatos) {
 const adaptador = new PrismaPg({ connectionString: urlBaseDatos });
 
 export const prisma = new PrismaClient({ adapter: adaptador });
+
+/**
+ * Cliente usado dentro de una transacción interactiva (`prisma.$transaction`):
+ * el cliente sin sus métodos de ciclo de vida. Los repositorios y servicios que
+ * operan dentro de una transacción reciben este tipo. El `tx` del callback es
+ * asignable a él directamente.
+ */
+export type ClienteTx = Omit<
+  typeof prisma,
+  '$connect' | '$disconnect' | '$on' | '$use' | '$extends' | '$transaction'
+>;
