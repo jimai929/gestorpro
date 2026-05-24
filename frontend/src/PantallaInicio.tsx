@@ -67,6 +67,9 @@ export function PantallaInicio() {
               <Link to="/asistencia/revision" className={styles.enlaceModulo}>
                 Cola de revisión →
               </Link>
+              <Link to="/asistencia/jornadas" className={styles.enlaceModulo}>
+                Jornadas →
+              </Link>
               <Link
                 to="/kiosco"
                 className={styles.enlaceModulo}

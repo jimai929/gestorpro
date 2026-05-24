@@ -165,6 +165,16 @@ export function PantallaRevision() {
           >
             Cola de revisión
           </NavLink>
+          <NavLink
+            to="/asistencia/jornadas"
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
+                : styles.enlaceNav
+            }
+          >
+            Jornadas
+          </NavLink>
           <Link to="/kiosco" className={styles.enlaceExterno} target="_blank" rel="noopener noreferrer">
             Abrir kiosco
           </Link>

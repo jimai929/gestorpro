@@ -13,18 +13,20 @@ import { PantallaGastos } from './finanzas/gastos';
 import { PantallaDashboard } from './finanzas/dashboard';
 import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
 import { PantallaRevision } from './asistencia/revision/PantallaRevision';
+import { PantallaJornadas } from './asistencia/jornada/PantallaJornadas';
 
 /**
  * Configuración del router.
  *
  * Árbol de rutas:
- *   /login                → Pantalla de login (pública)
- *   /kiosco               → Kiosco de fichaje (PÚBLICA — no requiere sesión)
- *   /                     → Guard → PantallaInicio (protegida)
- *   /cuentas-por-pagar    → Módulo de cuentas por pagar (protegida)
- *   /gastos               → Módulo de gastos (protegida)
- *   /dashboard            → Dashboard de ganancias (protegida)
- *   /asistencia/revision  → Cola de revisión de fichajes (protegida — supervisor/admin)
+ *   /login                 → Pantalla de login (pública)
+ *   /kiosco                → Kiosco de fichaje (PÚBLICA — no requiere sesión)
+ *   /                      → Guard → PantallaInicio (protegida)
+ *   /cuentas-por-pagar     → Módulo de cuentas por pagar (protegida)
+ *   /gastos                → Módulo de gastos (protegida)
+ *   /dashboard             → Dashboard de ganancias (protegida)
+ *   /asistencia/revision   → Cola de revisión de fichajes (protegida — supervisor/admin)
+ *   /asistencia/jornadas   → Consulta y corrección de jornadas (protegida — supervisor/admin)
  */
 const router = createBrowserRouter([
   {
@@ -59,6 +61,10 @@ const router = createBrowserRouter([
       {
         path: '/asistencia/revision',
         element: <PantallaRevision />,
+      },
+      {
+        path: '/asistencia/jornadas',
+        element: <PantallaJornadas />,
       },
     ],
   },
