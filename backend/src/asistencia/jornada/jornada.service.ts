@@ -1,4 +1,6 @@
 import { prisma } from '../../core/prisma.js';
+import { ErrorNoEncontrado, ErrorValidacion } from '../../core/errors.js';
+import type { Prisma } from '../../generated/prisma/client.js';
 import {
   calcularJornada,
   type FichajeCalculo,
@@ -128,4 +130,73 @@ export async function barrerHuerfanos(ahora: Date = new Date()): Promise<number>
     marcadas++;
   }
   return marcadas;
+}
+
+/**
+ * Corrección manual de una jornada por el jefe. Registra una `Correccion`
+ * INMUTABLE (valor anterior y nuevo + motivo) y sobreescribe la jornada con los
+ * ajustes, marcándola como 'corregida'. Puede resolver una anomalía. Todo en una
+ * transacción: la corrección y la jornada quedan consistentes.
+ */
+export async function corregirJornada(datos: {
+  jornadaId: string;
+  jefeId: string;
+  motivo: string;
+  minutosTrabajados?: number;
+  minutosExtra?: number;
+  montoExtra?: number;
+  resolverAnomalia?: boolean;
+}) {
+  if (!datos.motivo || datos.motivo.trim().length === 0) {
+    throw new ErrorValidacion('El motivo de la corrección es obligatorio.');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const jornada = await tx.jornada.findUnique({ where: { id: datos.jornadaId } });
+    if (!jornada) {
+      throw new ErrorNoEncontrado('La jornada no existe.');
+    }
+
+    const anterior: Record<string, unknown> = {};
+    const nuevo: Record<string, unknown> = {};
+    if (datos.minutosTrabajados !== undefined) {
+      anterior.minutosTrabajados = jornada.minutosTrabajados;
+      nuevo.minutosTrabajados = datos.minutosTrabajados;
+    }
+    if (datos.minutosExtra !== undefined) {
+      anterior.minutosExtra = jornada.minutosExtra;
+      nuevo.minutosExtra = datos.minutosExtra;
+    }
+    if (datos.montoExtra !== undefined) {
+      anterior.montoExtra = Number(jornada.montoExtra);
+      nuevo.montoExtra = datos.montoExtra;
+    }
+    if (datos.resolverAnomalia) {
+      anterior.anomalia = jornada.anomalia;
+      nuevo.anomalia = false;
+    }
+
+    await tx.correccion.create({
+      data: {
+        jornadaId: jornada.id,
+        usuarioId: datos.jefeId,
+        valorAnterior: anterior as Prisma.InputJsonValue,
+        valorNuevo: nuevo as Prisma.InputJsonValue,
+        motivo: datos.motivo,
+      },
+    });
+
+    return tx.jornada.update({
+      where: { id: jornada.id },
+      data: {
+        estado: 'corregida',
+        ...(datos.minutosTrabajados !== undefined
+          ? { minutosTrabajados: datos.minutosTrabajados }
+          : {}),
+        ...(datos.minutosExtra !== undefined ? { minutosExtra: datos.minutosExtra } : {}),
+        ...(datos.montoExtra !== undefined ? { montoExtra: datos.montoExtra } : {}),
+        ...(datos.resolverAnomalia ? { anomalia: false, detalleAnomalia: null } : {}),
+      },
+    });
+  });
 }
