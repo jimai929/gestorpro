@@ -40,9 +40,11 @@ model Sede {
   modoExcepcion ModoExcepcion @default(pin) @map("modo_excepcion")
   creadoEn      DateTime      @default(now()) @map("creado_en")
 
-  compras Compra[]
-  gastos  Gasto[]
-  ventas  VentaDiaria[]
+  compras   Compra[]
+  gastos    Gasto[]
+  ventas    VentaDiaria[]
+  empleados Empleado[]
+  kioscos   Kiosco[]
 
   @@map("sede")
 }
@@ -234,4 +236,94 @@ model VentaDiaria {
   @@index([sedeId])
   @@index([fechaOperacion])
   @@map("venta_diaria")
+}
+
+// ─── Asistencia · Fichaje y kioscos (Fase 4) ────────────────────────────────
+
+/// Los cuatro momentos de fichaje del día.
+enum TipoFichaje {
+  entrada
+  salida_comida
+  entrada_comida
+  salida
+}
+
+/// Mecanismo con que se permitió un fichaje de excepción (cuando el facial falla).
+enum MecanismoExcepcion {
+  pin
+  supervisor
+}
+
+/// Empleado que ficha. Salario fijo. El `pinHash` es el PIN personal HASHEADO
+/// (nunca texto plano); el `qrToken` es único y revocable (se regenera). La
+/// `fotoReferencia` es el dato contra el que compara la verificación facial.
+model Empleado {
+  id             String   @id @default(uuid()) @db.Uuid
+  numero         String   @unique
+  nombre         String
+  sedeId         String   @map("sede_id") @db.Uuid
+  sede           Sede     @relation(fields: [sedeId], references: [id])
+  qrToken        String   @unique @map("qr_token")
+  pinHash        String   @map("pin_hash")
+  fotoReferencia String?  @map("foto_referencia")
+  salarioFijo    Decimal  @map("salario_fijo") @db.Decimal(12, 2)
+  activo         Boolean  @default(true)
+  creadoEn       DateTime @default(now()) @map("creado_en")
+
+  fichajes Fichaje[]
+
+  @@map("empleado")
+}
+
+/// Kiosco (tablet/PC) de fichaje, pertenece a una sede.
+model Kiosco {
+  id       String   @id @default(uuid()) @db.Uuid
+  nombre   String
+  sedeId   String   @map("sede_id") @db.Uuid
+  sede     Sede     @relation(fields: [sedeId], references: [id])
+  activo   Boolean  @default(true)
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  fichajes Fichaje[]
+
+  @@map("kiosco")
+}
+
+/// Fichaje: hecho crudo INMUTABLE (no se edita ni borra). Si fue de excepción
+/// (facial falló pero el empleado se identificó), queda marcado para revisión
+/// del jefe. La validez la decide el jefe en `RevisionFichaje`, sin mutar esto.
+model Fichaje {
+  id                 String              @id @default(uuid()) @db.Uuid
+  empleadoId         String              @map("empleado_id") @db.Uuid
+  empleado           Empleado            @relation(fields: [empleadoId], references: [id])
+  kioscoId           String              @map("kiosco_id") @db.Uuid
+  kiosco             Kiosco              @relation(fields: [kioscoId], references: [id])
+  tipo               TipoFichaje
+  momento            DateTime            @default(now())
+  esExcepcion        Boolean             @default(false) @map("es_excepcion")
+  mecanismoExcepcion MecanismoExcepcion? @map("mecanismo_excepcion")
+  requiereRevision   Boolean             @default(false) @map("requiere_revision")
+  fotoCaptura        String?             @map("foto_captura")
+  creadoEn           DateTime            @default(now()) @map("creado_en")
+
+  revision RevisionFichaje?
+
+  @@index([empleadoId])
+  @@index([kioscoId])
+  @@index([momento])
+  @@map("fichaje")
+}
+
+/// Revisión del jefe sobre un fichaje de excepción. Una por fichaje; no muta el
+/// Fichaje (que es inmutable): aquí se decide su validez.
+model RevisionFichaje {
+  id        String   @id @default(uuid()) @db.Uuid
+  fichajeId String   @unique @map("fichaje_id") @db.Uuid
+  fichaje   Fichaje  @relation(fields: [fichajeId], references: [id])
+  jefeId    String   @map("jefe_id") @db.Uuid
+  valido    Boolean
+  motivo    String?
+  creadoEn  DateTime @default(now()) @map("creado_en")
+
+  @@map("revision_fichaje")
 }

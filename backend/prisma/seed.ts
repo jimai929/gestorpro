@@ -1,5 +1,6 @@
 // Cargar el entorno antes de importar el cliente Prisma (que lee DATABASE_URL).
 import '../src/core/entorno.js';
+import { randomBytes } from 'node:crypto';
 import { prisma } from '../src/core/prisma.js';
 import { hashearContrasena } from '../src/core/auth/contrasena.js';
 import { Rol } from '../src/generated/prisma/enums.js';
@@ -34,6 +35,7 @@ async function main(): Promise<void> {
 
   await sembrarCategoriasGasto();
   await sembrarDemoFinanzas(admin.id, sede.id);
+  await sembrarDemoAsistencia(sede.id);
 
   console.log('Semilla aplicada:');
   console.log(`  Sede:    ${sede.nombre} (${sede.id})`);
@@ -154,6 +156,28 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
   });
   await prisma.ventaDiaria.create({
     data: { sedeId, fechaOperacion: dias(-1), monto: 2980, tipo: 'normal', usuarioId: adminId },
+  });
+}
+
+/**
+ * Datos de demostración de asistencia: un kiosco y un empleado con PIN hasheado.
+ * Idempotente (guarda por número de empleado). El PIN de demo es 1234.
+ */
+async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
+  const yaSembrado = await prisma.empleado.findUnique({ where: { numero: 'E001' } });
+  if (yaSembrado) return;
+
+  await prisma.kiosco.create({ data: { nombre: 'Kiosco Entrada', sedeId } });
+
+  await prisma.empleado.create({
+    data: {
+      numero: 'E001',
+      nombre: 'María Pérez',
+      sedeId,
+      qrToken: randomBytes(24).toString('base64url'),
+      pinHash: await hashearContrasena('1234'),
+      salarioFijo: 1200,
+    },
   });
 }
 
