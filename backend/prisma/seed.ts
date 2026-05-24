@@ -169,15 +169,35 @@ async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
 
   await prisma.kiosco.create({ data: { nombre: 'Kiosco Entrada', sedeId } });
 
+  const turno = await prisma.turno.create({
+    data: {
+      nombre: 'Turno General',
+      sedeId,
+      horaInicio: '08:00',
+      horaFin: '17:00',
+      toleranciaMin: 10,
+      pausaPorDefectoMin: 60,
+      diaDescanso: 0, // domingo
+    },
+  });
+
   await prisma.empleado.create({
     data: {
       numero: 'E001',
       nombre: 'María Pérez',
       sedeId,
+      turnoId: turno.id,
       qrToken: randomBytes(24).toString('base64url'),
       pinHash: await hashearContrasena('1234'),
       salarioFijo: 1200,
     },
+  });
+
+  await prisma.diaFestivo.createMany({
+    data: [
+      { fecha: new Date('2026-05-01'), nombre: 'Día del Trabajador' },
+      { fecha: new Date('2026-11-03'), nombre: 'Separación de Panamá de Colombia' },
+    ],
   });
 }
 

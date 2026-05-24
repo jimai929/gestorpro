@@ -45,6 +45,7 @@ model Sede {
   ventas    VentaDiaria[]
   empleados Empleado[]
   kioscos   Kiosco[]
+  turnos    Turno[]
 
   @@map("sede")
 }
@@ -267,10 +268,13 @@ model Empleado {
   pinHash        String   @map("pin_hash")
   fotoReferencia String?  @map("foto_referencia")
   salarioFijo    Decimal  @map("salario_fijo") @db.Decimal(12, 2)
+  turnoId        String?  @map("turno_id") @db.Uuid
+  turno          Turno?   @relation(fields: [turnoId], references: [id])
   activo         Boolean  @default(true)
   creadoEn       DateTime @default(now()) @map("creado_en")
 
   fichajes Fichaje[]
+  jornadas Jornada[]
 
   @@map("empleado")
 }
@@ -326,4 +330,84 @@ model RevisionFichaje {
   creadoEn  DateTime @default(now()) @map("creado_en")
 
   @@map("revision_fichaje")
+}
+
+// ─── Asistencia · Motor de jornada (Fase 5) ─────────────────────────────────
+
+/// Turno: capa CONFIGURABLE de la jornada (horario, tolerancia de tardanza,
+/// pausa de respaldo, día de descanso semanal). Lo gestiona el admin. La capa
+/// legal (jornadas, recargos, topes) es FIJA y vive en el motor, no aquí.
+model Turno {
+  id                 String   @id @default(uuid()) @db.Uuid
+  nombre             String
+  sedeId             String?  @map("sede_id") @db.Uuid
+  sede               Sede?    @relation(fields: [sedeId], references: [id])
+  horaInicio         String   @map("hora_inicio")
+  horaFin            String   @map("hora_fin")
+  toleranciaMin      Int      @default(0) @map("tolerancia_min")
+  pausaPorDefectoMin Int      @default(0) @map("pausa_por_defecto_min")
+  diaDescanso        Int?     @map("dia_descanso")
+  activo             Boolean  @default(true)
+  creadoEn           DateTime @default(now()) @map("creado_en")
+
+  empleados Empleado[]
+
+  @@map("turno")
+}
+
+/// Jornada: interpretación CALCULADA de los fichajes de un empleado en un día.
+/// Recalculable y sobreescribible (NO append-only); una por (empleado, fecha).
+/// La fecha es la de INICIO del turno (ata los turnos que cruzan medianoche).
+model Jornada {
+  id                String   @id @default(uuid()) @db.Uuid
+  empleadoId        String   @map("empleado_id") @db.Uuid
+  empleado          Empleado @relation(fields: [empleadoId], references: [id])
+  fecha             DateTime @db.Date
+  minutosPresencia  Int      @default(0) @map("minutos_presencia")
+  minutosPausa      Int      @default(0) @map("minutos_pausa")
+  minutosTrabajados Int      @default(0) @map("minutos_trabajados")
+  minutosOrdinarios Int      @default(0) @map("minutos_ordinarios")
+  minutosExtra      Int      @default(0) @map("minutos_extra")
+  clasificacion     String?
+  recargosDetalle   Json?    @map("recargos_detalle")
+  montoExtra        Decimal  @default(0) @map("monto_extra") @db.Decimal(12, 2)
+  esFestivo         Boolean  @default(false) @map("es_festivo")
+  anomalia          Boolean  @default(false)
+  detalleAnomalia   String?  @map("detalle_anomalia")
+  estado            String   @default("calculada")
+  calculadaEn       DateTime @default(now()) @map("calculada_en")
+
+  correcciones Correccion[]
+
+  @@unique([empleadoId, fecha], map: "uq_jornada_empleado_fecha")
+  @@map("jornada")
+}
+
+/// Corrección: registro INMUTABLE y auditado de cada ajuste humano a una
+/// jornada. La jornada se recalcula; estas correcciones son la huella de quién
+/// ajustó qué y por qué.
+model Correccion {
+  id            String   @id @default(uuid()) @db.Uuid
+  jornadaId     String   @map("jornada_id") @db.Uuid
+  jornada       Jornada  @relation(fields: [jornadaId], references: [id])
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  valorAnterior Json?    @map("valor_anterior")
+  valorNuevo    Json?    @map("valor_nuevo")
+  motivo        String
+  creadoEn      DateTime @default(now()) @map("creado_en")
+
+  @@index([jornadaId])
+  @@map("correccion")
+}
+
+/// Día festivo, gestionable por el admin. Dos efectos en el motor: dispara el
+/// recargo de 150% si se trabaja, y protege el día contra descuento si no se
+/// trabaja (salario fijo).
+model DiaFestivo {
+  id       String   @id @default(uuid()) @db.Uuid
+  fecha    DateTime @unique @db.Date
+  nombre   String
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  @@map("dia_festivo")
 }
