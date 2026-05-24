@@ -63,7 +63,19 @@ export function PantallaInicio() {
             <p className={styles.descripcionModulo}>
               Fichaje, jornadas y cobro anticipado de horas extra.
             </p>
-            <span className={styles.proximamente}>Próximamente</span>
+            <div className={styles.enlacesModulo}>
+              <Link to="/asistencia/revision" className={styles.enlaceModulo}>
+                Cola de revisión →
+              </Link>
+              <Link
+                to="/kiosco"
+                className={styles.enlaceModulo}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Kiosco (nuevo tab) →
+              </Link>
+            </div>
           </div>
         </div>
       </div>

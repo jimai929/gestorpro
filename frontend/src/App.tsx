@@ -11,21 +11,30 @@ import { PantallaInicio } from './PantallaInicio';
 import { PantallaCuentasPorPagar } from './finanzas/cuentas-por-pagar';
 import { PantallaGastos } from './finanzas/gastos';
 import { PantallaDashboard } from './finanzas/dashboard';
+import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
+import { PantallaRevision } from './asistencia/revision/PantallaRevision';
 
 /**
  * Configuración del router.
  *
  * Árbol de rutas:
- *   /login          → Pantalla de login (pública)
- *   /               → Guard → PantallaInicio (protegida)
- *
- * Las rutas de finanzas y asistencia se agregan aquí cuando estén listas
- * (Fases 1-6), anidadas bajo el elemento <RutaProtegida />.
+ *   /login                → Pantalla de login (pública)
+ *   /kiosco               → Kiosco de fichaje (PÚBLICA — no requiere sesión)
+ *   /                     → Guard → PantallaInicio (protegida)
+ *   /cuentas-por-pagar    → Módulo de cuentas por pagar (protegida)
+ *   /gastos               → Módulo de gastos (protegida)
+ *   /dashboard            → Dashboard de ganancias (protegida)
+ *   /asistencia/revision  → Cola de revisión de fichajes (protegida — supervisor/admin)
  */
 const router = createBrowserRouter([
   {
     path: '/login',
     element: <PantallaLogin />,
+  },
+  {
+    // Ruta pública del kiosco — fuera de RutaProtegida
+    path: '/kiosco',
+    element: <PantallaKiosco />,
   },
   {
     element: <RutaProtegida />,
@@ -46,7 +55,11 @@ const router = createBrowserRouter([
         path: '/dashboard',
         element: <PantallaDashboard />,
       },
-      // Aquí se agregarán las rutas de asistencia (Fases 4-6)
+      // ── Asistencia (Fases 4-6) ──
+      {
+        path: '/asistencia/revision',
+        element: <PantallaRevision />,
+      },
     ],
   },
 ]);
