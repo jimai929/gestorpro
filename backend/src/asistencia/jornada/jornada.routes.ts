@@ -76,7 +76,7 @@ export async function jornadaRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         const jornada = await corregirJornada({ ...request.body, jefeId: request.user.sub });
-        return await reply.send(jornada);
+        return await reply.send(aJornadaDto(jornada));
       } catch (error) {
         return responderError(error, request, reply);
       }

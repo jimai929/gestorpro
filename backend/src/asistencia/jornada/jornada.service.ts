@@ -197,6 +197,9 @@ export async function corregirJornada(datos: {
         ...(datos.montoExtra !== undefined ? { montoExtra: datos.montoExtra } : {}),
         ...(datos.resolverAnomalia ? { anomalia: false, detalleAnomalia: null } : {}),
       },
+      // Misma forma que GET /jornadas (incluye empleado) para que el frontend
+      // pueda actualizar la fila con la respuesta sin romperse.
+      include: { empleado: { select: { numero: true, nombre: true } } },
     });
   });
 }
