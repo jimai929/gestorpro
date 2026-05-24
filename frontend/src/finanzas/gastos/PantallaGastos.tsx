@@ -92,6 +92,16 @@ export function PantallaGastos() {
           >
             Gastos
           </NavLink>
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
+                : styles.enlaceNav
+            }
+          >
+            Dashboard
+          </NavLink>
         </nav>
 
         {/* Encabezado */}

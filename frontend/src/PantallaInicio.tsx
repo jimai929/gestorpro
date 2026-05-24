@@ -51,6 +51,9 @@ export function PantallaInicio() {
               <Link to="/gastos" className={styles.enlaceModulo}>
                 Gastos →
               </Link>
+              <Link to="/dashboard" className={styles.enlaceModulo}>
+                Dashboard →
+              </Link>
             </div>
           </div>
 

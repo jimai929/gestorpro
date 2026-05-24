@@ -26,7 +26,7 @@ Thumbs.db
 
 # Salidas de Playwright (capturas, trazas de verificación)
 .playwright-mcp/
-gestorpro-home-fase0.png
+gestorpro-*.png
 
 # Claude Code (ajustes locales personales)
 .claude/settings.local.json

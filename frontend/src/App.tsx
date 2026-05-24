@@ -10,6 +10,7 @@ import { PantallaLogin } from './core/auth/PantallaLogin';
 import { PantallaInicio } from './PantallaInicio';
 import { PantallaCuentasPorPagar } from './finanzas/cuentas-por-pagar';
 import { PantallaGastos } from './finanzas/gastos';
+import { PantallaDashboard } from './finanzas/dashboard';
 
 /**
  * Configuración del router.
@@ -41,7 +42,11 @@ const router = createBrowserRouter([
         path: '/gastos',
         element: <PantallaGastos />,
       },
-      // Aquí se agregarán el resto de rutas de finanzas (Fase 3) y asistencia (Fases 4-6)
+      {
+        path: '/dashboard',
+        element: <PantallaDashboard />,
+      },
+      // Aquí se agregarán las rutas de asistencia (Fases 4-6)
     ],
   },
 ]);
