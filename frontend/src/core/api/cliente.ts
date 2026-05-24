@@ -53,8 +53,8 @@ export async function peticion<T>(
   if (!respuesta.ok) {
     let mensajeError = `Error ${respuesta.status}`;
     try {
-      const cuerpo = await respuesta.json() as { message?: string; error?: string };
-      mensajeError = cuerpo.message ?? cuerpo.error ?? mensajeError;
+      const cuerpo = await respuesta.json() as { mensaje?: string; message?: string; error?: string };
+      mensajeError = cuerpo.mensaje ?? cuerpo.message ?? cuerpo.error ?? mensajeError;
     } catch {
       // El cuerpo no es JSON — mantener el mensaje genérico
     }

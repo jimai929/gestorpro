@@ -1,0 +1,194 @@
+/* ── Pantalla de cuentas por pagar ───────────────────────────────── */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ── Encabezado de la pantalla ── */
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tituloPagina {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #111928;
+  margin: 0;
+}
+
+.subtitulo {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0.15rem 0 0;
+}
+
+/* ── Sección de filtros ── */
+
+.filtros {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f3f4f6;
+}
+
+.selectFiltro {
+  padding: 0.5rem 0.875rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: #111928;
+  background: #f9fafb;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.selectFiltro:focus {
+  border-color: #1a56db;
+  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+}
+
+.etiquetaFiltro {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* ── Tarjeta de la tabla ── */
+
+.tarjeta {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f3f4f6;
+  overflow: hidden;
+}
+
+/* ── Tabla ── */
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.tabla thead {
+  background: #f9fafb;
+  border-bottom: 1.5px solid #e5e7eb;
+}
+
+.tabla th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 0.875rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tabla tbody tr:hover {
+  background: #f9fafb;
+}
+
+.monto {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.saldoPendiente {
+  font-weight: 700;
+  color: #1a56db;
+}
+
+.colAccion {
+  text-align: right;
+}
+
+/* ── Estados vacíos / carga ── */
+
+.estadoVacio {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+  font-size: 0.9375rem;
+}
+
+.estadoCarga {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+  font-size: 0.9375rem;
+}
+
+/* ── Error de carga ── */
+
+.errorCarga {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  color: #b91c1c;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* ── Separador entre secciones ── */
+
+.seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tituloSeccion {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #111928;
+  margin: 0;
+}
+
+/* ── Botón abonar en tabla ── */
+
+.botonAbonar {
+  padding: 0.35rem 0.875rem;
+  border: 1.5px solid #1a56db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1a56db;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.botonAbonar:hover {
+  background: #eff6ff;
+}

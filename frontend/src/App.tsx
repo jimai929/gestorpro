@@ -8,6 +8,7 @@ import { ProveedorAuth } from './core/auth/ContextoAuth';
 import { RutaProtegida } from './core/auth/RutaProtegida';
 import { PantallaLogin } from './core/auth/PantallaLogin';
 import { PantallaInicio } from './PantallaInicio';
+import { PantallaCuentasPorPagar } from './finanzas/cuentas-por-pagar';
 
 /**
  * Configuración del router.
@@ -31,7 +32,11 @@ const router = createBrowserRouter([
         path: '/',
         element: <PantallaInicio />,
       },
-      // Aquí se agregarán las rutas de finanzas (Fases 1-3) y asistencia (Fases 4-6)
+      {
+        path: '/cuentas-por-pagar',
+        element: <PantallaCuentasPorPagar />,
+      },
+      // Aquí se agregarán el resto de rutas de finanzas (Fases 2-3) y asistencia (Fases 4-6)
     ],
   },
 ]);

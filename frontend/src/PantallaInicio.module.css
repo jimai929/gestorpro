@@ -105,3 +105,26 @@
   border-radius: 99px;
   width: fit-content;
 }
+
+/* Tarjeta navegable (envuelta en Link) */
+.tarjetaEnlace {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.tarjetaEnlace:hover {
+  text-decoration: none;
+}
+
+.enlaceModulo {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1a56db;
+  background: #eff6ff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+  width: fit-content;
+}

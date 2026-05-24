@@ -1,0 +1,40 @@
+/* ── Formulario inline de nuevo proveedor ────────────────────────── */
+
+.contenedor {
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.titulo {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0;
+}
+
+.fila {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+  align-items: end;
+}
+
+.acciones {
+  display: flex;
+  gap: 0.625rem;
+  justify-content: flex-end;
+}
+
+.error {
+  font-size: 0.8125rem;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}

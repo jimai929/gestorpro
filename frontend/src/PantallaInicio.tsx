@@ -6,6 +6,7 @@
 
 import { useAuth } from './core/auth/ContextoAuth';
 import { LayoutPrincipal } from './core/ui/LayoutPrincipal';
+import { Link } from 'react-router';
 import styles from './PantallaInicio.module.css';
 
 const ETIQUETA_ROL: Record<string, string> = {
@@ -37,14 +38,16 @@ export function PantallaInicio() {
         </div>
 
         <div className={styles.tarjetasModulos}>
-          <div className={styles.tarjeta}>
-            <div className={styles.iconoModulo}>💰</div>
-            <h2 className={styles.tituloModulo}>Finanzas</h2>
-            <p className={styles.descripcionModulo}>
-              Cuentas por pagar, gastos y dashboard de ganancias.
-            </p>
-            <span className={styles.proximamente}>Próximamente</span>
-          </div>
+          <Link to="/cuentas-por-pagar" className={styles.tarjetaEnlace}>
+            <div className={styles.tarjeta}>
+              <div className={styles.iconoModulo}>💰</div>
+              <h2 className={styles.tituloModulo}>Finanzas</h2>
+              <p className={styles.descripcionModulo}>
+                Cuentas por pagar, gastos y dashboard de ganancias.
+              </p>
+              <span className={styles.enlaceModulo}>Abrir módulo →</span>
+            </div>
+          </Link>
 
           <div className={styles.tarjeta}>
             <div className={styles.iconoModulo}>⏱</div>

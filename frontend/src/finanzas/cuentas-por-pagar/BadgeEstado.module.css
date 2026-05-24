@@ -1,0 +1,40 @@
+/* ── Badge de estado de cuenta por pagar ────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* debido → azul neutro */
+.debido {
+  background: #eff6ff;
+  color: #1a56db;
+  border: 1px solid #bfdbfe;
+}
+
+/* vencida → rojo */
+.vencida {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* parcial → ámbar */
+.parcial {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* pagado → verde */
+.pagado {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
