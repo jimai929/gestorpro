@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { prisma } from '../../core/prisma.js';
 import { responderError } from '../../core/http.js';
 import { crearServicioFichaje, colaRevision, revisarFichaje } from './fichaje.service.js';
 
@@ -54,6 +55,21 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
   const soloJefe = {
     preHandler: [app.autenticar, app.autorizar('supervisor', 'administrador')],
   };
+
+  // Catálogo de kioscos para que el dispositivo se identifique. Público (el
+  // kiosco no tiene sesión de usuario); expone nombre, sede y modo de excepción.
+  app.get('/kioscos', async (request, reply) => {
+    try {
+      const kioscos = await prisma.kiosco.findMany({
+        where: { activo: true },
+        orderBy: { nombre: 'asc' },
+        include: { sede: { select: { nombre: true, modoExcepcion: true } } },
+      });
+      return await reply.send(kioscos);
+    } catch (error) {
+      return responderError(error, request, reply);
+    }
+  });
 
   app.post<{ Body: BodyFichaje }>(
     '/fichajes',
