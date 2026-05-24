@@ -5,6 +5,7 @@ import { authRoutes } from './core/auth/auth.routes.js';
 import { sedeRoutes } from './core/sede/sede.routes.js';
 import { cuentasPorPagarRoutes } from './finanzas/cuentas-por-pagar/cuentas-por-pagar.routes.js';
 import { gastosRoutes } from './finanzas/gastos/gastos.routes.js';
+import { ventasRoutes } from './finanzas/dashboard/ventas.routes.js';
 
 /**
  * Construye la instancia de Fastify con sus plugins y rutas registrados.
@@ -30,6 +31,7 @@ export function construirApp(): FastifyInstance {
   // Finanzas
   app.register(cuentasPorPagarRoutes);
   app.register(gastosRoutes);
+  app.register(ventasRoutes);
 
   // Endpoint de salud: confirma que el servidor está vivo y responde.
   app.get('/health', async () => {
