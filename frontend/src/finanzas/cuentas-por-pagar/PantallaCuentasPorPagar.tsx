@@ -16,6 +16,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { BadgeEstado } from './BadgeEstado';
@@ -85,6 +86,30 @@ export function PantallaCuentasPorPagar() {
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
+        {/* Barra de navegación de finanzas */}
+        <nav className={styles.navFinanzas} aria-label="Módulos de finanzas">
+          <NavLink
+            to="/cuentas-por-pagar"
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
+                : styles.enlaceNav
+            }
+          >
+            Cuentas por pagar
+          </NavLink>
+          <NavLink
+            to="/gastos"
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
+                : styles.enlaceNav
+            }
+          >
+            Gastos
+          </NavLink>
+        </nav>
+
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>

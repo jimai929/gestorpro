@@ -1,9 +1,32 @@
-/* ── Pantalla de cuentas por pagar ───────────────────────────────── */
+/* ── Pantalla de gastos ───────────────────────────────────────────── */
 
 .contenedor {
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
+}
+
+/* ── Encabezado de la pantalla ── */
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tituloPagina {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #111928;
+  margin: 0;
+}
+
+.subtitulo {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0.15rem 0 0;
 }
 
 /* ── Barra de navegación de finanzas ── */
@@ -39,64 +62,47 @@
   color: #1a56db;
 }
 
-/* ── Encabezado de la pantalla ── */
-
-.encabezado {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.tituloPagina {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: #111928;
-  margin: 0;
-}
-
-.subtitulo {
-  font-size: 0.9375rem;
-  color: #6b7280;
-  margin: 0.15rem 0 0;
-}
-
-/* ── Sección de filtros ── */
+/* ── Filtros de período ── */
 
 .filtros {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  align-items: center;
   background: #ffffff;
   border-radius: 12px;
   padding: 1rem 1.25rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
   border: 1px solid #f3f4f6;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
 }
 
-.selectFiltro {
-  padding: 0.5rem 0.875rem;
+.grupoFiltro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.etiquetaFiltro {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.inputFiltro {
+  padding: 0.5rem 0.75rem;
   border: 1.5px solid #d1d5db;
   border-radius: 8px;
   font-size: 0.9375rem;
   color: #111928;
   background: #f9fafb;
   outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.selectFiltro:focus {
+.inputFiltro:focus {
   border-color: #1a56db;
   box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
-}
-
-.etiquetaFiltro {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #374151;
+  background: #ffffff;
 }
 
 /* ── Tarjeta de la tabla ── */
@@ -150,15 +156,26 @@
 .monto {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.saldoPendiente {
   font-weight: 700;
   color: #1a56db;
 }
 
-.colAccion {
-  text-align: right;
+.celdaEmpleado {
+  font-size: 0.8125rem;
+  color: #374151;
+}
+
+.badgeEmpleado {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  background: #eff6ff;
+  color: #1a56db;
+  border: 1px solid #bfdbfe;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* ── Estados vacíos / carga ── */
@@ -192,36 +209,26 @@
   gap: 1rem;
 }
 
-/* ── Separador entre secciones ── */
+/* ── Resumen de período ── */
 
-.seccion {
+.resumen {
+  background: #f9fafb;
+  border-top: 1.5px solid #e5e7eb;
+  padding: 0.875rem 1rem;
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
 }
 
-.tituloSeccion {
-  font-size: 1.0625rem;
+.resumenEtiqueta {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.resumenMonto {
   font-weight: 700;
   color: #111928;
-  margin: 0;
-}
-
-/* ── Botón abonar en tabla ── */
-
-.botonAbonar {
-  padding: 0.35rem 0.875rem;
-  border: 1.5px solid #1a56db;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #1a56db;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-
-.botonAbonar:hover {
-  background: #eff6ff;
+  font-variant-numeric: tabular-nums;
 }

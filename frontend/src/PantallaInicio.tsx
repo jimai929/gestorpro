@@ -38,16 +38,21 @@ export function PantallaInicio() {
         </div>
 
         <div className={styles.tarjetasModulos}>
-          <Link to="/cuentas-por-pagar" className={styles.tarjetaEnlace}>
-            <div className={styles.tarjeta}>
-              <div className={styles.iconoModulo}>💰</div>
-              <h2 className={styles.tituloModulo}>Finanzas</h2>
-              <p className={styles.descripcionModulo}>
-                Cuentas por pagar, gastos y dashboard de ganancias.
-              </p>
-              <span className={styles.enlaceModulo}>Abrir módulo →</span>
+          <div className={styles.tarjeta}>
+            <div className={styles.iconoModulo}>💰</div>
+            <h2 className={styles.tituloModulo}>Finanzas</h2>
+            <p className={styles.descripcionModulo}>
+              Cuentas por pagar, gastos y dashboard de ganancias.
+            </p>
+            <div className={styles.enlacesModulo}>
+              <Link to="/cuentas-por-pagar" className={styles.enlaceModulo}>
+                Cuentas por pagar →
+              </Link>
+              <Link to="/gastos" className={styles.enlaceModulo}>
+                Gastos →
+              </Link>
             </div>
-          </Link>
+          </div>
 
           <div className={styles.tarjeta}>
             <div className={styles.iconoModulo}>⏱</div>

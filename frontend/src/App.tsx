@@ -9,6 +9,7 @@ import { RutaProtegida } from './core/auth/RutaProtegida';
 import { PantallaLogin } from './core/auth/PantallaLogin';
 import { PantallaInicio } from './PantallaInicio';
 import { PantallaCuentasPorPagar } from './finanzas/cuentas-por-pagar';
+import { PantallaGastos } from './finanzas/gastos';
 
 /**
  * Configuración del router.
@@ -36,7 +37,11 @@ const router = createBrowserRouter([
         path: '/cuentas-por-pagar',
         element: <PantallaCuentasPorPagar />,
       },
-      // Aquí se agregarán el resto de rutas de finanzas (Fases 2-3) y asistencia (Fases 4-6)
+      {
+        path: '/gastos',
+        element: <PantallaGastos />,
+      },
+      // Aquí se agregarán el resto de rutas de finanzas (Fase 3) y asistencia (Fases 4-6)
     ],
   },
 ]);
