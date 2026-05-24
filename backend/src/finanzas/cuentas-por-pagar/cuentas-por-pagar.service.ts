@@ -46,12 +46,22 @@ export interface DatosCompra {
   fechaVencimiento: string;
 }
 
+/**
+ * Serializa una compra de Prisma al contrato de la API: `montoTotal` se expone
+ * como `number` (Prisma lo entrega como `Decimal`, que serializaría a string en
+ * JSON). Mantiene la misma convención que `aCuentaDto`: dinero siempre `number`
+ * hacia el frontend.
+ */
+function aCompraDto<T extends { montoTotal: { toString(): string } }>(compra: T) {
+  return { ...compra, montoTotal: Number(compra.montoTotal) };
+}
+
 export async function registrarCompra(datos: DatosCompra) {
   if (datos.montoTotal <= 0) {
     throw new ErrorValidacion('El monto total de la factura debe ser mayor que cero.');
   }
   try {
-    return await prisma.compra.create({
+    const compra = await prisma.compra.create({
       data: {
         proveedorId: datos.proveedorId,
         sedeId: datos.sedeId,
@@ -61,6 +71,7 @@ export async function registrarCompra(datos: DatosCompra) {
         fechaVencimiento: new Date(datos.fechaVencimiento),
       },
     });
+    return aCompraDto(compra);
   } catch (error) {
     if (esErrorPrisma(error, 'P2002')) {
       throw new ErrorConflicto(
@@ -74,12 +85,13 @@ export async function registrarCompra(datos: DatosCompra) {
   }
 }
 
-export function listarCompras(filtros: { sedeId?: string }) {
-  return prisma.compra.findMany({
+export async function listarCompras(filtros: { sedeId?: string }) {
+  const compras = await prisma.compra.findMany({
     where: filtros.sedeId ? { sedeId: filtros.sedeId } : {},
     orderBy: { fechaEmision: 'desc' },
     include: { proveedor: true },
   });
+  return compras.map(aCompraDto);
 }
 
 // ─── Pagos ──────────────────────────────────────────────────────────────────
