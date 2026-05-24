@@ -6,6 +6,7 @@ import {
 } from '../../core/errors.js';
 import { verificarContrasena } from '../../core/auth/contrasena.js';
 import { identificarEmpleado } from './identificacion.service.js';
+import { recalcularJornadaPorSalida } from '../jornada/jornada.service.js';
 import {
   verificadorFacialSimulado,
   facialExitosa,
@@ -67,6 +68,10 @@ export function crearServicioFichaje(
             fotoCaptura: solicitud.fotoCaptura,
           },
         });
+        // Al cerrar la salida, la jornada se calcula sola.
+        if (solicitud.tipo === 'salida') {
+          await recalcularJornadaPorSalida(empleado.id, fichaje.momento);
+        }
         return { estado: 'registrado' as const, mecanismo: 'facial' as const, fichaje };
       }
 
@@ -122,6 +127,10 @@ export function crearServicioFichaje(
           fotoCaptura: solicitud.fotoCaptura,
         },
       });
+
+      if (solicitud.tipo === 'salida') {
+        await recalcularJornadaPorSalida(empleado.id, fichaje.momento);
+      }
 
       // Alerta a RRHH si el empleado acumula muchas excepciones recientes
       // (la foto de referencia podría necesitar reemplazo).
