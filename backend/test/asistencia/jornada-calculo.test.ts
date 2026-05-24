@@ -72,4 +72,82 @@ describe('cálculo de jornada', () => {
     const r = calcularJornada([{ tipo: 'entrada', momento: h(8) }]);
     expect(r.anomalia).toBe(true);
   });
+
+  it('extra diurna: recargo 25% y monto en dinero', () => {
+    // 07:00–17:00 sin pausa = 10h → 8h ord + 2h extra. Salario 1200 → valorHora 5.
+    const r = calcularJornada(
+      [
+        { tipo: 'entrada', momento: h(7) },
+        { tipo: 'salida', momento: h(17) },
+      ],
+      { salarioMensual: 1200 },
+    );
+    expect(r.clasificacion).toBe('diurna');
+    expect(r.minutosExtra).toBe(120);
+    expect(r.recargo).toBe(0.25);
+    expect(r.montoExtra).toBe(12.5); // 2h × 5 × 1.25
+  });
+
+  it('turno nocturno que cruza medianoche: clasificación nocturna y recargo 50%', () => {
+    // 22:00 → 06:00 del día siguiente = 8h, todo nocturno, sin pausa.
+    const r = calcularJornada(
+      [
+        { tipo: 'entrada', momento: new Date(2026, 2, 10, 22, 0) },
+        { tipo: 'salida', momento: new Date(2026, 2, 11, 6, 0) },
+      ],
+      { salarioMensual: 1200 },
+    );
+    expect(r.clasificacion).toBe('nocturna');
+    expect(r.minutosTrabajados).toBe(480);
+    expect(r.minutosExtra).toBe(60); // 8h − 7h legal nocturna
+    expect(r.recargo).toBe(0.5);
+    expect(r.montoExtra).toBe(7.5); // 1h × 5 × 1.50
+  });
+
+  it('festivo trabajado: recargo 150% sobre la extra', () => {
+    const r = calcularJornada(
+      [
+        { tipo: 'entrada', momento: h(7) },
+        { tipo: 'salida', momento: h(17) },
+      ],
+      { salarioMensual: 1200, esFestivo: true },
+    );
+    expect(r.esFestivo).toBe(true);
+    expect(r.recargo).toBe(1.5);
+    expect(r.montoExtra).toBe(25); // 2h × 5 × 2.50
+  });
+
+  it('jornada mixta: recargo 75%', () => {
+    // 15:00–23:00 = 8h: 3h diurnas (15–18) + 5h nocturnas (18–23) → mixta.
+    const r = calcularJornada(
+      [
+        { tipo: 'entrada', momento: h(15) },
+        { tipo: 'salida', momento: h(23) },
+      ],
+      { salarioMensual: 1200 },
+    );
+    expect(r.clasificacion).toBe('mixta');
+    expect(r.minutosExtra).toBe(30); // 8h − 7.5h legal mixta
+    expect(r.recargo).toBe(0.75);
+    expect(r.montoExtra).toBe(4.38); // 0.5h × 5 × 1.75
+  });
+
+  // Nota: "festivo NO trabajado → sin descuento" es inherente al motor: no aplica
+  // descuentos por ausencia (salario fijo); solo añade pago extra. Sin jornada no
+  // hay efecto, que es justamente el comportamiento requerido.
+
+  it('aplica el tope diario de 3h de extra', () => {
+    // 06:00–18:00 sin pausa = 12h → 8h ord + 4h extra, pero solo 3h son pagables.
+    const r = calcularJornada(
+      [
+        { tipo: 'entrada', momento: h(6) },
+        { tipo: 'salida', momento: h(18) },
+      ],
+      { salarioMensual: 1200 },
+    );
+    expect(r.minutosExtra).toBe(240);
+    expect(r.topeDiaExcedido).toBe(true);
+    expect(r.minutosExtraPagables).toBe(180);
+    expect(r.montoExtra).toBe(18.75); // 3h × 5 × 1.25
+  });
 });

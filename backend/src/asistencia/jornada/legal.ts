@@ -33,7 +33,27 @@ export const TOPES_EXTRA_MIN = {
   semana: 9 * 60,
 } as const;
 
+/**
+ * Divisor para el valor-hora: valorHora = salarioMensual ÷ este número.
+ * ⚠️ INTERPRETACIÓN (240 = 30 días × 8 h diarias), asumiendo salario MENSUAL.
+ * PENDIENTE de validación por un asesor laboral panameño. Cambiar SOLO aquí.
+ */
+export const DIVISOR_HORAS_MES = 240;
+
 export type Clasificacion = 'diurna' | 'nocturna' | 'mixta';
+
+/** Recargo (fracción) aplicable a la hora extra según clasificación y festivo. */
+export function recargoExtra(clasificacion: Clasificacion, esFestivo: boolean): number {
+  if (esFestivo) return RECARGOS.festivo;
+  if (clasificacion === 'nocturna') return RECARGOS.nocturna;
+  if (clasificacion === 'mixta') return RECARGOS.mixtaNocturna;
+  return RECARGOS.diurna;
+}
+
+/** Valor de la hora ordinaria a partir del salario mensual (ver DIVISOR_HORAS_MES). */
+export function valorHora(salarioMensual: number): number {
+  return salarioMensual / DIVISOR_HORAS_MES;
+}
 
 /**
  * Minutos que caen en la franja nocturna (18:00–06:00) entre dos instantes.

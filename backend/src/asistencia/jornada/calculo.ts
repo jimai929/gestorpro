@@ -1,6 +1,9 @@
 import {
   JORNADA_LEGAL_MIN,
+  TOPES_EXTRA_MIN,
   minutosNocturnos,
+  recargoExtra,
+  valorHora,
   type Clasificacion,
 } from './legal.js';
 
@@ -19,6 +22,8 @@ export interface OpcionesCalculo {
   /** Red de seguridad: pausa a descontar si NO hay fichajes de comida. */
   pausaPorDefectoMin?: number;
   esFestivo?: boolean;
+  /** Salario mensual del empleado; necesario para el monto en dinero de las extras. */
+  salarioMensual?: number;
 }
 
 export interface ResultadoJornada {
@@ -27,7 +32,15 @@ export interface ResultadoJornada {
   minutosTrabajados: number;
   minutosOrdinarios: number;
   minutosExtra: number;
+  /** Minutos extra pagables tras aplicar el tope diario (3h). */
+  minutosExtraPagables: number;
   clasificacion: Clasificacion;
+  /** Recargo aplicado a la extra (0.25/0.50/0.75/1.50). */
+  recargo: number;
+  /** Monto en dinero de las extras (con recargo). 0 si no se pasó salario. */
+  montoExtra: number;
+  /** true si la extra superó el tope diario de 3h (marca para revisión). */
+  topeDiaExcedido: boolean;
   esFestivo: boolean;
   anomalia: boolean;
   detalleAnomalia: string | null;
@@ -39,7 +52,11 @@ const VACIO = {
   minutosTrabajados: 0,
   minutosOrdinarios: 0,
   minutosExtra: 0,
+  minutosExtraPagables: 0,
   clasificacion: 'diurna' as Clasificacion,
+  recargo: 0,
+  montoExtra: 0,
+  topeDiaExcedido: false,
 };
 
 function anomalia(detalle: string, esFestivo: boolean): ResultadoJornada {
@@ -134,13 +151,32 @@ export function calcularJornada(
   const ordinarios = Math.min(trabajados, jornadaLegal);
   const extra = Math.max(0, trabajados - jornadaLegal);
 
+  // Tope diario de 3h: solo es pagable como extra hasta el tope. Si se excede,
+  // se marca para que el jefe lo revise (no se paga por debajo del mínimo legal,
+  // pero tampoco se reconoce extra por encima del tope sin revisión).
+  const topeDiaExcedido = extra > TOPES_EXTRA_MIN.dia;
+  const extraPagable = Math.min(extra, TOPES_EXTRA_MIN.dia);
+
+  // Recargo fijo según clasificación (o 150% si es festivo) y monto en dinero.
+  const recargo = recargoExtra(clasificacion, esFestivo);
+  const montoExtra =
+    opciones.salarioMensual === undefined
+      ? 0
+      : Math.round(
+          (extraPagable / 60) * valorHora(opciones.salarioMensual) * (1 + recargo) * 100,
+        ) / 100;
+
   return {
     minutosPresencia: presencia,
     minutosPausa: pausa,
     minutosTrabajados: trabajados,
     minutosOrdinarios: ordinarios,
     minutosExtra: extra,
+    minutosExtraPagables: extraPagable,
     clasificacion,
+    recargo,
+    montoExtra,
+    topeDiaExcedido,
     esFestivo,
     anomalia: false,
     detalleAnomalia: null,
