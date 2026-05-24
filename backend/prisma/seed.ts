@@ -121,6 +121,40 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
       montoTotal: 2000, fechaEmision: dias(-3), fechaVencimiento: dias(25),
     },
   });
+
+  // Gastos de demo (categorías sembradas antes).
+  const catServicios = await prisma.categoriaGasto.findUnique({
+    where: { nombre: 'Servicios públicos' },
+  });
+  const catAlquiler = await prisma.categoriaGasto.findUnique({
+    where: { nombre: 'Alquiler' },
+  });
+  if (catServicios) {
+    await prisma.gasto.create({
+      data: {
+        categoriaId: catServicios.id, sedeId, monto: 185.4,
+        fechaOperacion: dias(-15), descripcion: 'Electricidad', tipo: 'normal',
+        usuarioId: adminId,
+      },
+    });
+  }
+  if (catAlquiler) {
+    await prisma.gasto.create({
+      data: {
+        categoriaId: catAlquiler.id, sedeId, monto: 1500,
+        fechaOperacion: dias(-10), descripcion: 'Alquiler del local (mayo)',
+        tipo: 'normal', usuarioId: adminId,
+      },
+    });
+  }
+
+  // Ventas diarias de demo (cierres recientes).
+  await prisma.ventaDiaria.create({
+    data: { sedeId, fechaOperacion: dias(-2), monto: 3420.5, tipo: 'normal', usuarioId: adminId },
+  });
+  await prisma.ventaDiaria.create({
+    data: { sedeId, fechaOperacion: dias(-1), monto: 2980, tipo: 'normal', usuarioId: adminId },
+  });
 }
 
 main()

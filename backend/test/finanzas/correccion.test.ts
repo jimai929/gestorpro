@@ -5,6 +5,8 @@ import {
   ErrorCorreccion,
 } from '../../src/shared/services/correccion.service.js';
 import { adaptadorPago } from '../../src/finanzas/cuentas-por-pagar/pago.correccion.js';
+import { adaptadorGasto } from '../../src/finanzas/gastos/gasto.correccion.js';
+import { adaptadorVenta } from '../../src/finanzas/dashboard/venta.correccion.js';
 
 let contador = 0;
 
@@ -124,5 +126,75 @@ describe('corrección de movimientos (PagoProveedor)', () => {
         usuarioId: usuario.id,
       }),
     ).rejects.toBeInstanceOf(ErrorCorreccion);
+  });
+});
+
+describe('corrección de movimientos (Gasto)', () => {
+  it('reverso + corrección deja el neto en el monto corregido', async () => {
+    contador += 1;
+    const sede = await prisma.sede.create({ data: { nombre: `SedeG ${contador}` } });
+    const usuario = await prisma.usuario.create({
+      data: { nombre: 'T', email: `g${contador}@gestorpro.local`, rol: 'administrador', passwordHash: 'x' },
+    });
+    const categoria = await prisma.categoriaGasto.create({ data: { nombre: `Cat ${contador}` } });
+    const gasto = await prisma.gasto.create({
+      data: { categoriaId: categoria.id, sedeId: sede.id, monto: 200, fechaOperacion: new Date(), tipo: 'normal', usuarioId: usuario.id },
+    });
+
+    const res = await corregirMovimiento(adaptadorGasto, {
+      movimientoId: gasto.id, motivo: 'monto equivocado', usuarioId: usuario.id, montoCorregido: 120,
+    });
+
+    expect(res.correccion).not.toBeNull();
+    const original = await prisma.gasto.findUnique({ where: { id: gasto.id } });
+    expect(original?.tipo).toBe('normal');
+    expect(Number(original?.monto)).toBe(200);
+
+    // neto = 200 normal - 200 reverso + 120 corrección = 120
+    const asientos = await prisma.gasto.findMany({
+      where: { OR: [{ id: gasto.id }, { corrigeId: gasto.id }] },
+    });
+    const neto = asientos.reduce(
+      (acc, a) => acc + (a.tipo === 'reverso' ? -Number(a.monto) : Number(a.monto)),
+      0,
+    );
+    expect(neto).toBe(120);
+
+    const aud = await prisma.auditoria.findMany({
+      where: { entidad: 'gasto', entidadId: res.correccion?.id },
+    });
+    expect(aud).toHaveLength(1);
+  });
+});
+
+describe('corrección de movimientos (VentaDiaria)', () => {
+  it('anulación pura crea un reverso sobre la misma sede/fecha sin violar el índice parcial', async () => {
+    contador += 1;
+    const sede = await prisma.sede.create({ data: { nombre: `SedeV ${contador}` } });
+    const usuario = await prisma.usuario.create({
+      data: { nombre: 'T', email: `v${contador}@gestorpro.local`, rol: 'administrador', passwordHash: 'x' },
+    });
+    const venta = await prisma.ventaDiaria.create({
+      data: { sedeId: sede.id, fechaOperacion: new Date('2026-03-10'), monto: 1000, tipo: 'normal', usuarioId: usuario.id },
+    });
+
+    const res = await corregirMovimiento(adaptadorVenta, {
+      movimientoId: venta.id, motivo: 'cierre mal tecleado', usuarioId: usuario.id,
+    });
+
+    expect(res.correccion).toBeNull();
+    const original = await prisma.ventaDiaria.findUnique({ where: { id: venta.id } });
+    expect(original?.tipo).toBe('normal');
+    expect(Number(original?.monto)).toBe(1000);
+
+    // El reverso comparte (sede, fecha) con el original: uq_venta_normal no lo
+    // bloquea porque solo aplica a tipo = 'normal'.
+    const reverso = await prisma.ventaDiaria.findUnique({ where: { id: res.reverso.id } });
+    expect(reverso?.tipo).toBe('reverso');
+
+    const aud = await prisma.auditoria.findMany({
+      where: { entidad: 'venta', entidadId: res.reverso.id, accion: 'reverso' },
+    });
+    expect(aud).toHaveLength(1);
   });
 });
