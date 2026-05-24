@@ -32,11 +32,32 @@ async function main(): Promise<void> {
     },
   });
 
+  await sembrarCategoriasGasto();
   await sembrarDemoFinanzas(admin.id, sede.id);
 
   console.log('Semilla aplicada:');
   console.log(`  Sede:    ${sede.nombre} (${sede.id})`);
   console.log(`  Usuario: ${email}  /  Admin1234*  (rol administrador)`);
+}
+
+/**
+ * Categorías de gasto base. Idempotente (upsert por nombre único). Incluye una
+ * categoría de pago a empleado para ejercitar la regla de coherencia.
+ */
+async function sembrarCategoriasGasto(): Promise<void> {
+  const categorias = [
+    { nombre: 'Servicios públicos', esPagoEmpleado: false },
+    { nombre: 'Alquiler', esPagoEmpleado: false },
+    { nombre: 'Mantenimiento', esPagoEmpleado: false },
+    { nombre: 'Pago a empleado', esPagoEmpleado: true },
+  ];
+  for (const categoria of categorias) {
+    await prisma.categoriaGasto.upsert({
+      where: { nombre: categoria.nombre },
+      update: {},
+      create: categoria,
+    });
+  }
 }
 
 /**

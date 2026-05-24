@@ -41,6 +41,7 @@ model Sede {
   creadoEn      DateTime      @default(now()) @map("creado_en")
 
   compras Compra[]
+  gastos  Gasto[]
 
   @@map("sede")
 }
@@ -158,4 +159,53 @@ model PagoProveedor {
 
   @@index([compraId])
   @@map("pago_proveedor")
+}
+
+// ─── Finanzas · Gastos (Fase 2) ─────────────────────────────────────────────
+
+/// Categoría de gasto. Tabla GESTIONABLE por el admin (no un enum). El flag
+/// `esPagoEmpleado` marca las categorías de pago a empleados, que exigen datos
+/// de empleado en el gasto (regla de coherencia).
+model CategoriaGasto {
+  id             String   @id @default(uuid()) @db.Uuid
+  nombre         String   @unique
+  esPagoEmpleado Boolean  @default(false) @map("es_pago_empleado")
+  activo         Boolean  @default(true)
+  creadoEn       DateTime @default(now()) @map("creado_en")
+
+  gastos Gasto[]
+
+  @@map("categoria_gasto")
+}
+
+/// Gasto operativo (no mercancía). MOVIMIENTO DE DINERO INMUTABLE: se corrige
+/// con reverso + corrección (TipoMovimiento). Coherencia de empleado: si la
+/// categoría es de pago a empleado exige `empleadoId`; si no, `empleadoId` y
+/// `tipoPago` deben ir vacíos. `referenciaOrigen` es el gancho del cobro de
+/// horas extra (Fase 6): un gasto con ese campo lleno ya está contabilizado
+/// (evita el doble pago). El FK de `empleadoId` se añadirá con Empleado (Fase 4).
+model Gasto {
+  id               String         @id @default(uuid()) @db.Uuid
+  categoriaId      String         @map("categoria_id") @db.Uuid
+  categoria        CategoriaGasto @relation(fields: [categoriaId], references: [id])
+  sedeId           String         @map("sede_id") @db.Uuid
+  sede             Sede           @relation(fields: [sedeId], references: [id])
+  monto            Decimal        @db.Decimal(12, 2)
+  fechaOperacion   DateTime       @map("fecha_operacion") @db.Date
+  descripcion      String?
+  empleadoId       String?        @map("empleado_id") @db.Uuid
+  tipoPago         String?        @map("tipo_pago")
+  referenciaOrigen String?        @map("referencia_origen")
+  tipo             TipoMovimiento @default(normal)
+  corrigeId        String?        @map("corrige_id") @db.Uuid
+  corrige          Gasto?         @relation("CorreccionGasto", fields: [corrigeId], references: [id])
+  correcciones     Gasto[]        @relation("CorreccionGasto")
+  motivo           String?
+  usuarioId        String         @map("usuario_id") @db.Uuid
+  creadoEn         DateTime       @default(now()) @map("creado_en")
+
+  @@index([categoriaId])
+  @@index([sedeId])
+  @@index([fechaOperacion])
+  @@map("gasto")
 }
