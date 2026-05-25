@@ -198,6 +198,37 @@ export async function rechazarCobro(solicitudId: string, jefeId: string, motivo?
   });
 }
 
+/** Empleados activos (para selección en las pantallas de cobro). */
+export function listarEmpleadosActivos() {
+  return prisma.empleado.findMany({
+    where: { activo: true },
+    orderBy: { numero: 'asc' },
+    select: { id: true, numero: true, nombre: true, sedeId: true },
+  });
+}
+
+/**
+ * Resumen del cobro para un empleado: su saldo, el % cobrable vigente y cuánto
+ * puede solicitar AHORA (saldo × % menos lo ya comprometido en pendientes). Lo
+ * usa la pantalla del empleado para que entienda cuánto puede pedir.
+ */
+export async function resumenCobro(empleadoId: string) {
+  const saldoFila = await prisma.saldoHorasExtra.findUnique({ where: { empleadoId } });
+  const saldo = saldoFila ? Number(saldoFila.saldo) : 0;
+
+  const cfg = await prisma.configuracionCobro.findFirst();
+  const porcentaje = cfg?.porcentajeCobrable ?? 80;
+
+  const pendientes = await prisma.solicitudCobro.aggregate({
+    _sum: { monto: true },
+    where: { empleadoId, estado: 'pendiente' },
+  });
+  const comprometido = Number(pendientes._sum.monto ?? 0);
+  const disponible = Math.max(0, redondear((saldo * porcentaje) / 100 - comprometido));
+
+  return { empleadoId, saldo, porcentajeCobrable: porcentaje, disponible };
+}
+
 /** Lista solicitudes de cobro, opcionalmente por empleado y/o estado. */
 export function listarCobros(filtros: {
   empleadoId?: string;
