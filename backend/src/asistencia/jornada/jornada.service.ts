@@ -1,6 +1,7 @@
-import { prisma } from '../../core/prisma.js';
+import { prisma, type ClienteTx } from '../../core/prisma.js';
 import { ErrorNoEncontrado, ErrorValidacion } from '../../core/errors.js';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { acreditarSaldo } from '../cobro/saldo.service.js';
 import {
   calcularJornada,
   type FichajeCalculo,
@@ -19,8 +20,9 @@ async function esDiaFestivo(fecha: Date): Promise<boolean> {
   return (await prisma.diaFestivo.findUnique({ where: { fecha } })) !== null;
 }
 
-/** Inserta o sobreescribe la jornada (recalculable) de un empleado en una fecha. */
+/** Inserta o sobreescribe la jornada (recalculable) de un empleado, dentro de tx. */
 async function guardarJornada(
+  tx: ClienteTx,
   empleadoId: string,
   fecha: Date,
   r: ResultadoJornada,
@@ -44,7 +46,7 @@ async function guardarJornada(
     },
     calculadaEn: new Date(),
   };
-  return prisma.jornada.upsert({
+  return tx.jornada.upsert({
     where: { empleadoId_fecha: { empleadoId, fecha } },
     update: datos,
     create: { empleadoId, fecha, ...datos },
@@ -86,7 +88,20 @@ export async function recalcularJornadaPorSalida(
     salarioMensual: Number(empleado.salarioFijo),
     esFestivo: await esDiaFestivo(fecha),
   });
-  return guardarJornada(empleadoId, fecha, resultado);
+
+  // El cierre de la jornada y la acreditación del saldo van en la MISMA
+  // transacción: si una falla, no queda la jornada cerrada con el saldo mal.
+  // Una jornada recalculable acredita el DELTA respecto a su monto previo.
+  return prisma.$transaction(async (tx) => {
+    const previa = await tx.jornada.findUnique({
+      where: { empleadoId_fecha: { empleadoId, fecha } },
+      select: { montoExtra: true },
+    });
+    const montoPrevio = previa ? Number(previa.montoExtra) : 0;
+    const jornada = await guardarJornada(tx, empleadoId, fecha, resultado);
+    await acreditarSaldo(tx, empleadoId, resultado.montoExtra - montoPrevio);
+    return jornada;
+  });
 }
 
 /**
@@ -186,7 +201,7 @@ export async function corregirJornada(datos: {
       },
     });
 
-    return tx.jornada.update({
+    const actualizada = await tx.jornada.update({
       where: { id: jornada.id },
       data: {
         estado: 'corregida',
@@ -201,5 +216,13 @@ export async function corregirJornada(datos: {
       // pueda actualizar la fila con la respuesta sin romperse.
       include: { empleado: { select: { numero: true, nombre: true } } },
     });
+
+    // Si la corrección cambió el monto extra, ajustar el saldo por el delta
+    // (misma transacción, vía el servicio único de saldo).
+    if (datos.montoExtra !== undefined) {
+      await acreditarSaldo(tx, jornada.empleadoId, datos.montoExtra - Number(jornada.montoExtra));
+    }
+
+    return actualizada;
   });
 }
