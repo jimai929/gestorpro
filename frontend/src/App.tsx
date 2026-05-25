@@ -14,6 +14,7 @@ import { PantallaDashboard } from './finanzas/dashboard';
 import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
 import { PantallaRevision } from './asistencia/revision/PantallaRevision';
 import { PantallaJornadas } from './asistencia/jornada/PantallaJornadas';
+import { PantallaCobros } from './asistencia/cobro/PantallaCobros';
 
 /**
  * Configuración del router.
@@ -27,6 +28,7 @@ import { PantallaJornadas } from './asistencia/jornada/PantallaJornadas';
  *   /dashboard             → Dashboard de ganancias (protegida)
  *   /asistencia/revision   → Cola de revisión de fichajes (protegida — supervisor/admin)
  *   /asistencia/jornadas   → Consulta y corrección de jornadas (protegida — supervisor/admin)
+ *   /asistencia/cobros     → Cobro anticipado de horas extra (protegida)
  */
 const router = createBrowserRouter([
   {
@@ -65,6 +67,10 @@ const router = createBrowserRouter([
       {
         path: '/asistencia/jornadas',
         element: <PantallaJornadas />,
+      },
+      {
+        path: '/asistencia/cobros',
+        element: <PantallaCobros />,
       },
     ],
   },

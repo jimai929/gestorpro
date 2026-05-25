@@ -332,6 +332,16 @@ export function PantallaJornadas() {
           >
             Jornadas
           </NavLink>
+          <NavLink
+            to="/asistencia/cobros"
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
+                : styles.enlaceNav
+            }
+          >
+            Cobros
+          </NavLink>
           <Link
             to="/kiosco"
             className={styles.enlaceExterno}

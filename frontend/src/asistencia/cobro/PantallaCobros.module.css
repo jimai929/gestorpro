@@ -1,0 +1,569 @@
+/* ── Cobro anticipado de horas extra ──────────────────────────── */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ── Barra de navegación de asistencia (idéntica a revisión/jornadas) ── */
+
+.navAsistencia {
+  display: flex;
+  gap: 0.5rem;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 0.625rem 0.875rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f3f4f6;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.enlaceNav {
+  padding: 0.4rem 0.875rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.enlaceNav:hover {
+  background: #f3f4f6;
+  color: #111928;
+}
+
+.enlaceNavActivo {
+  background: #eff6ff;
+  color: #1a56db;
+}
+
+.enlaceExterno {
+  margin-left: auto;
+  padding: 0.4rem 0.875rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #374151;
+  text-decoration: none;
+  border: 1.5px solid #e5e7eb;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.enlaceExterno:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* ── Encabezado ── */
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tituloPagina {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #111928;
+  margin: 0;
+}
+
+.subtitulo {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0.15rem 0 0;
+}
+
+/* ── Cuadrícula de dos columnas ── */
+
+.cuadricula {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .cuadricula {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Tarjeta genérica ── */
+
+.tarjeta {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f3f4f6;
+  overflow: hidden;
+}
+
+.cabeceraTarjeta {
+  padding: 1.25rem 1.5rem 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.tituloTarjeta {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111928;
+  margin: 0;
+}
+
+.cuerpoTarjeta {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Selector de empleado ── */
+
+.grupoFormulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.etiqueta {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.selectEmpleado,
+.inputMonto {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.625rem 0.875rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  color: #111928;
+  background: #f9fafb;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: auto;
+}
+
+.selectEmpleado:focus,
+.inputMonto:focus {
+  border-color: #1a56db;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+}
+
+.selectEmpleado:disabled,
+.inputMonto:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Bloque de saldo ── */
+
+.bloqueSaldo {
+  background: #f0f9ff;
+  border: 1.5px solid #bae6fd;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.saldoLinea {
+  font-size: 0.9rem;
+  color: #0c4a6e;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.saldoDestacado {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0369a1;
+}
+
+.disponibleDestacado {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #166534;
+}
+
+.saldoCargando {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* ── Mensajes de error y éxito inline ── */
+
+.mensajeError {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.mensajeExito {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: #166534;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* ── Lista de cobros ── */
+
+.filtroCobros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  align-items: flex-end;
+}
+
+.grupoFiltro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.etiquetaFiltro {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.selectFiltro {
+  padding: 0.4rem 0.75rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #374151;
+  background: #f9fafb;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.selectFiltro:focus {
+  border-color: #1a56db;
+}
+
+.listaCobros {
+  display: flex;
+  flex-direction: column;
+}
+
+.itemCobro {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.1s;
+}
+
+.itemCobro:last-child {
+  border-bottom: none;
+}
+
+.itemCobro:hover {
+  background: #fafafa;
+}
+
+.infoCobro {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.encabezadoCobro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.nombreEmpleado {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111928;
+}
+
+.numeroEmpleado {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.1rem 0.45rem;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+.montoCobro {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #166534;
+  white-space: nowrap;
+}
+
+.detallesCobro {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+/* ── Badges de estado ── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badgePendiente {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+.badgeAprobada {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.badgeRechazada {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #9ca3af;
+}
+
+.badgePagada {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+/* ── Botones de acción en la lista ── */
+
+.accionesCobro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.botonAprobar {
+  padding: 0.4rem 0.875rem;
+  border: none;
+  border-radius: 8px;
+  background: #1a56db;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.botonAprobar:hover:not(:disabled) {
+  background: #1648c2;
+}
+
+.botonAprobar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.botonRechazar {
+  padding: 0.4rem 0.875rem;
+  border: none;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.botonRechazar:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.botonRechazar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.botonPagar {
+  padding: 0.4rem 0.875rem;
+  border: none;
+  border-radius: 8px;
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.botonPagar:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.botonPagar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Estados de carga/vacío/error en lista ── */
+
+.estadoCarga {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+  font-size: 0.9375rem;
+}
+
+.estadoVacio {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+  font-size: 0.9375rem;
+}
+
+.errorCarga {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  color: #b91c1c;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem;
+}
+
+/* ── Modal de motivo de rechazo ── */
+
+.fondoModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.tituloModal {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111928;
+  margin: 0;
+}
+
+.subtituloModal {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.etiquetaModal {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.textareaModal {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  color: #111928;
+  background: #f9fafb;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.textareaModal:focus {
+  border-color: #1a56db;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+}
+
+.botonesModal {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+/* ── Spinner inline ── */
+
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: girar 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}

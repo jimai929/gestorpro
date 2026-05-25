@@ -175,6 +175,16 @@ export function PantallaRevision() {
           >
             Jornadas
           </NavLink>
+          <NavLink
+            to="/asistencia/cobros"
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
+                : styles.enlaceNav
+            }
+          >
+            Cobros
+          </NavLink>
           <Link to="/kiosco" className={styles.enlaceExterno} target="_blank" rel="noopener noreferrer">
             Abrir kiosco
           </Link>

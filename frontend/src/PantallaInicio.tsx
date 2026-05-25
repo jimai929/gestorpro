@@ -70,6 +70,9 @@ export function PantallaInicio() {
               <Link to="/asistencia/jornadas" className={styles.enlaceModulo}>
                 Jornadas →
               </Link>
+              <Link to="/asistencia/cobros" className={styles.enlaceModulo}>
+                Cobros →
+              </Link>
               <Link
                 to="/kiosco"
                 className={styles.enlaceModulo}
