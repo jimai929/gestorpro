@@ -273,8 +273,10 @@ model Empleado {
   activo         Boolean  @default(true)
   creadoEn       DateTime @default(now()) @map("creado_en")
 
-  fichajes Fichaje[]
-  jornadas Jornada[]
+  fichajes        Fichaje[]
+  jornadas        Jornada[]
+  saldoHorasExtra SaldoHorasExtra?
+  solicitudes     SolicitudCobro[]
 
   @@map("empleado")
 }
@@ -410,4 +412,62 @@ model DiaFestivo {
   creadoEn DateTime @default(now()) @map("creado_en")
 
   @@map("dia_festivo")
+}
+
+// ─── Asistencia · Cobro anticipado de horas extra (Fase 6) ──────────────────
+
+/// Estado de una solicitud de cobro (Modelo B): bajo el umbral nace 'aprobada'
+/// (cobro directo); sobre el umbral nace 'pendiente' (espera al jefe).
+enum EstadoSolicitudCobro {
+  pendiente
+  aprobada
+  rechazada
+  pagada
+}
+
+/// Saldo de horas extra por empleado. PERSISTIDO y en DINERO (no en horas). Lo
+/// escribe SOLO el servicio transaccional de saldo (Fase 6.2); nunca negativo
+/// (reforzado con un CHECK en Postgres). El motor de jornada acredita el monto
+/// ya con recargo aplicado.
+model SaldoHorasExtra {
+  id            String   @id @default(uuid()) @db.Uuid
+  empleadoId    String   @unique @map("empleado_id") @db.Uuid
+  empleado      Empleado @relation(fields: [empleadoId], references: [id])
+  saldo         Decimal  @default(0) @db.Decimal(12, 2)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  @@map("saldo_horas_extra")
+}
+
+/// Solicitud de cobro anticipado contra el saldo. La app no mueve dinero real:
+/// el admin entrega el efectivo por fuera y marca 'pagada', lo que genera el
+/// Gasto en finanzas con referenciaOrigen (Fase 6.4). El `monto` ya tiene el %
+/// cobrable aplicado (fracción adelantable del dinero ganado).
+model SolicitudCobro {
+  id            String               @id @default(uuid()) @db.Uuid
+  empleadoId    String               @map("empleado_id") @db.Uuid
+  empleado      Empleado             @relation(fields: [empleadoId], references: [id])
+  monto         Decimal              @db.Decimal(12, 2)
+  estado        EstadoSolicitudCobro @default(pendiente)
+  aprobadoPorId String?              @map("aprobado_por_id") @db.Uuid
+  motivoRechazo String?              @map("motivo_rechazo")
+  resueltoEn    DateTime?            @map("resuelto_en")
+  pagadoEn      DateTime?            @map("pagado_en")
+  creadoEn      DateTime             @default(now()) @map("creado_en")
+
+  @@index([empleadoId])
+  @@index([estado])
+  @@map("solicitud_cobro")
+}
+
+/// Configuración ÚNICA del cobro (gestionada por el admin): porcentaje cobrable
+/// (0–100, aplicado sobre el monto en dinero) y umbral del Modelo B (bajo él, el
+/// cobro es directo). Fila única gestionada por la app.
+model ConfiguracionCobro {
+  id                 String   @id @default(uuid()) @db.Uuid
+  porcentajeCobrable Int      @default(80) @map("porcentaje_cobrable")
+  umbralAprobacion   Decimal  @default(100) @map("umbral_aprobacion") @db.Decimal(12, 2)
+  actualizadoEn      DateTime @updatedAt @map("actualizado_en")
+
+  @@map("configuracion_cobro")
 }

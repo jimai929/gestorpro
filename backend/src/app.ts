@@ -10,6 +10,7 @@ import { dashboardRoutes } from './finanzas/dashboard/dashboard.routes.js';
 import { correccionesRoutes } from './finanzas/dashboard/correcciones.routes.js';
 import { fichajeRoutes } from './asistencia/fichaje/fichaje.routes.js';
 import { jornadaRoutes } from './asistencia/jornada/jornada.routes.js';
+import { cobroRoutes } from './asistencia/cobro/cobro.routes.js';
 
 /**
  * Construye la instancia de Fastify con sus plugins y rutas registrados.
@@ -42,6 +43,7 @@ export function construirApp(): FastifyInstance {
   // Asistencia
   app.register(fichajeRoutes);
   app.register(jornadaRoutes);
+  app.register(cobroRoutes);
 
   // Endpoint de salud: confirma que el servidor está vivo y responde.
   app.get('/health', async () => {

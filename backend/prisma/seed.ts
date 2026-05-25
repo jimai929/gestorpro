@@ -36,10 +36,19 @@ async function main(): Promise<void> {
   await sembrarCategoriasGasto();
   await sembrarDemoFinanzas(admin.id, sede.id);
   await sembrarDemoAsistencia(sede.id);
+  await sembrarConfiguracionCobro();
 
   console.log('Semilla aplicada:');
   console.log(`  Sede:    ${sede.nombre} (${sede.id})`);
   console.log(`  Usuario: ${email}  /  Admin1234*  (rol administrador)`);
+}
+
+/** Configuración de cobro por defecto (80% cobrable, umbral B/. 100). Idempotente. */
+async function sembrarConfiguracionCobro(): Promise<void> {
+  const existe = await prisma.configuracionCobro.findFirst();
+  if (!existe) {
+    await prisma.configuracionCobro.create({ data: {} });
+  }
 }
 
 /**
