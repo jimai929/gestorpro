@@ -1,4 +1,4 @@
-import { prisma } from '../../core/prisma.js';
+import { prisma, type ClienteTx } from '../../core/prisma.js';
 import { ErrorValidacion } from '../../core/errors.js';
 
 /** Serializa el monto (Decimal) a number para el contrato de la API. */
@@ -21,22 +21,24 @@ export interface DatosGasto {
   descripcion?: string;
   empleadoId?: string;
   tipoPago?: string;
+  /** Identificador del origen del gasto (opaco para finanzas). Evita el doble pago. */
+  referenciaOrigen?: string;
   usuarioId: string;
 }
 
 /**
- * Registra un gasto operativo (movimiento `normal`). Aplica la regla de
- * coherencia de empleado según la categoría:
- *  - categoría de pago a empleado  → `empleadoId` es obligatorio.
- *  - categoría normal              → `empleadoId` y `tipoPago` deben ir vacíos.
- * El `usuarioId` viene del token.
+ * Crea un gasto operativo (movimiento `normal`) DENTRO de una transacción dada.
+ * Aplica la regla de coherencia de empleado según la categoría. La usan tanto
+ * `registrarGasto` (ruta) como otros módulos que necesitan crear el gasto en su
+ * propia transacción (p. ej. el cobro de horas extra, que pasa
+ * `referenciaOrigen`). Este módulo (finanzas) NO conoce a quien lo llama.
  */
-export async function registrarGasto(datos: DatosGasto) {
+export async function crearGastoEnTransaccion(tx: ClienteTx, datos: DatosGasto) {
   if (datos.monto <= 0) {
     throw new ErrorValidacion('El monto del gasto debe ser mayor que cero.');
   }
 
-  const categoria = await prisma.categoriaGasto.findUnique({
+  const categoria = await tx.categoriaGasto.findUnique({
     where: { id: datos.categoriaId },
   });
   if (!categoria) {
@@ -55,7 +57,7 @@ export async function registrarGasto(datos: DatosGasto) {
     );
   }
 
-  const gasto = await prisma.gasto.create({
+  const gasto = await tx.gasto.create({
     data: {
       categoriaId: datos.categoriaId,
       sedeId: datos.sedeId,
@@ -64,11 +66,20 @@ export async function registrarGasto(datos: DatosGasto) {
       descripcion: datos.descripcion ?? null,
       empleadoId: datos.empleadoId ?? null,
       tipoPago: datos.tipoPago ?? null,
+      referenciaOrigen: datos.referenciaOrigen ?? null,
       tipo: 'normal',
       usuarioId: datos.usuarioId,
     },
   });
   return aGastoDto(gasto);
+}
+
+/**
+ * Registra un gasto operativo (`normal`) desde una ruta: lo crea en su propia
+ * transacción. La coherencia de empleado se valida en `crearGastoEnTransaccion`.
+ */
+export function registrarGasto(datos: DatosGasto) {
+  return prisma.$transaction((tx) => crearGastoEnTransaccion(tx, datos));
 }
 
 export async function listarGastos(filtros: {

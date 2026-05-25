@@ -6,6 +6,7 @@ import {
   solicitarCobro,
   aprobarCobro,
   rechazarCobro,
+  pagarCobro,
   listarCobros,
 } from './cobro.service.js';
 import type { EstadoSolicitudCobro } from '../../generated/prisma/enums.js';
@@ -130,6 +131,20 @@ export async function cobroRoutes(app: FastifyInstance): Promise<void> {
         return await reply.send(
           aCobroDto(await rechazarCobro(request.params.id, request.user.sub, request.body.motivo)),
         );
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Marcar pagado: genera el Gasto en finanzas (referenciaOrigen) en la misma
+  // transacción. Solo administrador (es quien entrega el efectivo).
+  app.post<{ Params: { id: string } }>(
+    '/cobros/:id/pagar',
+    { preHandler: [app.autenticar, app.autorizar('administrador')] },
+    async (request, reply) => {
+      try {
+        return await reply.send(aCobroDto(await pagarCobro(request.params.id, request.user.sub)));
       } catch (error) {
         return responderError(error, request, reply);
       }
