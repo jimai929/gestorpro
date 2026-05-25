@@ -94,11 +94,44 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
 
 ## Pendientes abiertos
 
-- **Firestec** (se resuelve en Fase 3): confirmar si imprime/muestra el
-  total de ventas diario. Define si la captura de venta es semi-asistida o
-  100% manual.
-- **Validación legal** (antes de producción de Fase 5): un asesor laboral
-  panameño debe validar divisor horario, recargos y reglas de festivos. Lo
-  implementado es interpretación general, NO asesoría legal.
-- **Dominio y marca:** verificar disponibilidad de `gestorpro.com` y
-  evaluar registro de la marca en Panamá.
+> El código de las 7 fases (24 tareas) está construido y probado. Los puntos de
+> abajo NO bloquean el desarrollo pero **deben resolverse ANTES de poner la app
+> en producción**. Son validaciones externas, no código pendiente.
+
+### Pre-producción — VALIDACIÓN LEGAL PANAMEÑA (bloquea la asistencia en prod)
+
+Las reglas laborales están implementadas como **interpretación general, NO
+asesoría legal**. Un asesor laboral panameño debe validar lo siguiente (todo
+vive en `backend/src/asistencia/jornada/legal.ts`, FIJO/no configurable):
+
+- **Divisor horario del valor‑hora:** hoy `valorHora = salario mensual / 240`
+  (240 = 30 días × 8 h). Es el supuesto que más necesita validación; cambiarlo
+  es un solo lugar (`DIVISOR_HORAS_MES`).
+- **Recargos de hora extra (fijos):** 25 % diurna, 50 % nocturna, 75 % mixta,
+  **150 % festivo**. No existe opción para pagar bajo el mínimo legal.
+- **Franja nocturna:** 18:00–06:00. **Jornadas:** diurna 8 h, nocturna 7 h,
+  mixta 7.5 h. **Topes de extra:** 3 h/día y 9 h/semana.
+- **Festivos:** dos efectos (150 % si se trabaja; sin descuento si no se
+  trabaja, salario fijo).
+
+Además: el motor clasifica diurna/nocturna por la hora **local del servidor** —
+fijar zona horaria **America/Panamá** en el despliegue.
+
+### Pre-producción — Firestec (captura de ventas, Fase 3)
+
+Confirmar si Firestec imprime/muestra el total de ventas diario. Hoy la captura
+del cierre diario es **100 % manual** (pantalla de dashboard). Si Firestec lo
+imprime, se puede hacer semi‑asistida; no requiere cambios de modelo.
+
+### Endurecimiento de despliegue (no bloqueante, recomendado)
+
+- **Auditoría append‑only:** el `REVOKE` solo es efectivo si la app conecta con
+  un **rol de Postgres NO dueño** de las tablas. Hoy conecta como dueño; en prod,
+  crear un rol de aplicación con privilegios limitados.
+- **Refresh‑on‑401** en el cliente HTTP del frontend (hoy el access token en
+  memoria expira a los 15 min sin reintento automático).
+
+### Marca
+
+- **Dominio y marca:** verificar disponibilidad de `gestorpro.com` y evaluar
+  el registro de la marca en Panamá.
