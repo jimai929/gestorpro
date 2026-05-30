@@ -41,8 +41,22 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
   sin empleadoId, o categoría normal con empleadoId).
 - Dashboard: ganancia = ventas − compras − gastos. Compras por criterio
   **devengado** (fecha de emisión de la factura), no de caja.
-- **`VentaDiaria`:** un único cierre `normal` por (sede, fecha), con índice
-  único parcial. Los asientos de corrección quedan exentos.
+- **`VentaDiaria` (cierre de caja) — decisión revisada 2026-05-29:** la
+  operación es de 24 h con varias cajas y tres turnos, así que la unicidad pasa
+  de (sede, fecha) a **(sede, fecha, turno, caja)**: una caja cierra una vez por
+  turno. Sigue siendo un único cierre `normal` por esa llave, con índice único
+  parcial; los asientos de corrección quedan exentos. Cada cierre registra un
+  **arqueo de caja** con desglose por tipo (efectivo, tarjeta, Yappy, lotería)
+  en `DetalleCierre`. El **total del cierre = suma de los tipos** y **debe
+  cuadrar con el total que reporta Firestec**. La **lotería son premios pagados
+  que están en el cajón, NO un ingreso**; el arqueo existe para **cuadrar la
+  caja contra Firestec y detectar descuadres**, no para calcular ganancia por
+  tipo. La **ganancia del dashboard usa el total del cierre**, sin desglosar por
+  tipo; el dashboard filtra cierres por **caja y turno** para auditar
+  descuadres. `cerradoPor` es solo la **identificación** de quién hizo el cierre
+  (no es FK a `Empleado`: las horas trabajadas son de asistencia).
+  `horaApertura`/`horaCierre` son descriptivas, fuera de la llave. **No es un
+  POS:** nunca se guardan ventas individuales ni productos, solo el cierre.
 
 ## Asistencia
 

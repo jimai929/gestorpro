@@ -10,6 +10,9 @@ const esquemaRango = {
       desde: { type: 'string', minLength: 1 },
       hasta: { type: 'string', minLength: 1 },
       sedeId: { type: 'string' },
+      // Acotan solo las ventas (auditoría de descuadres por caja/turno).
+      caja: { type: 'string' },
+      turno: { type: 'string', enum: ['manana', 'tarde', 'noche'] },
     },
   },
 } as const;
@@ -21,7 +24,9 @@ const esquemaRango = {
 export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   const autenticado = { preHandler: [app.autenticar] };
 
-  app.get<{ Querystring: { desde: string; hasta: string; sedeId?: string } }>(
+  app.get<{
+    Querystring: { desde: string; hasta: string; sedeId?: string; caja?: string; turno?: string };
+  }>(
     '/dashboard/ganancia',
     { ...autenticado, schema: esquemaRango },
     async (request, reply) => {

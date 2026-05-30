@@ -4,6 +4,9 @@ export interface RangoFiltro {
   desde: string;
   hasta: string;
   sedeId?: string;
+  /** Filtros de cierre (solo acotan las ventas; compras/gastos no tienen caja/turno). */
+  caja?: string;
+  turno?: string;
 }
 
 function num(valor: { toString(): string } | null | undefined): number {
@@ -18,11 +21,19 @@ function redondear(n: number): number {
  * Ganancia del período: ventas − compras − gastos.
  *  - Compras por criterio DEVENGADO (fecha de emisión), monto total de la factura.
  *  - Ventas y gastos se toman netos: un `reverso` resta; `normal`/`correccion` suman.
+ *  - Las ventas usan el TOTAL del cierre (que cuadra con Firestec), sin
+ *    desglosar por tipo de arqueo. `caja`/`turno` acotan SOLO las ventas; las
+ *    compras y gastos no tienen esa dimensión y quedan a nivel sede/período.
  */
 export async function gananciaDelPeriodo(filtros: RangoFiltro) {
-  const { desde, hasta, sedeId } = filtros;
+  const { desde, hasta, sedeId, caja, turno } = filtros;
   const sede = sedeId ? { sedeId } : {};
   const enRango = { gte: new Date(desde), lte: new Date(hasta) };
+  const filtroCierre = {
+    ...sede,
+    ...(caja ? { caja } : {}),
+    ...(turno ? { turno: turno as 'manana' | 'tarde' | 'noche' } : {}),
+  };
 
   const compras = await prisma.compra.aggregate({
     _sum: { montoTotal: true },
@@ -40,11 +51,11 @@ export async function gananciaDelPeriodo(filtros: RangoFiltro) {
 
   const ventasPos = await prisma.ventaDiaria.aggregate({
     _sum: { monto: true },
-    where: { ...sede, tipo: { in: ['normal', 'correccion'] }, fechaOperacion: enRango },
+    where: { ...filtroCierre, tipo: { in: ['normal', 'correccion'] }, fechaOperacion: enRango },
   });
   const ventasRev = await prisma.ventaDiaria.aggregate({
     _sum: { monto: true },
-    where: { ...sede, tipo: 'reverso', fechaOperacion: enRango },
+    where: { ...filtroCierre, tipo: 'reverso', fechaOperacion: enRango },
   });
 
   const totalCompras = num(compras._sum.montoTotal);

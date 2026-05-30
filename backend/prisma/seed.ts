@@ -159,12 +159,60 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
     });
   }
 
-  // Ventas diarias de demo (cierres recientes).
+  // Cierres de caja de demo: varios el mismo día con caja/turno distintos, cada
+  // uno con su arqueo (efectivo + tarjeta + Yappy + lotería). El total cuadra
+  // con la suma del arqueo.
   await prisma.ventaDiaria.create({
-    data: { sedeId, fechaOperacion: dias(-2), monto: 3420.5, tipo: 'normal', usuarioId: adminId },
+    data: {
+      sedeId, fechaOperacion: dias(-1), turno: 'manana', caja: '1', cerradoPor: 'María Pérez',
+      horaApertura: '06:00', horaCierre: '14:00', monto: 1200, tipo: 'normal', usuarioId: adminId,
+      detalles: {
+        create: [
+          { tipoArqueo: 'efectivo', monto: 700 },
+          { tipoArqueo: 'tarjeta', monto: 350 },
+          { tipoArqueo: 'yappy', monto: 120 },
+          { tipoArqueo: 'loteria', monto: 30 },
+        ],
+      },
+    },
   });
   await prisma.ventaDiaria.create({
-    data: { sedeId, fechaOperacion: dias(-1), monto: 2980, tipo: 'normal', usuarioId: adminId },
+    data: {
+      sedeId, fechaOperacion: dias(-1), turno: 'tarde', caja: '1', cerradoPor: 'Luis Gómez',
+      horaApertura: '14:00', horaCierre: '22:00', monto: 1530.5, tipo: 'normal', usuarioId: adminId,
+      detalles: {
+        create: [
+          { tipoArqueo: 'efectivo', monto: 980.5 },
+          { tipoArqueo: 'tarjeta', monto: 450 },
+          { tipoArqueo: 'yappy', monto: 100 },
+        ],
+      },
+    },
+  });
+  await prisma.ventaDiaria.create({
+    data: {
+      sedeId, fechaOperacion: dias(-1), turno: 'manana', caja: '2', cerradoPor: 'Ana Ruiz',
+      horaApertura: '06:00', horaCierre: '14:00', monto: 880, tipo: 'normal', usuarioId: adminId,
+      detalles: {
+        create: [
+          { tipoArqueo: 'efectivo', monto: 600 },
+          { tipoArqueo: 'tarjeta', monto: 230 },
+          { tipoArqueo: 'loteria', monto: 50 },
+        ],
+      },
+    },
+  });
+  await prisma.ventaDiaria.create({
+    data: {
+      sedeId, fechaOperacion: dias(-2), turno: 'noche', caja: '1', cerradoPor: 'Luis Gómez',
+      horaApertura: '22:00', horaCierre: '06:00', monto: 740, tipo: 'normal', usuarioId: adminId,
+      detalles: {
+        create: [
+          { tipoArqueo: 'efectivo', monto: 540 },
+          { tipoArqueo: 'yappy', monto: 200 },
+        ],
+      },
+    },
   });
 }
 

@@ -168,14 +168,18 @@ describe('corrección de movimientos (Gasto)', () => {
 });
 
 describe('corrección de movimientos (VentaDiaria)', () => {
-  it('anulación pura crea un reverso sobre la misma sede/fecha sin violar el índice parcial', async () => {
+  it('anulación pura crea un reverso sobre la misma caja/turno copiando el arqueo, sin violar el índice parcial', async () => {
     contador += 1;
     const sede = await prisma.sede.create({ data: { nombre: `SedeV ${contador}` } });
     const usuario = await prisma.usuario.create({
       data: { nombre: 'T', email: `v${contador}@gestorpro.local`, rol: 'administrador', passwordHash: 'x' },
     });
     const venta = await prisma.ventaDiaria.create({
-      data: { sedeId: sede.id, fechaOperacion: new Date('2026-03-10'), monto: 1000, tipo: 'normal', usuarioId: usuario.id },
+      data: {
+        sedeId: sede.id, fechaOperacion: new Date('2026-03-10'), turno: 'manana', caja: '1',
+        cerradoPor: 'Cajero 1', monto: 1000, tipo: 'normal', usuarioId: usuario.id,
+        detalles: { create: [{ tipoArqueo: 'efectivo', monto: 600 }, { tipoArqueo: 'tarjeta', monto: 400 }] },
+      },
     });
 
     const res = await corregirMovimiento(adaptadorVenta, {
@@ -187,10 +191,15 @@ describe('corrección de movimientos (VentaDiaria)', () => {
     expect(original?.tipo).toBe('normal');
     expect(Number(original?.monto)).toBe(1000);
 
-    // El reverso comparte (sede, fecha) con el original: uq_venta_normal no lo
-    // bloquea porque solo aplica a tipo = 'normal'.
-    const reverso = await prisma.ventaDiaria.findUnique({ where: { id: res.reverso.id } });
+    // El reverso comparte (sede, fecha, turno, caja) con el original: uq_venta_normal
+    // no lo bloquea porque solo aplica a tipo = 'normal'. Y copia el arqueo, para
+    // que el neto por tipo siga cuadrando.
+    const reverso = await prisma.ventaDiaria.findUnique({
+      where: { id: res.reverso.id }, include: { detalles: true },
+    });
     expect(reverso?.tipo).toBe('reverso');
+    expect(reverso?.detalles).toHaveLength(2);
+    expect(reverso?.detalles.reduce((acc, d) => acc + Number(d.monto), 0)).toBe(1000);
 
     const aud = await prisma.auditoria.findMany({
       where: { entidad: 'venta', entidadId: res.reverso.id, accion: 'reverso' },

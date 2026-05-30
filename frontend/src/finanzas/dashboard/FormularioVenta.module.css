@@ -76,6 +76,62 @@
   cursor: not-allowed;
 }
 
+/* ── Arqueo de la caja ── */
+
+.arqueo {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.arqueoEncabezado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.875rem;
+}
+
+.arqueoTitulo {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111928;
+}
+
+.arqueoNota {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.cuadriculaArqueo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.totalArqueo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.totalArqueoValor {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #1a56db;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Aviso de conflicto (409) ── */
 
 .avisoConflicto {
@@ -114,16 +170,6 @@
   color: #b91c1c;
   background: #fef2f2;
   border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.exito {
-  font-size: 0.8125rem;
-  color: #15803d;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   margin-top: 0.75rem;

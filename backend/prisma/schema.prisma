@@ -214,29 +214,73 @@ model Gasto {
   @@map("gasto")
 }
 
-// ─── Finanzas · Ventas diarias (Fase 3) ─────────────────────────────────────
+// ─── Finanzas · Cierre de caja con arqueo (Fase 3) ──────────────────────────
 
-/// Cierre de ventas de un día (dato tecleado desde Firestec). MOVIMIENTO DE
+/// Turno del cierre de caja (operación de 24 h en tres turnos). Es una capa
+/// PROPIA de finanzas; NO se relaciona con el `Turno` de asistencia (otra área).
+enum TurnoVenta {
+  manana
+  tarde
+  noche
+}
+
+/// Tipo de componente del arqueo de caja: lo que hay en el cajón al cerrar. La
+/// lotería son premios pagados que están en el cajón, NO un ingreso. El arqueo
+/// existe para cuadrar la caja contra Firestec, no para analizar ventas por tipo.
+enum TipoArqueo {
+  efectivo
+  tarjeta
+  yappy
+  loteria
+}
+
+/// Cierre de caja de un turno (dato tecleado desde Firestec). MOVIMIENTO DE
 /// DINERO INMUTABLE: se corrige con reverso + corrección. Solo puede existir UN
-/// cierre `normal` por (sede, fecha): lo garantiza el índice único parcial
-/// `uq_venta_normal` (en SQL manual), que exenta los asientos de corrección.
+/// cierre `normal` por (sede, fecha, turno, caja): lo garantiza el índice único
+/// parcial `uq_venta_normal` (en SQL manual), que exenta los asientos de
+/// corrección. El `monto` es el TOTAL del arqueo (= suma de `detalles`) y debe
+/// cuadrar con el total que reporta Firestec. `cerradoPor` es solo la
+/// identificación de quién hizo el cierre (NO es FK a Empleado: las horas
+/// trabajadas son de asistencia). `horaApertura`/`horaCierre` son descriptivas.
 model VentaDiaria {
-  id             String         @id @default(uuid()) @db.Uuid
-  sedeId         String         @map("sede_id") @db.Uuid
-  sede           Sede           @relation(fields: [sedeId], references: [id])
-  fechaOperacion DateTime       @map("fecha_operacion") @db.Date
-  monto          Decimal        @db.Decimal(12, 2)
-  tipo           TipoMovimiento @default(normal)
-  corrigeId      String?        @map("corrige_id") @db.Uuid
-  corrige        VentaDiaria?   @relation("CorreccionVenta", fields: [corrigeId], references: [id])
-  correcciones   VentaDiaria[]  @relation("CorreccionVenta")
+  id             String          @id @default(uuid()) @db.Uuid
+  sedeId         String          @map("sede_id") @db.Uuid
+  sede           Sede            @relation(fields: [sedeId], references: [id])
+  fechaOperacion DateTime        @map("fecha_operacion") @db.Date
+  turno          TurnoVenta
+  caja           String          @db.VarChar(20)
+  cerradoPor     String          @map("cerrado_por")
+  horaApertura   String?         @map("hora_apertura")
+  horaCierre     String?         @map("hora_cierre")
+  monto          Decimal         @db.Decimal(12, 2)
+  detalles       DetalleCierre[]
+  tipo           TipoMovimiento  @default(normal)
+  corrigeId      String?         @map("corrige_id") @db.Uuid
+  corrige        VentaDiaria?    @relation("CorreccionVenta", fields: [corrigeId], references: [id])
+  correcciones   VentaDiaria[]   @relation("CorreccionVenta")
   motivo         String?
-  usuarioId      String         @map("usuario_id") @db.Uuid
-  creadoEn       DateTime       @default(now()) @map("creado_en")
+  usuarioId      String          @map("usuario_id") @db.Uuid
+  creadoEn       DateTime        @default(now()) @map("creado_en")
 
   @@index([sedeId])
   @@index([fechaOperacion])
   @@map("venta_diaria")
+}
+
+/// Línea del arqueo de caja: el monto contado de un tipo (efectivo, tarjeta,
+/// Yappy, lotería) dentro de un cierre. Inmutable como su cierre. La suma de las
+/// líneas es el total del cierre; sirve para cuadrar la caja contra Firestec y
+/// detectar descuadres, no para calcular ganancia por tipo.
+model DetalleCierre {
+  id         String      @id @default(uuid()) @db.Uuid
+  ventaId    String      @map("venta_id") @db.Uuid
+  venta      VentaDiaria @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  tipoArqueo TipoArqueo  @map("tipo_arqueo")
+  monto      Decimal     @db.Decimal(12, 2)
+
+  @@unique([ventaId, tipoArqueo])
+  @@index([ventaId])
+  @@map("detalle_cierre")
 }
 
 // ─── Asistencia · Fichaje y kioscos (Fase 4) ────────────────────────────────

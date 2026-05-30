@@ -32,6 +32,9 @@ export function obtenerGanancia(filtros: FiltrosDashboard): Promise<ResumenGanan
   params.set('desde', filtros.desde);
   params.set('hasta', filtros.hasta);
   if (filtros.sedeId) params.set('sedeId', filtros.sedeId);
+  // Caja y turno acotan solo las ventas (auditoría de descuadres).
+  if (filtros.caja) params.set('caja', filtros.caja);
+  if (filtros.turno) params.set('turno', filtros.turno);
   return api.get<ResumenGanancia>(`/dashboard/ganancia?${params.toString()}`);
 }
 
@@ -51,8 +54,8 @@ export function obtenerGastosPorCategoria(
 // ── Ventas diarias ────────────────────────────────────────────────────────
 
 /**
- * Error especial que indica que ya existe un cierre normal para esa (sede, fecha).
- * El backend devuelve 409 con { mensaje } en ese caso.
+ * Error especial que indica que ya existe un cierre normal para esa
+ * (sede, fecha, turno, caja). El backend devuelve 409 con { mensaje } en ese caso.
  */
 export class ErrorCierreDuplicado extends Error {
   constructor(mensaje: string) {
@@ -64,9 +67,9 @@ export class ErrorCierreDuplicado extends Error {
 const URL_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 /**
- * Registra el cierre de ventas del día.
- * Lanza `ErrorCierreDuplicado` si el backend responde 409 (ya existe el cierre normal
- * de esa sede y fecha). Para cualquier otro error, lanza Error genérico.
+ * Registra el cierre de caja de un turno (con su arqueo).
+ * Lanza `ErrorCierreDuplicado` si el backend responde 409 (ya existe el cierre
+ * normal de esa sede, fecha, turno y caja). Para cualquier otro error, lanza Error.
  */
 export async function registrarVenta(cuerpo: CuerpoRegistrarVenta): Promise<VentaDiaria> {
   // Necesitamos acceder al status HTTP crudo para distinguir 409 del resto;
@@ -87,7 +90,7 @@ export async function registrarVenta(cuerpo: CuerpoRegistrarVenta): Promise<Vent
   });
 
   if (respuesta.status === 409) {
-    let mensaje = 'Ya existe el cierre de esa fecha; use una corrección para ajustarlo.';
+    let mensaje = 'Ya existe el cierre de esa caja y turno; use una corrección para ajustarlo.';
     try {
       const cuerpoError = await respuesta.json() as { mensaje?: string };
       mensaje = cuerpoError.mensaje ?? mensaje;
@@ -119,5 +122,7 @@ export function obtenerVentas(filtros: FiltrosDashboard): Promise<VentaDiaria[]>
   params.set('desde', filtros.desde);
   params.set('hasta', filtros.hasta);
   if (filtros.sedeId) params.set('sedeId', filtros.sedeId);
+  if (filtros.caja) params.set('caja', filtros.caja);
+  if (filtros.turno) params.set('turno', filtros.turno);
   return api.get<VentaDiaria[]>(`/ventas?${params.toString()}`);
 }

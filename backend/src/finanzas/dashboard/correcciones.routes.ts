@@ -18,7 +18,22 @@ const esquemaCorreccion = {
       entidad: { type: 'string', enum: ['pago', 'gasto', 'venta'] },
       movimientoId: { type: 'string', minLength: 1 },
       motivo: { type: 'string', minLength: 1 },
+      // Pago y gasto se corrigen con un único monto.
       montoCorregido: { type: 'number', minimum: 0 },
+      // El cierre de caja se corrige con el arqueo corregido (desglose por tipo).
+      detallesCorregidos: {
+        type: 'array',
+        minItems: 1,
+        items: {
+          type: 'object',
+          required: ['tipoArqueo', 'monto'],
+          additionalProperties: false,
+          properties: {
+            tipoArqueo: { type: 'string', enum: ['efectivo', 'tarjeta', 'yappy', 'loteria'] },
+            monto: { type: 'number', minimum: 0 },
+          },
+        },
+      },
     },
   },
 } as const;
@@ -36,6 +51,7 @@ export async function correccionesRoutes(app: FastifyInstance): Promise<void> {
       movimientoId: string;
       motivo: string;
       montoCorregido?: number;
+      detallesCorregidos?: Array<{ tipoArqueo: string; monto: number }>;
     };
   }>(
     '/correcciones',
@@ -44,12 +60,13 @@ export async function correccionesRoutes(app: FastifyInstance): Promise<void> {
       schema: esquemaCorreccion,
     },
     async (request, reply) => {
-      const { entidad, movimientoId, motivo, montoCorregido } = request.body;
+      const { entidad, movimientoId, motivo, montoCorregido, detallesCorregidos } = request.body;
       const entrada: EntradaCorreccion = {
         movimientoId,
         motivo,
         usuarioId: request.user.sub,
         ...(montoCorregido !== undefined ? { montoCorregido } : {}),
+        ...(detallesCorregidos !== undefined ? { detallesCorregidos } : {}),
       };
       try {
         // Cada rama usa su adaptador concreto (evita problemas de varianza).

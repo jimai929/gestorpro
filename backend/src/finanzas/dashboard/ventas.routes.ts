@@ -1,24 +1,55 @@
 import type { FastifyInstance } from 'fastify';
 import { responderError } from '../../core/http.js';
-import { registrarVenta, listarVentas } from './ventas.service.js';
+import { registrarVenta, listarVentas, type LineaArqueo } from './ventas.service.js';
+
+const PATRON_HORA = '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 
 const esquemaVenta = {
   body: {
     type: 'object',
-    required: ['sedeId', 'fechaOperacion', 'monto'],
+    required: ['sedeId', 'fechaOperacion', 'turno', 'caja', 'cerradoPor', 'detalles'],
     additionalProperties: false,
     properties: {
       sedeId: { type: 'string', minLength: 1 },
       fechaOperacion: { type: 'string', minLength: 1 },
-      monto: { type: 'number', minimum: 0 },
+      turno: { type: 'string', enum: ['manana', 'tarde', 'noche'] },
+      caja: { type: 'string', minLength: 1, maxLength: 20 },
+      cerradoPor: { type: 'string', minLength: 1 },
+      horaApertura: { type: 'string', pattern: PATRON_HORA },
+      horaCierre: { type: 'string', pattern: PATRON_HORA },
+      detalles: {
+        type: 'array',
+        minItems: 1,
+        items: {
+          type: 'object',
+          required: ['tipoArqueo', 'monto'],
+          additionalProperties: false,
+          properties: {
+            tipoArqueo: { type: 'string', enum: ['efectivo', 'tarjeta', 'yappy', 'loteria'] },
+            monto: { type: 'number', minimum: 0 },
+          },
+        },
+      },
     },
   },
 } as const;
 
+interface CuerpoVenta {
+  sedeId: string;
+  fechaOperacion: string;
+  turno: 'manana' | 'tarde' | 'noche';
+  caja: string;
+  cerradoPor: string;
+  horaApertura?: string;
+  horaCierre?: string;
+  detalles: LineaArqueo[];
+}
+
 /**
- * Rutas de ventas diarias: registro del cierre del día y listado por período.
- * Lectura para autenticados; registro para supervisor o administrador. El
- * `usuarioId` sale del token. Un cierre duplicado (misma sede y fecha) → 409.
+ * Rutas de cierre de caja: registro del cierre de un turno (con su arqueo) y
+ * listado por período, filtrable por caja y turno. Lectura para autenticados;
+ * registro para supervisor o administrador. El `usuarioId` sale del token. Un
+ * cierre duplicado (misma sede, fecha, turno y caja) → 409.
  */
 export async function ventasRoutes(app: FastifyInstance): Promise<void> {
   const soloGestion = {
@@ -26,7 +57,7 @@ export async function ventasRoutes(app: FastifyInstance): Promise<void> {
   };
   const autenticado = { preHandler: [app.autenticar] };
 
-  app.post<{ Body: { sedeId: string; fechaOperacion: string; monto: number } }>(
+  app.post<{ Body: CuerpoVenta }>(
     '/ventas',
     { ...soloGestion, schema: esquemaVenta },
     async (request, reply) => {
@@ -42,16 +73,14 @@ export async function ventasRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.get<{ Querystring: { desde?: string; hasta?: string; sedeId?: string } }>(
-    '/ventas',
-    autenticado,
-    async (request, reply) => {
-      try {
-        const { desde, hasta, sedeId } = request.query;
-        return await reply.send(await listarVentas({ desde, hasta, sedeId }));
-      } catch (error) {
-        return responderError(error, request, reply);
-      }
-    },
-  );
+  app.get<{
+    Querystring: { desde?: string; hasta?: string; sedeId?: string; caja?: string; turno?: string };
+  }>('/ventas', autenticado, async (request, reply) => {
+    try {
+      const { desde, hasta, sedeId, caja, turno } = request.query;
+      return await reply.send(await listarVentas({ desde, hasta, sedeId, caja, turno }));
+    } catch (error) {
+      return responderError(error, request, reply);
+    }
+  });
 }

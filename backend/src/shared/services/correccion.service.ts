@@ -36,9 +36,15 @@ export interface AdaptadorCorreccion<T extends MovimientoBase> {
     datos: DatosAsiento,
     tx: ClienteTx,
   ): Promise<MovimientoBase>;
+  /**
+   * ¿La entrada pide además una corrección (no solo la anulación)? Cada entidad
+   * decide según su payload: pago/gasto miran `montoCorregido`, el cierre de
+   * caja mira `detallesCorregidos` (el arqueo corregido).
+   */
+  hayCorreccion(entrada: EntradaCorreccion): boolean;
   crearCorreccion(
     original: T,
-    montoCorregido: number,
+    entrada: EntradaCorreccion,
     datos: DatosAsiento,
     tx: ClienteTx,
   ): Promise<MovimientoBase>;
@@ -48,8 +54,10 @@ export interface EntradaCorreccion {
   movimientoId: string;
   motivo: string;
   usuarioId: string;
-  /** Si se omite, es una anulación pura (solo reverso, sin corrección). */
+  /** Monto corregido para pago/gasto. Si se omite (y tampoco hay arqueo), es anulación pura. */
   montoCorregido?: number;
+  /** Arqueo corregido para el cierre de caja (reemplaza el desglose original). */
+  detallesCorregidos?: Array<{ tipoArqueo: string; monto: number }>;
 }
 
 export interface ResultadoCorreccion {
@@ -102,20 +110,20 @@ export async function corregirMovimiento<T extends MovimientoBase>(
     );
 
     let correccion: MovimientoBase | null = null;
-    if (montoCorregido !== undefined) {
-      correccion = await adaptador.crearCorreccion(
-        original,
-        montoCorregido,
-        datos,
-        tx,
-      );
+    if (adaptador.hayCorreccion(entrada)) {
+      correccion = await adaptador.crearCorreccion(original, entrada, datos, tx);
       await auditoriaRepo.registrar(
         {
           entidad: adaptador.entidad,
           entidadId: correccion.id,
           accion: 'correccion',
           usuarioId,
-          detalle: { movimientoOriginal: original.id, montoCorregido, motivo },
+          detalle: {
+            movimientoOriginal: original.id,
+            motivo,
+            ...(montoCorregido !== undefined ? { montoCorregido } : {}),
+            ...(entrada.detallesCorregidos ? { detallesCorregidos: entrada.detallesCorregidos } : {}),
+          },
         },
         tx,
       );

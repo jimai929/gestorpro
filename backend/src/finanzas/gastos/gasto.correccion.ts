@@ -1,6 +1,7 @@
-import type {
-  AdaptadorCorreccion,
-  MovimientoBase,
+import {
+  ErrorCorreccion,
+  type AdaptadorCorreccion,
+  type MovimientoBase,
 } from '../../shared/services/correccion.service.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 
@@ -59,12 +60,19 @@ export const adaptadorGasto: AdaptadorCorreccion<GastoMovimiento> = {
     });
   },
 
-  async crearCorreccion(original, montoCorregido, datos, tx) {
+  hayCorreccion(entrada) {
+    return entrada.montoCorregido !== undefined;
+  },
+
+  async crearCorreccion(original, entrada, datos, tx) {
+    if (entrada.montoCorregido === undefined) {
+      throw new ErrorCorreccion('Falta el monto corregido del gasto.');
+    }
     return tx.gasto.create({
       data: {
         categoriaId: original.categoriaId,
         sedeId: original.sedeId,
-        monto: montoCorregido,
+        monto: entrada.montoCorregido,
         fechaOperacion: original.fechaOperacion,
         empleadoId: original.empleadoId,
         tipoPago: original.tipoPago,

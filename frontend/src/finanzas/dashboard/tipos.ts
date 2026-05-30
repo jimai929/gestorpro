@@ -1,5 +1,5 @@
 /**
- * Tipos del dominio del dashboard de ganancias y ventas diarias.
+ * Tipos del dominio del dashboard de ganancias y cierres de caja.
  * Coinciden exactamente con el contrato de la API del backend.
  */
 
@@ -34,15 +34,33 @@ export interface GastoPorCategoria {
   total: number;
 }
 
-// ── Venta diaria ───────────────────────────────────────────────────────────
+// ── Cierre de caja con arqueo ──────────────────────────────────────────────
 
-/** Elemento de la lista de GET /ventas */
+/** Turno del cierre de caja (operación de 24 h en tres turnos). */
+export type TurnoVenta = 'manana' | 'tarde' | 'noche';
+
+/** Tipo de componente del arqueo de caja. La lotería son premios pagados. */
+export type TipoArqueo = 'efectivo' | 'tarjeta' | 'yappy' | 'loteria';
+
+/** Una línea del arqueo: el monto contado de un tipo dentro del cierre. */
+export interface LineaArqueo {
+  tipoArqueo: TipoArqueo;
+  monto: number;
+}
+
+/** Elemento de la lista de GET /ventas (un cierre de caja con su arqueo). */
 export interface VentaDiaria {
   id: string;
   sedeId: string;
   fechaOperacion: string;   // YYYY-MM-DD
-  monto: number;
+  turno: TurnoVenta;
+  caja: string;
+  cerradoPor: string;
+  horaApertura: string | null;
+  horaCierre: string | null;
+  monto: number;            // total del arqueo (cuadra con Firestec)
   tipo: string;
+  detalles: LineaArqueo[];
 }
 
 // ── Cuerpo de petición ────────────────────────────────────────────────────
@@ -50,7 +68,12 @@ export interface VentaDiaria {
 export interface CuerpoRegistrarVenta {
   sedeId: string;
   fechaOperacion: string;   // YYYY-MM-DD
-  monto: number;
+  turno: TurnoVenta;
+  caja: string;
+  cerradoPor: string;
+  horaApertura?: string;    // "HH:MM"
+  horaCierre?: string;      // "HH:MM"
+  detalles: LineaArqueo[];
 }
 
 // ── Filtros de listado ────────────────────────────────────────────────────
@@ -59,4 +82,21 @@ export interface FiltrosDashboard {
   desde: string;            // YYYY-MM-DD
   hasta: string;            // YYYY-MM-DD
   sedeId?: string;
+  caja?: string;
+  turno?: TurnoVenta;
 }
+
+/** Las cuatro etiquetas legibles de los tipos de arqueo, en orden de captura. */
+export const TIPOS_ARQUEO: ReadonlyArray<{ tipo: TipoArqueo; etiqueta: string }> = [
+  { tipo: 'efectivo', etiqueta: 'Efectivo' },
+  { tipo: 'tarjeta', etiqueta: 'Tarjeta' },
+  { tipo: 'yappy', etiqueta: 'Yappy' },
+  { tipo: 'loteria', etiqueta: 'Lotería' },
+];
+
+/** Las tres etiquetas legibles de los turnos. */
+export const TURNOS: ReadonlyArray<{ turno: TurnoVenta; etiqueta: string }> = [
+  { turno: 'manana', etiqueta: 'Mañana' },
+  { turno: 'tarde', etiqueta: 'Tarde' },
+  { turno: 'noche', etiqueta: 'Noche' },
+];

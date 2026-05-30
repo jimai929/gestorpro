@@ -31,8 +31,17 @@ import {
   obtenerVentas,
 } from './servicioDashboard';
 import { formatearDinero, formatearFecha, primerDiaDelMes, fechaHoy } from './utilidades';
-import type { Sede, ResumenGanancia, GastoPorCategoria, VentaDiaria } from './tipos';
+import { TURNOS, TIPOS_ARQUEO } from './tipos';
+import type { Sede, ResumenGanancia, GastoPorCategoria, VentaDiaria, TurnoVenta } from './tipos';
 import styles from './PantallaDashboard.module.css';
+
+// Etiquetas legibles para turnos y tipos de arqueo.
+const ETIQUETA_TURNO: Record<string, string> = Object.fromEntries(
+  TURNOS.map((t) => [t.turno, t.etiqueta]),
+);
+const ETIQUETA_ARQUEO: Record<string, string> = Object.fromEntries(
+  TIPOS_ARQUEO.map((a) => [a.tipo, a.etiqueta]),
+);
 
 export function PantallaDashboard() {
   // Filtros
@@ -40,6 +49,8 @@ export function PantallaDashboard() {
   const [desde, setDesde] = useState(primerDiaDelMes());
   const [hasta, setHasta] = useState(fechaHoy());
   const [sedeId, setSedeId] = useState('');
+  const [caja, setCaja] = useState('');
+  const [turno, setTurno] = useState<TurnoVenta | ''>('');
 
   // Datos del dashboard
   const [resumen, setResumen] = useState<ResumenGanancia | null>(null);
@@ -54,6 +65,10 @@ export function PantallaDashboard() {
 
   // UI
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+
+  // Feedback de registro: aviso de éxito persistente + id de la fila a resaltar.
+  const [avisoExito, setAvisoExito] = useState<string | null>(null);
+  const [idResaltado, setIdResaltado] = useState<string | null>(null);
 
   // Cargar sedes al montar
   useEffect(() => {
@@ -70,7 +85,13 @@ export function PantallaDashboard() {
     setCargandoDashboard(true);
     setErrorDashboard(null);
     try {
-      const filtros = { desde, hasta, ...(sedeId ? { sedeId } : {}) };
+      const filtros = {
+        desde,
+        hasta,
+        ...(sedeId ? { sedeId } : {}),
+        ...(caja ? { caja } : {}),
+        ...(turno ? { turno } : {}),
+      };
       const [resumenData, categoriasData] = await Promise.all([
         obtenerGanancia(filtros),
         obtenerGastosPorCategoria(filtros),
@@ -84,7 +105,7 @@ export function PantallaDashboard() {
     } finally {
       setCargandoDashboard(false);
     }
-  }, [desde, hasta, sedeId]);
+  }, [desde, hasta, sedeId, caja, turno]);
 
   /** Carga la lista de ventas diarias del período. */
   const cargarVentas = useCallback(async () => {
@@ -92,7 +113,13 @@ export function PantallaDashboard() {
     setCargandoVentas(true);
     setErrorVentas(null);
     try {
-      const filtros = { desde, hasta, ...(sedeId ? { sedeId } : {}) };
+      const filtros = {
+        desde,
+        hasta,
+        ...(sedeId ? { sedeId } : {}),
+        ...(caja ? { caja } : {}),
+        ...(turno ? { turno } : {}),
+      };
       const lista = await obtenerVentas(filtros);
       setVentas(lista);
     } catch (err) {
@@ -102,7 +129,7 @@ export function PantallaDashboard() {
     } finally {
       setCargandoVentas(false);
     }
-  }, [desde, hasta, sedeId]);
+  }, [desde, hasta, sedeId, caja, turno]);
 
   // Cargar al montar y cuando cambian los filtros
   useEffect(() => {
@@ -110,9 +137,27 @@ export function PantallaDashboard() {
     void cargarVentas();
   }, [cargarDashboard, cargarVentas]);
 
-  /** Tras registrar una venta, cerrar el formulario y refrescar todo. */
-  const manejarVentaRegistrada = () => {
+  // El aviso de éxito y el resaltado se desvanecen solos tras unos segundos.
+  useEffect(() => {
+    if (!avisoExito) return;
+    const temporizador = setTimeout(() => {
+      setAvisoExito(null);
+      setIdResaltado(null);
+    }, 6000);
+    return () => clearTimeout(temporizador);
+  }, [avisoExito]);
+
+  /**
+   * Tras registrar una venta: cerrar el formulario, dejar un aviso de éxito
+   * visible en el dashboard (sobrevive al cierre del formulario), marcar la fila
+   * nueva para resaltarla y refrescar el dashboard y la lista.
+   */
+  const manejarVentaRegistrada = (venta: VentaDiaria) => {
     setMostrarFormulario(false);
+    setAvisoExito(
+      `Cierre del ${formatearFecha(venta.fechaOperacion)} registrado por ${formatearDinero(venta.monto)}.`,
+    );
+    setIdResaltado(venta.id);
     void cargarDashboard();
     void cargarVentas();
   };
@@ -170,6 +215,24 @@ export function PantallaDashboard() {
           </Boton>
         </div>
 
+        {/* Aviso de éxito: persiste tras cerrarse el formulario, con cierre manual */}
+        {avisoExito && (
+          <div className={styles.avisoExito} role="status">
+            <span className={styles.avisoExitoTexto}>
+              <span className={styles.avisoExitoIcono} aria-hidden="true">✓</span>
+              {avisoExito}
+            </span>
+            <button
+              type="button"
+              className={styles.cerrarAviso}
+              onClick={() => { setAvisoExito(null); setIdResaltado(null); }}
+              aria-label="Cerrar aviso"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Formulario de captura de venta diaria */}
         {mostrarFormulario && (
           <FormularioVenta onRegistrada={manejarVentaRegistrada} />
@@ -224,6 +287,40 @@ export function PantallaDashboard() {
             </div>
           )}
 
+          <div className={styles.grupoFiltro}>
+            <label className={styles.etiquetaFiltro} htmlFor="filtro-turno">
+              Turno
+            </label>
+            <select
+              id="filtro-turno"
+              className={styles.inputFiltro}
+              value={turno}
+              onChange={(e) => setTurno(e.target.value as TurnoVenta | '')}
+            >
+              <option value="">Todos los turnos</option>
+              {TURNOS.map((t) => (
+                <option key={t.turno} value={t.turno}>
+                  {t.etiqueta}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.grupoFiltro}>
+            <label className={styles.etiquetaFiltro} htmlFor="filtro-caja">
+              Caja
+            </label>
+            <input
+              id="filtro-caja"
+              type="text"
+              className={styles.inputFiltro}
+              value={caja}
+              onChange={(e) => setCaja(e.target.value)}
+              placeholder="Todas"
+              maxLength={20}
+            />
+          </div>
+
           <Boton
             variante="secundario"
             onClick={() => {
@@ -252,6 +349,12 @@ export function PantallaDashboard() {
 
         {!errorDashboard && !cargandoDashboard && resumen && (
           <>
+            {(caja || turno) && (
+              <p className={styles.notaFiltroVentas}>
+                El filtro de caja/turno acota solo las <strong>Ventas</strong>; las compras y los
+                gastos no tienen caja y se muestran de toda la sede del período.
+              </p>
+            )}
             <div className={styles.cuadriculaTarjetas}>
               {/* Ventas */}
               <div className={styles.tarjetaMetrica}>
@@ -374,18 +477,41 @@ export function PantallaDashboard() {
                 <tr>
                   <th>Fecha</th>
                   <th>Sede</th>
-                  <th>Total</th>
+                  <th>Turno</th>
+                  <th>Caja</th>
+                  <th>Cerrado por</th>
+                  <th>Total / arqueo</th>
                   <th>Tipo</th>
                 </tr>
               </thead>
               <tbody>
                 {ventas.map((venta) => (
-                  <tr key={venta.id}>
+                  <tr
+                    key={venta.id}
+                    className={venta.id === idResaltado ? styles.filaResaltada : undefined}
+                  >
                     <td>{formatearFecha(venta.fechaOperacion)}</td>
                     <td>
                       {sedes.find((s) => s.id === venta.sedeId)?.nombre ?? venta.sedeId}
                     </td>
-                    <td className={styles.monto}>{formatearDinero(venta.monto)}</td>
+                    <td>{ETIQUETA_TURNO[venta.turno] ?? venta.turno}</td>
+                    <td>{venta.caja}</td>
+                    <td>{venta.cerradoPor}</td>
+                    <td>
+                      <div className={styles.celdaTotal}>
+                        <span className={styles.montoTotal}>{formatearDinero(venta.monto)}</span>
+                        {venta.detalles.length > 0 && (
+                          <span className={styles.desgloseArqueo}>
+                            {venta.detalles
+                              .map(
+                                (d) =>
+                                  `${ETIQUETA_ARQUEO[d.tipoArqueo] ?? d.tipoArqueo}: ${formatearDinero(d.monto)}`,
+                              )
+                              .join(' · ')}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td>
                       <span
                         className={
