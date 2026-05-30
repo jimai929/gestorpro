@@ -46,8 +46,30 @@ model Sede {
   empleados Empleado[]
   kioscos   Kiosco[]
   turnos    Turno[]
+  cajas     Caja[]
 
   @@map("sede")
+}
+
+/// Caja registradora de una sede (punto de cobro). Catálogo GESTIONABLE por el
+/// admin desde Administración. El cierre elige una; su `numero` queda como
+/// snapshot en `VentaDiaria.caja` (NO es FK: el cierre es auditoría inmutable).
+/// El número se RECICLA: solo puede haber UNA caja `activa` por (sede, numero),
+/// garantizado por el índice único PARCIAL `uq_caja_sede_numero_activa` (SQL
+/// manual en la migración — Prisma no soporta unique parcial declarativo; igual
+/// que `uq_venta_normal`). Las inactivas no cuentan, así que un número liberado
+/// por una baja se puede reusar. La baja es lógica (`activo`).
+model Caja {
+  id       String   @id @default(uuid()) @db.Uuid
+  sedeId   String   @map("sede_id") @db.Uuid
+  sede     Sede     @relation(fields: [sedeId], references: [id])
+  numero   String   @db.VarChar(20)
+  nombre   String
+  activo   Boolean  @default(true)
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  @@index([sedeId])
+  @@map("caja")
 }
 
 /// Cuenta de acceso al sistema. La crea un administrador (no hay registro

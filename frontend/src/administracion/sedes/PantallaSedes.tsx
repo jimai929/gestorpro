@@ -86,6 +86,9 @@ export function PantallaSedes() {
           <NavLink to="/empleados" className={claseNav}>
             Empleados
           </NavLink>
+          <NavLink to="/cajas" className={claseNav}>
+            Cajas
+          </NavLink>
         </nav>
 
         {/* Encabezado */}

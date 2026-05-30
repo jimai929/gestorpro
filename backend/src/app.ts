@@ -4,6 +4,7 @@ import { authPlugin } from './core/auth/auth.plugin.js';
 import { authRoutes } from './core/auth/auth.routes.js';
 import { sedeRoutes } from './core/sede/sede.routes.js';
 import { empleadoRoutes } from './core/empleado/empleado.routes.js';
+import { cajaRoutes } from './core/caja/caja.routes.js';
 import { cuentasPorPagarRoutes } from './finanzas/cuentas-por-pagar/cuentas-por-pagar.routes.js';
 import { gastosRoutes } from './finanzas/gastos/gastos.routes.js';
 import { ventasRoutes } from './finanzas/dashboard/ventas.routes.js';
@@ -38,6 +39,7 @@ export function construirApp(): FastifyInstance {
   app.register(authRoutes, { prefix: '/auth' });
   app.register(sedeRoutes);
   app.register(empleadoRoutes);
+  app.register(cajaRoutes);
 
   // Finanzas
   app.register(cuentasPorPagarRoutes);

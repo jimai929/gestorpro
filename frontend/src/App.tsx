@@ -11,6 +11,7 @@ import { PantallaInicio } from './PantallaInicio';
 import { PantallaCuentasPorPagar, PantallaProveedores } from './finanzas/cuentas-por-pagar';
 import { PantallaSedes } from './administracion/sedes';
 import { PantallaEmpleados } from './administracion/empleado';
+import { PantallaCajas } from './administracion/caja';
 import { PantallaGastos } from './finanzas/gastos';
 import { PantallaDashboard } from './finanzas/dashboard';
 import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
@@ -31,6 +32,7 @@ import { PantallaCobros } from './asistencia/cobro/PantallaCobros';
  *   /dashboard             → Dashboard de ganancias (protegida)
  *   /sedes                 → Administración de sedes (protegida — admin para escribir)
  *   /empleados             → Administración de empleados (protegida — admin para escribir)
+ *   /cajas                 → Administración de cajas registradoras (protegida — admin para escribir)
  *   /asistencia/revision   → Cola de revisión de fichajes (protegida — supervisor/admin)
  *   /asistencia/jornadas   → Consulta y corrección de jornadas (protegida — supervisor/admin)
  *   /asistencia/cobros     → Cobro anticipado de horas extra (protegida)
@@ -76,6 +78,10 @@ const router = createBrowserRouter([
       {
         path: '/empleados',
         element: <PantallaEmpleados />,
+      },
+      {
+        path: '/cajas',
+        element: <PantallaCajas />,
       },
       // ── Asistencia (Fases 4-6) ──
       {

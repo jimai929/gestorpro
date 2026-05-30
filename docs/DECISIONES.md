@@ -40,6 +40,13 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
     referencia queda como campo preparado para el reconocimiento facial futuro
     (sin engine ahora). Rotación de secretos por `POST` (`/empleados/:id/qr`,
     `/empleados/:id/pin`).
+  - **`Caja`**: catálogo de cajas registradoras por sede (`core/caja` backend +
+    `administracion/caja` frontend). El `numero` es **reciclable**: un índice
+    único **PARCIAL** `uq_caja_sede_numero_activa` garantiza solo **una activa**
+    por `(sede, numero)`; las inactivas no cuentan, así que un número liberado
+    por una baja puede reutilizarse. Baja **lógica** (`activo`), nunca física.
+    El cierre de caja guardará el `numero` como **snapshot** (no FK), para que
+    renumerar o dar de baja una caja no altere el histórico.
 
 > Las convenciones de **código y de proceso** (formularios, verificación por UI,
 > revisión adversarial) viven en `docs/CONVENCIONES.md`.

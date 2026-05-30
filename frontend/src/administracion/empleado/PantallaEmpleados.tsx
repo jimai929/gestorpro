@@ -194,6 +194,7 @@ export function PantallaEmpleados() {
         <nav className={styles.navAdmin} aria-label="Administración">
           <NavLink to="/sedes" className={claseNav}>Sedes</NavLink>
           <NavLink to="/empleados" className={claseNav}>Empleados</NavLink>
+          <NavLink to="/cajas" className={claseNav}>Cajas</NavLink>
         </nav>
 
         <div className={styles.encabezado}>
