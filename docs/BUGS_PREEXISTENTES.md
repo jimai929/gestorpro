@@ -24,3 +24,16 @@ qué un cambio "menor" formó parte de otra parte del trabajo.
 - **Arreglo:** `methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS']` en la
   config de CORS. Incluido en el commit de la parte (b) `90a9613` (no había un
   commit separado limpio porque bloqueaba el verificable de esa misma parte).
+
+---
+
+## PENDIENTE (parte e): barrido adversarial de los módulos viejos
+
+- **Qué falta:** un barrido adversarial de los módulos **anteriores** (cobro,
+  factura/compras, gastos, proveedores) buscando el **mismo patrón de error
+  silenciado** que se halló en `rotarQr` y en el alta inline de proveedor:
+  mutaciones (POST/PUT/DELETE) que no muestran el error en la UI, que cierran
+  modales/redirigen antes de confirmar éxito, o que no tienen test de fallo del
+  backend (ver la convención en `docs/CONVENCIONES.md`).
+- **Cuándo:** se hace en la **parte (e)** del paquete de Administración.
+- **Estado:** PENDIENTE.

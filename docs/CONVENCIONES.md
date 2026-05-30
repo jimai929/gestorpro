@@ -12,6 +12,13 @@ cada archivo). Lo de aquí aplica siempre, sin tener que recordarlo en cada tare
   envía. Los formularios de gestión (alta/edición) se construyen con `<div>` + un
   botón `type="button"` con `onClick` que valida y llama al servicio — nunca con
   `<form>`. (Origen: bug del alta inline de proveedor, diagnosticado 2026-05-29.)
+- **Manejo de errores en mutaciones.** Toda mutación (POST/PUT/DELETE) debe:
+  (1) capturar el error explícitamente; (2) mostrarlo al usuario **en la UI**
+  (no solo en consola); (3) **no cerrar modales ni redirigir antes de confirmar
+  el éxito** (el cierre/redirección solo ocurre en la rama de éxito); y (4) tener
+  un **test que simule el fallo del backend** y verifique que el error se muestra
+  y la UI no se cierra. (Origen: `rotarQr` que tragaba el error y el alta inline
+  de proveedor que se "perdía" en un fallo, 2026-05-30.)
 
 ## Verificación
 

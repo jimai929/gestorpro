@@ -9,7 +9,7 @@
  * con el botón de activar/desactivar de la lista.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { crearProveedor, editarProveedor } from './servicioCuentas';
@@ -41,8 +41,7 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const manejarEnvio = async (evento: FormEvent) => {
-    evento.preventDefault();
+  const guardar = async () => {
     if (!nombre.trim()) return;
 
     setGuardando(true);
@@ -72,7 +71,7 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
   };
 
   return (
-    <form onSubmit={(e) => { void manejarEnvio(e); }} className={styles.contenedor}>
+    <div className={styles.contenedor}>
       <p className={styles.titulo}>{esEdicion ? 'Editar proveedor' : 'Nuevo proveedor'}</p>
 
       {error && <p className={styles.error}>{error}</p>}
@@ -118,10 +117,15 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
         >
           Cancelar
         </Boton>
-        <Boton type="submit" cargando={guardando} disabled={!nombre.trim()}>
+        <Boton
+          type="button"
+          cargando={guardando}
+          disabled={!nombre.trim()}
+          onClick={() => { void guardar(); }}
+        >
           {esEdicion ? 'Guardar cambios' : 'Crear proveedor'}
         </Boton>
       </div>
-    </form>
+    </div>
   );
 }
