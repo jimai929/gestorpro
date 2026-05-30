@@ -198,15 +198,6 @@ export async function rechazarCobro(solicitudId: string, jefeId: string, motivo?
   });
 }
 
-/** Empleados activos (para selección en las pantallas de cobro). */
-export function listarEmpleadosActivos() {
-  return prisma.empleado.findMany({
-    where: { activo: true },
-    orderBy: { numero: 'asc' },
-    select: { id: true, numero: true, nombre: true, sedeId: true },
-  });
-}
-
 /**
  * Resumen del cobro para un empleado: su saldo, el % cobrable vigente y cuánto
  * puede solicitar AHORA (saldo × % menos lo ya comprometido en pendientes). Lo

@@ -1,0 +1,1 @@
+export { PantallaEmpleados } from './PantallaEmpleados';

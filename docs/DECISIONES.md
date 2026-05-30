@@ -27,6 +27,26 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
     nunca física, porque compras, gastos, empleados, cajas, etc. la referencian;
     los selectores muestran solo activas. `GET /sedes` sigue devolviendo solo
     activas por defecto (`?incluirInactivas=true` para la pantalla de gestión).
+  - **`Empleado` es una entidad transversal** (lo usan cobro, asistencia y el
+    cierre de caja), así que su gestión vive en `core/empleado` (backend) y
+    `administracion/empleado` (frontend), NO bajo `asistencia/` — igual que las
+    sedes (`core/sede` + `administracion/sedes`). Ahí se **consolida** el
+    `GET /empleados` que antes vivía en cobro. PIN de 4 dígitos hasheado
+    (argon2) con validación anti-trivial; `qrToken` único y rotable; la foto de
+    referencia queda como campo preparado para el reconocimiento facial futuro
+    (sin engine ahora). Rotación de secretos por `POST` (`/empleados/:id/qr`,
+    `/empleados/:id/pin`).
+
+## Convenciones de código
+
+- **Formularios reutilizables/embebibles: nunca un `<form>` anidado.** Un
+  `<form>` dentro de otro es HTML inválido; el navegador dispara un *submit*
+  nativo (recarga la página) en vez del handler de React, y la petición no se
+  envía. Los formularios de gestión (alta/edición) se construyen con `<div>` + un
+  botón `type="button"` con `onClick` que valida y llama al servicio — nunca con
+  `<form>`. Es el estándar del paquete de Administración (sedes, empleados,
+  cajas) y de cualquier formulario que pueda embeberse dentro de otro. (Origen:
+  bug del alta inline de proveedor, diagnosticado 2026-05-29.)
 
 ## Finanzas
 

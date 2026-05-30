@@ -8,7 +8,6 @@ import {
   rechazarCobro,
   pagarCobro,
   listarCobros,
-  listarEmpleadosActivos,
   resumenCobro,
 } from './cobro.service.js';
 import { ErrorValidacion } from '../../core/errors.js';
@@ -84,14 +83,7 @@ export async function cobroRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // Empleados activos (para los selectores de las pantallas de cobro).
-  app.get('/empleados', { preHandler: [app.autenticar] }, async (request, reply) => {
-    try {
-      return await reply.send(await listarEmpleadosActivos());
-    } catch (error) {
-      return responderError(error, request, reply);
-    }
-  });
+  // El listado de empleados se consolidó en core/empleado (GET /empleados).
 
   // Resumen del saldo y % cobrable de un empleado (cuánto puede solicitar).
   app.get<{ Querystring: { empleadoId?: string } }>(

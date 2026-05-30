@@ -67,6 +67,9 @@ export function PantallaInicio() {
               <Link to="/sedes" className={styles.enlaceModulo}>
                 Sedes →
               </Link>
+              <Link to="/empleados" className={styles.enlaceModulo}>
+                Empleados →
+              </Link>
             </div>
           </div>
 

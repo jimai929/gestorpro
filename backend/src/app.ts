@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { authPlugin } from './core/auth/auth.plugin.js';
 import { authRoutes } from './core/auth/auth.routes.js';
 import { sedeRoutes } from './core/sede/sede.routes.js';
+import { empleadoRoutes } from './core/empleado/empleado.routes.js';
 import { cuentasPorPagarRoutes } from './finanzas/cuentas-por-pagar/cuentas-por-pagar.routes.js';
 import { gastosRoutes } from './finanzas/gastos/gastos.routes.js';
 import { ventasRoutes } from './finanzas/dashboard/ventas.routes.js';
@@ -23,15 +24,20 @@ export function construirApp(): FastifyInstance {
   const app = Fastify({ logger: true });
 
   // CORS: en desarrollo el frontend (Vite, :5173) consume esta API desde otro
-  // origen. Configurable con CORS_ORIGEN (lista separada por comas).
+  // origen. Configurable con CORS_ORIGEN (lista separada por comas). Se declaran
+  // los métodos de escritura (PUT/PATCH/DELETE) explícitamente para que el
+  // preflight los permita: sin esto, las ediciones y bajas desde el navegador
+  // (proveedores, sedes, empleados…) fallan con error de CORS.
   app.register(cors, {
     origin: (process.env.CORS_ORIGEN ?? 'http://localhost:5173').split(','),
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // Núcleo: autenticación (debe registrarse antes que las rutas que la usan).
   app.register(authPlugin);
   app.register(authRoutes, { prefix: '/auth' });
   app.register(sedeRoutes);
+  app.register(empleadoRoutes);
 
   // Finanzas
   app.register(cuentasPorPagarRoutes);
