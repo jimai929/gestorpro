@@ -58,6 +58,19 @@ export function PantallaInicio() {
           </div>
 
           <div className={styles.tarjeta}>
+            <div className={styles.iconoModulo}>🏢</div>
+            <h2 className={styles.tituloModulo}>Administración</h2>
+            <p className={styles.descripcionModulo}>
+              Sedes, empleados y cajas registradoras.
+            </p>
+            <div className={styles.enlacesModulo}>
+              <Link to="/sedes" className={styles.enlaceModulo}>
+                Sedes →
+              </Link>
+            </div>
+          </div>
+
+          <div className={styles.tarjeta}>
             <div className={styles.iconoModulo}>⏱</div>
             <h2 className={styles.tituloModulo}>Asistencia</h2>
             <p className={styles.descripcionModulo}>

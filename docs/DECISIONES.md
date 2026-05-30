@@ -21,6 +21,12 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
 - Backend organizado en `core/` (transversal), `shared/` (lógica de negocio
   compartida) y las áreas `finanzas/` y `asistencia/`.
 - Un solo `schema.prisma` para toda la app.
+- **Administración desde la app — añadido 2026-05-29:** las entidades de
+  configuración se gestionan desde una sección **"Administración"** de la app.
+  - **Sedes gestionables** (crear/editar). La baja es **lógica** (`activo`),
+    nunca física, porque compras, gastos, empleados, cajas, etc. la referencian;
+    los selectores muestran solo activas. `GET /sedes` sigue devolviendo solo
+    activas por defecto (`?incluirInactivas=true` para la pantalla de gestión).
 
 ## Finanzas
 

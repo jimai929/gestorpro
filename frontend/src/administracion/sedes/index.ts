@@ -1,0 +1,1 @@
+export { PantallaSedes } from './PantallaSedes';
