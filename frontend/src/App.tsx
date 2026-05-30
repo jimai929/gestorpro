@@ -8,7 +8,7 @@ import { ProveedorAuth } from './core/auth/ContextoAuth';
 import { RutaProtegida } from './core/auth/RutaProtegida';
 import { PantallaLogin } from './core/auth/PantallaLogin';
 import { PantallaInicio } from './PantallaInicio';
-import { PantallaCuentasPorPagar } from './finanzas/cuentas-por-pagar';
+import { PantallaCuentasPorPagar, PantallaProveedores } from './finanzas/cuentas-por-pagar';
 import { PantallaGastos } from './finanzas/gastos';
 import { PantallaDashboard } from './finanzas/dashboard';
 import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
@@ -24,6 +24,7 @@ import { PantallaCobros } from './asistencia/cobro/PantallaCobros';
  *   /kiosco                → Kiosco de fichaje (PÚBLICA — no requiere sesión)
  *   /                      → Guard → PantallaInicio (protegida)
  *   /cuentas-por-pagar     → Módulo de cuentas por pagar (protegida)
+ *   /proveedores           → Gestión de proveedores (protegida)
  *   /gastos                → Módulo de gastos (protegida)
  *   /dashboard             → Dashboard de ganancias (protegida)
  *   /asistencia/revision   → Cola de revisión de fichajes (protegida — supervisor/admin)
@@ -50,6 +51,10 @@ const router = createBrowserRouter([
       {
         path: '/cuentas-por-pagar',
         element: <PantallaCuentasPorPagar />,
+      },
+      {
+        path: '/proveedores',
+        element: <PantallaProveedores />,
       },
       {
         path: '/gastos',

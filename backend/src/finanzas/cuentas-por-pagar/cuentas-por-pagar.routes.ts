@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { responderError } from '../../core/http.js';
 import {
   crearProveedor,
+  editarProveedor,
   listarProveedores,
   registrarCompra,
   listarCompras,
@@ -17,6 +18,23 @@ const esquemaProveedor = {
     properties: {
       nombre: { type: 'string', minLength: 1 },
       identificacionFiscal: { type: 'string' },
+      telefono: { type: 'string' },
+      personaContacto: { type: 'string' },
+    },
+  },
+} as const;
+
+const esquemaEditarProveedor = {
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      nombre: { type: 'string', minLength: 1 },
+      // Campos de texto: cadena para fijar, null para borrar, ausente = sin tocar.
+      identificacionFiscal: { type: ['string', 'null'] },
+      telefono: { type: ['string', 'null'] },
+      personaContacto: { type: ['string', 'null'] },
+      activo: { type: 'boolean' },
     },
   },
 } as const;
@@ -24,21 +42,16 @@ const esquemaProveedor = {
 const esquemaCompra = {
   body: {
     type: 'object',
-    required: [
-      'proveedorId',
-      'sedeId',
-      'numeroFactura',
-      'montoTotal',
-      'fechaEmision',
-      'fechaVencimiento',
-    ],
+    required: ['proveedorId', 'sedeId', 'numeroFactura', 'montoTotal', 'tipo', 'fechaEmision'],
     additionalProperties: false,
     properties: {
       proveedorId: { type: 'string', minLength: 1 },
       sedeId: { type: 'string', minLength: 1 },
       numeroFactura: { type: 'string', minLength: 1 },
       montoTotal: { type: 'number', exclusiveMinimum: 0 },
+      tipo: { type: 'string', enum: ['contado', 'credito'] },
       fechaEmision: { type: 'string', minLength: 1 },
+      // Opcional a nivel de esquema; el servicio la exige para crédito.
       fechaVencimiento: { type: 'string', minLength: 1 },
     },
   },
@@ -70,26 +83,48 @@ export async function cuentasPorPagarRoutes(app: FastifyInstance): Promise<void>
   const autenticado = { preHandler: [app.autenticar] };
 
   // Proveedores
-  app.post<{ Body: { nombre: string; identificacionFiscal?: string } }>(
+  app.post<{
+    Body: { nombre: string; identificacionFiscal?: string; telefono?: string; personaContacto?: string };
+  }>('/proveedores', { ...soloGestion, schema: esquemaProveedor }, async (request, reply) => {
+    try {
+      const proveedor = await crearProveedor(request.body);
+      return await reply.code(201).send(proveedor);
+    } catch (error) {
+      return responderError(error, request, reply);
+    }
+  });
+
+  app.put<{
+    Params: { id: string };
+    Body: {
+      nombre?: string;
+      identificacionFiscal?: string | null;
+      telefono?: string | null;
+      personaContacto?: string | null;
+      activo?: boolean;
+    };
+  }>('/proveedores/:id', { ...soloGestion, schema: esquemaEditarProveedor }, async (request, reply) => {
+    try {
+      const proveedor = await editarProveedor(request.params.id, request.body);
+      return await reply.send(proveedor);
+    } catch (error) {
+      return responderError(error, request, reply);
+    }
+  });
+
+  // `?activo=true` devuelve solo los proveedores de alta (para los selectores).
+  app.get<{ Querystring: { activo?: string } }>(
     '/proveedores',
-    { ...soloGestion, schema: esquemaProveedor },
+    autenticado,
     async (request, reply) => {
       try {
-        const proveedor = await crearProveedor(request.body);
-        return await reply.code(201).send(proveedor);
+        const soloActivos = request.query.activo === 'true';
+        return await reply.send(await listarProveedores({ soloActivos }));
       } catch (error) {
         return responderError(error, request, reply);
       }
     },
   );
-
-  app.get('/proveedores', autenticado, async (request, reply) => {
-    try {
-      return await reply.send(await listarProveedores());
-    } catch (error) {
-      return responderError(error, request, reply);
-    }
-  });
 
   // Compras (facturas)
   app.post<{
@@ -98,8 +133,9 @@ export async function cuentasPorPagarRoutes(app: FastifyInstance): Promise<void>
       sedeId: string;
       numeroFactura: string;
       montoTotal: number;
+      tipo: 'contado' | 'credito';
       fechaEmision: string;
-      fechaVencimiento: string;
+      fechaVencimiento?: string;
     };
   }>('/compras', { ...soloGestion, schema: esquemaCompra }, async (request, reply) => {
     try {

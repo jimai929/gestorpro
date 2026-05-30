@@ -20,6 +20,8 @@ function esErrorPrisma(error: unknown, codigo: string): boolean {
 export interface DatosProveedor {
   nombre: string;
   identificacionFiscal?: string;
+  telefono?: string;
+  personaContacto?: string;
 }
 
 export function crearProveedor(datos: DatosProveedor) {
@@ -27,12 +29,53 @@ export function crearProveedor(datos: DatosProveedor) {
     data: {
       nombre: datos.nombre,
       identificacionFiscal: datos.identificacionFiscal ?? null,
+      telefono: datos.telefono ?? null,
+      personaContacto: datos.personaContacto ?? null,
     },
   });
 }
 
-export function listarProveedores() {
-  return prisma.proveedor.findMany({ orderBy: { nombre: 'asc' } });
+/**
+ * Edita un proveedor. Actualización parcial: solo se tocan los campos presentes
+ * en `datos` (un campo de texto en `null` lo borra; ausente lo deja igual). El
+ * proveedor nunca se borra; la baja es lógica vía `activo`.
+ */
+export interface DatosEditarProveedor {
+  nombre?: string;
+  identificacionFiscal?: string | null;
+  telefono?: string | null;
+  personaContacto?: string | null;
+  activo?: boolean;
+}
+
+export async function editarProveedor(id: string, datos: DatosEditarProveedor) {
+  const data = {
+    ...(datos.nombre !== undefined ? { nombre: datos.nombre } : {}),
+    ...(datos.identificacionFiscal !== undefined
+      ? { identificacionFiscal: datos.identificacionFiscal }
+      : {}),
+    ...(datos.telefono !== undefined ? { telefono: datos.telefono } : {}),
+    ...(datos.personaContacto !== undefined
+      ? { personaContacto: datos.personaContacto }
+      : {}),
+    ...(datos.activo !== undefined ? { activo: datos.activo } : {}),
+  };
+  try {
+    return await prisma.proveedor.update({ where: { id }, data });
+  } catch (error) {
+    if (esErrorPrisma(error, 'P2025')) {
+      throw new ErrorNoEncontrado('El proveedor indicado no existe.');
+    }
+    throw error;
+  }
+}
+
+/** Lista proveedores. Con `soloActivos` filtra los dados de baja (para selectores). */
+export function listarProveedores(filtros?: { soloActivos?: boolean }) {
+  return prisma.proveedor.findMany({
+    where: filtros?.soloActivos ? { activo: true } : {},
+    orderBy: { nombre: 'asc' },
+  });
 }
 
 // ─── Compras ──────────────────────────────────────────────────────────────--
@@ -42,8 +85,10 @@ export interface DatosCompra {
   sedeId: string;
   numeroFactura: string;
   montoTotal: number;
+  tipo: 'contado' | 'credito';
   fechaEmision: string;
-  fechaVencimiento: string;
+  /** Obligatoria para crédito; ignorada (sin vencimiento) para contado. */
+  fechaVencimiento?: string;
 }
 
 /**
@@ -60,6 +105,11 @@ export async function registrarCompra(datos: DatosCompra) {
   if (datos.montoTotal <= 0) {
     throw new ErrorValidacion('El monto total de la factura debe ser mayor que cero.');
   }
+  // El crédito necesita vencimiento (define cuándo se debe); el contado no lo
+  // tiene porque se paga en el acto y no genera cuenta por pagar.
+  if (datos.tipo === 'credito' && !datos.fechaVencimiento) {
+    throw new ErrorValidacion('Una compra a crédito requiere fecha de vencimiento.');
+  }
   try {
     const compra = await prisma.compra.create({
       data: {
@@ -67,8 +117,12 @@ export async function registrarCompra(datos: DatosCompra) {
         sedeId: datos.sedeId,
         numeroFactura: datos.numeroFactura,
         montoTotal: datos.montoTotal,
+        tipo: datos.tipo,
         fechaEmision: new Date(datos.fechaEmision),
-        fechaVencimiento: new Date(datos.fechaVencimiento),
+        fechaVencimiento:
+          datos.tipo === 'credito' && datos.fechaVencimiento
+            ? new Date(datos.fechaVencimiento)
+            : null,
       },
     });
     return aCompraDto(compra);
@@ -114,10 +168,15 @@ export async function registrarPago(datos: DatosPago) {
   }
 
   return prisma.$transaction(async (tx) => {
-    const compras = await tx.$queryRaw<Array<{ monto_total: string }>>`
-      SELECT monto_total FROM compra WHERE id = ${datos.compraId}::uuid FOR UPDATE`;
+    const compras = await tx.$queryRaw<Array<{ monto_total: string; tipo: string }>>`
+      SELECT monto_total, tipo FROM compra WHERE id = ${datos.compraId}::uuid FOR UPDATE`;
     if (compras.length === 0) {
       throw new ErrorNoEncontrado('La compra no existe.');
+    }
+    // Una compra de contado ya está pagada en el acto y no genera cuenta por
+    // pagar; abonarle crearía un pago invisible en la vista cuenta_por_pagar.
+    if (compras[0]?.tipo === 'contado') {
+      throw new ErrorValidacion('Una compra de contado se paga en el acto y no admite abonos.');
     }
     const montoTotal = Number(compras[0]?.monto_total);
 

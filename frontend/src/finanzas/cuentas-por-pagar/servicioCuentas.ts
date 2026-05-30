@@ -9,6 +9,7 @@ import type {
   Proveedor,
   Sede,
   CuerpoCrearProveedor,
+  CuerpoEditarProveedor,
   CuerpoCrearCompra,
   CuerpoRegistrarPago,
   Compra,
@@ -23,9 +24,13 @@ export function obtenerSedes(): Promise<Sede[]> {
 
 // ── Proveedores ───────────────────────────────────────────────────────────
 
-/** Lista todos los proveedores activos. */
-export function obtenerProveedores(): Promise<Proveedor[]> {
-  return api.get<Proveedor[]>('/proveedores');
+/**
+ * Lista proveedores. Por defecto todos (para la pantalla de gestión); con
+ * `soloActivos` devuelve solo los de alta (para los selectores de factura).
+ */
+export function obtenerProveedores(opciones?: { soloActivos?: boolean }): Promise<Proveedor[]> {
+  const query = opciones?.soloActivos ? '?activo=true' : '';
+  return api.get<Proveedor[]>(`/proveedores${query}`);
 }
 
 /**
@@ -34,6 +39,14 @@ export function obtenerProveedores(): Promise<Proveedor[]> {
  */
 export function crearProveedor(cuerpo: CuerpoCrearProveedor): Promise<Proveedor> {
   return api.post<Proveedor>('/proveedores', cuerpo);
+}
+
+/**
+ * Edita un proveedor (incluye la baja/alta lógica vía `activo`).
+ * Requiere rol supervisor o administrador.
+ */
+export function editarProveedor(id: string, cuerpo: CuerpoEditarProveedor): Promise<Proveedor> {
+  return api.put<Proveedor>(`/proveedores/${id}`, cuerpo);
 }
 
 // ── Compras (facturas) ────────────────────────────────────────────────────

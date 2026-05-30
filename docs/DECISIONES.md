@@ -31,6 +31,16 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
   entidades, con un adaptador por entidad. Vive en `shared/`.
 - **`CuentaPorPagar` NO se persiste** — es una vista derivada de Compra +
   PagoProveedor. El saldo se calcula, no se guarda.
+- **`Compra.tipo` (contado/crédito) — añadido 2026-05-29:** una compra de
+  `credito` es una deuda (con vencimiento y saldo) y aparece en cuentas por
+  pagar; una de `contado` se paga en el acto, no tiene vencimiento y la vista
+  `cuenta_por_pagar` la **excluye** (no hay saldo que seguir). Ambas cuentan
+  igual como **costo** en el dashboard (compras por devengado, fecha de emisión,
+  sin importar el tipo). El default es `credito`.
+- **Proveedor con contacto — añadido 2026-05-29:** `Proveedor` gana `telefono` y
+  `personaContacto` (opcionales). La baja de un proveedor es **lógica** (`activo`),
+  nunca física, porque las facturas lo referencian; los inactivos no aparecen en
+  los selectores.
 - **`Auditoria` es append-only** — solo inserción, nunca update ni delete.
   Garantía en tres capas: superficie cerrada del repositorio, REVOKE en
   Postgres, y ausencia de campos mutables.

@@ -181,6 +181,16 @@ export function PantallaDashboard() {
             Cuentas por pagar
           </NavLink>
           <NavLink
+            to="/proveedores"
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
+                : styles.enlaceNav
+            }
+          >
+            Proveedores
+          </NavLink>
+          <NavLink
             to="/gastos"
             className={({ isActive }) =>
               isActive

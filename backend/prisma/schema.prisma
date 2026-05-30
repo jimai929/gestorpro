@@ -109,11 +109,21 @@ enum TipoMovimiento {
   correccion
 }
 
+/// Forma de pago de una factura de compra. Una compra de `contado` se paga en
+/// el acto y NO genera cuenta por pagar: la vista `cuenta_por_pagar` la excluye.
+/// Una de `credito` queda como deuda con saldo y vencimiento.
+enum TipoCompra {
+  contado
+  credito
+}
+
 /// Proveedor al que se le compra mercancía o servicios.
 model Proveedor {
   id                   String   @id @default(uuid()) @db.Uuid
   nombre               String
   identificacionFiscal String?  @map("identificacion_fiscal")
+  telefono             String?
+  personaContacto      String?  @map("persona_contacto")
   activo               Boolean  @default(true)
   creadoEn             DateTime @default(now()) @map("creado_en")
 
@@ -126,16 +136,17 @@ model Proveedor {
 /// deriva en la vista `cuenta_por_pagar` a partir de los pagos. Criterio
 /// devengado: la fecha que cuenta es la de emisión.
 model Compra {
-  id               String    @id @default(uuid()) @db.Uuid
-  proveedorId      String    @map("proveedor_id") @db.Uuid
-  proveedor        Proveedor @relation(fields: [proveedorId], references: [id])
-  sedeId           String    @map("sede_id") @db.Uuid
-  sede             Sede      @relation(fields: [sedeId], references: [id])
-  numeroFactura    String    @map("numero_factura")
-  montoTotal       Decimal   @map("monto_total") @db.Decimal(12, 2)
-  fechaEmision     DateTime  @map("fecha_emision") @db.Date
-  fechaVencimiento DateTime  @map("fecha_vencimiento") @db.Date
-  creadoEn         DateTime  @default(now()) @map("creado_en")
+  id               String     @id @default(uuid()) @db.Uuid
+  proveedorId      String     @map("proveedor_id") @db.Uuid
+  proveedor        Proveedor  @relation(fields: [proveedorId], references: [id])
+  sedeId           String     @map("sede_id") @db.Uuid
+  sede             Sede       @relation(fields: [sedeId], references: [id])
+  numeroFactura    String     @map("numero_factura")
+  montoTotal       Decimal    @map("monto_total") @db.Decimal(12, 2)
+  tipo             TipoCompra @default(credito)
+  fechaEmision     DateTime   @map("fecha_emision") @db.Date
+  fechaVencimiento DateTime?  @map("fecha_vencimiento") @db.Date
+  creadoEn         DateTime   @default(now()) @map("creado_en")
 
   pagos PagoProveedor[]
 

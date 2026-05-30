@@ -10,7 +10,7 @@ import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { FormularioProveedor } from './FormularioProveedor';
 import { obtenerProveedores, obtenerSedes, crearCompra } from './servicioCuentas';
-import type { Proveedor, Sede } from './tipos';
+import type { Proveedor, Sede, TipoCompra } from './tipos';
 import styles from './FormularioFactura.module.css';
 
 interface PropiedadesFormulario {
@@ -28,6 +28,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
   const [sedeId, setSedeId] = useState('');
   const [numeroFactura, setNumeroFactura] = useState('');
   const [montoTotal, setMontoTotal] = useState('');
+  const [tipo, setTipo] = useState<TipoCompra>('credito');
   const [fechaEmision, setFechaEmision] = useState('');
   const [fechaVencimiento, setFechaVencimiento] = useState('');
 
@@ -42,7 +43,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
     const cargar = async () => {
       try {
         const [listaProv, listaSedes] = await Promise.all([
-          obtenerProveedores(),
+          obtenerProveedores({ soloActivos: true }),
           obtenerSedes(),
         ]);
         setProveedores(listaProv);
@@ -74,6 +75,11 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
       return;
     }
 
+    if (tipo === 'credito' && !fechaVencimiento) {
+      setError('Una compra a crédito requiere fecha de vencimiento.');
+      return;
+    }
+
     setGuardando(true);
     try {
       await crearCompra({
@@ -81,14 +87,17 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
         sedeId,
         numeroFactura: numeroFactura.trim(),
         montoTotal: monto,
+        tipo,
         fechaEmision,
-        fechaVencimiento,
+        // El contado no tiene vencimiento (se paga en el acto).
+        ...(tipo === 'credito' ? { fechaVencimiento } : {}),
       });
       // Limpiar formulario tras éxito
       setProveedorId('');
       setSedeId('');
       setNumeroFactura('');
       setMontoTotal('');
+      setTipo('credito');
       setFechaEmision('');
       setFechaVencimiento('');
       setExito(true);
@@ -101,7 +110,12 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
   };
 
   const formularioCompleto =
-    proveedorId && sedeId && numeroFactura.trim() && montoTotal && fechaEmision && fechaVencimiento;
+    proveedorId &&
+    sedeId &&
+    numeroFactura.trim() &&
+    montoTotal &&
+    fechaEmision &&
+    (tipo === 'contado' || fechaVencimiento);
 
   return (
     <div className={styles.tarjeta}>
@@ -149,7 +163,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
           {mostrarFormProveedor && (
             <div className={styles.campoCompleto}>
               <FormularioProveedor
-                onCreado={manejarProveedorCreado}
+                onGuardado={manejarProveedorCreado}
                 onCancelar={() => setMostrarFormProveedor(false)}
               />
             </div>
@@ -199,6 +213,21 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
             disabled={guardando}
           />
 
+          {/* Tipo de compra: contado (pagada en el acto) o crédito (deuda) */}
+          <div className={styles.grupoProveedor}>
+            <label className={styles.etiqueta}>Tipo de compra *</label>
+            <select
+              className={styles.select}
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as TipoCompra)}
+              required
+              disabled={guardando}
+            >
+              <option value="credito">Crédito (cuenta por pagar)</option>
+              <option value="contado">Contado (pagada en el acto)</option>
+            </select>
+          </div>
+
           {/* Fecha de emisión */}
           <Entrada
             etiqueta="Fecha de emisión *"
@@ -209,15 +238,17 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
             disabled={guardando}
           />
 
-          {/* Fecha de vencimiento */}
-          <Entrada
-            etiqueta="Fecha de vencimiento *"
-            type="date"
-            value={fechaVencimiento}
-            onChange={(e) => setFechaVencimiento(e.target.value)}
-            required
-            disabled={guardando}
-          />
+          {/* Fecha de vencimiento: solo para crédito (el contado no vence) */}
+          {tipo === 'credito' && (
+            <Entrada
+              etiqueta="Fecha de vencimiento *"
+              type="date"
+              value={fechaVencimiento}
+              onChange={(e) => setFechaVencimiento(e.target.value)}
+              required
+              disabled={guardando}
+            />
+          )}
         </div>
 
         {error && <p className={styles.error}>{error}</p>}

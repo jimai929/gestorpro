@@ -1,24 +1,43 @@
 /**
- * Formulario inline para crear un proveedor nuevo.
- * Muestra nombre + identificación fiscal opcional.
- * Al crear con éxito, llama onCreado con el proveedor creado.
+ * Formulario de proveedor: sirve para ALTA y EDICIÓN.
+ *
+ * - Sin `proveedor` en props → modo alta (crea uno nuevo).
+ * - Con `proveedor` → modo edición (precarga sus datos y guarda los cambios).
+ *
+ * Campos: nombre (obligatorio), identificación fiscal (RUC), teléfono y persona
+ * de contacto (opcionales). La baja/alta lógica (`activo`) se gestiona aparte,
+ * con el botón de activar/desactivar de la lista.
  */
 
 import { useState, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
-import { crearProveedor } from './servicioCuentas';
+import { crearProveedor, editarProveedor } from './servicioCuentas';
 import type { Proveedor } from './tipos';
 import styles from './FormularioProveedor.module.css';
 
 interface PropiedadesFormulario {
-  onCreado: (proveedor: Proveedor) => void;
+  /** Si se pasa, el formulario edita ese proveedor; si no, crea uno nuevo. */
+  proveedor?: Proveedor;
+  onGuardado: (proveedor: Proveedor) => void;
   onCancelar: () => void;
 }
 
-export function FormularioProveedor({ onCreado, onCancelar }: PropiedadesFormulario) {
-  const [nombre, setNombre] = useState('');
-  const [identificacionFiscal, setIdentificacionFiscal] = useState('');
+/** Cadena vacía → null (para borrar un campo opcional); si no, el texto recortado. */
+function aNullable(valor: string): string | null {
+  const limpio = valor.trim();
+  return limpio === '' ? null : limpio;
+}
+
+export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: PropiedadesFormulario) {
+  const esEdicion = proveedor !== undefined;
+
+  const [nombre, setNombre] = useState(proveedor?.nombre ?? '');
+  const [identificacionFiscal, setIdentificacionFiscal] = useState(
+    proveedor?.identificacionFiscal ?? '',
+  );
+  const [telefono, setTelefono] = useState(proveedor?.telefono ?? '');
+  const [personaContacto, setPersonaContacto] = useState(proveedor?.personaContacto ?? '');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,15 +48,24 @@ export function FormularioProveedor({ onCreado, onCancelar }: PropiedadesFormula
     setGuardando(true);
     setError(null);
     try {
-      const proveedor = await crearProveedor({
-        nombre: nombre.trim(),
-        ...(identificacionFiscal.trim()
-          ? { identificacionFiscal: identificacionFiscal.trim() }
-          : {}),
-      });
-      onCreado(proveedor);
+      const resultado = esEdicion
+        ? await editarProveedor(proveedor.id, {
+            nombre: nombre.trim(),
+            identificacionFiscal: aNullable(identificacionFiscal),
+            telefono: aNullable(telefono),
+            personaContacto: aNullable(personaContacto),
+          })
+        : await crearProveedor({
+            nombre: nombre.trim(),
+            ...(identificacionFiscal.trim()
+              ? { identificacionFiscal: identificacionFiscal.trim() }
+              : {}),
+            ...(telefono.trim() ? { telefono: telefono.trim() } : {}),
+            ...(personaContacto.trim() ? { personaContacto: personaContacto.trim() } : {}),
+          });
+      onGuardado(resultado);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear el proveedor.');
+      setError(err instanceof Error ? err.message : 'Error al guardar el proveedor.');
     } finally {
       setGuardando(false);
     }
@@ -45,7 +73,7 @@ export function FormularioProveedor({ onCreado, onCancelar }: PropiedadesFormula
 
   return (
     <form onSubmit={(e) => { void manejarEnvio(e); }} className={styles.contenedor}>
-      <p className={styles.titulo}>Nuevo proveedor</p>
+      <p className={styles.titulo}>{esEdicion ? 'Editar proveedor' : 'Nuevo proveedor'}</p>
 
       {error && <p className={styles.error}>{error}</p>}
 
@@ -65,6 +93,20 @@ export function FormularioProveedor({ onCreado, onCancelar }: PropiedadesFormula
           placeholder="RUC / NIT (opcional)"
           disabled={guardando}
         />
+        <Entrada
+          etiqueta="Teléfono"
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          placeholder="Ej. 6000-0000 (opcional)"
+          disabled={guardando}
+        />
+        <Entrada
+          etiqueta="Persona de contacto"
+          value={personaContacto}
+          onChange={(e) => setPersonaContacto(e.target.value)}
+          placeholder="Nombre del contacto (opcional)"
+          disabled={guardando}
+        />
       </div>
 
       <div className={styles.acciones}>
@@ -77,7 +119,7 @@ export function FormularioProveedor({ onCreado, onCancelar }: PropiedadesFormula
           Cancelar
         </Boton>
         <Boton type="submit" cargando={guardando} disabled={!nombre.trim()}>
-          Crear proveedor
+          {esEdicion ? 'Guardar cambios' : 'Crear proveedor'}
         </Boton>
       </div>
     </form>

@@ -17,9 +17,14 @@ export interface Proveedor {
   id: string;
   nombre: string;
   identificacionFiscal: string | null;
+  telefono: string | null;
+  personaContacto: string | null;
   activo: boolean;
   creadoEn: string;
 }
+
+/** Forma de pago de una compra: contado (pagada en el acto) o crédito (deuda). */
+export type TipoCompra = 'contado' | 'credito';
 
 export interface Compra {
   id: string;
@@ -27,9 +32,11 @@ export interface Compra {
   sedeId: string;
   numeroFactura: string;
   montoTotal: number;
+  tipo: TipoCompra;
   fechaEmision: string;
-  fechaVencimiento: string;
-  proveedor: { nombre: string };
+  fechaVencimiento: string | null;
+  // Solo el listado (GET /compras) incluye la relación; el alta no la devuelve.
+  proveedor?: { nombre: string };
 }
 
 // ── Cuenta por pagar (vista derivada) ────────────────────────────────────
@@ -55,6 +62,17 @@ export interface CuentaPorPagar {
 export interface CuerpoCrearProveedor {
   nombre: string;
   identificacionFiscal?: string;
+  telefono?: string;
+  personaContacto?: string;
+}
+
+/** Edición parcial: cadena fija el valor, null lo borra, ausente lo deja igual. */
+export interface CuerpoEditarProveedor {
+  nombre?: string;
+  identificacionFiscal?: string | null;
+  telefono?: string | null;
+  personaContacto?: string | null;
+  activo?: boolean;
 }
 
 export interface CuerpoCrearCompra {
@@ -62,8 +80,9 @@ export interface CuerpoCrearCompra {
   sedeId: string;
   numeroFactura: string;
   montoTotal: number;
-  fechaEmision: string;       // YYYY-MM-DD
-  fechaVencimiento: string;   // YYYY-MM-DD
+  tipo: TipoCompra;
+  fechaEmision: string;        // YYYY-MM-DD
+  fechaVencimiento?: string;   // YYYY-MM-DD (solo crédito)
 }
 
 export interface CuerpoRegistrarPago {
