@@ -21,6 +21,10 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
 - Backend organizado en `core/` (transversal), `shared/` (lógica de negocio
   compartida) y las áreas `finanzas/` y `asistencia/`.
 - Un solo `schema.prisma` para toda la app.
+- **Dependencia `qrcode` (frontend, `^1.5.4`) — añadida 2026-05-30:** renderiza
+  el `qrToken` de cada empleado como imagen QR escaneable/imprimible en la
+  pantalla de empleados (con su carné). Única dependencia añadida fuera del
+  scaffolding inicial.
 - **Administración desde la app — añadido 2026-05-29:** las entidades de
   configuración se gestionan desde una sección **"Administración"** de la app.
   - **Sedes gestionables** (crear/editar). La baja es **lógica** (`activo`),
@@ -37,16 +41,8 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
     (sin engine ahora). Rotación de secretos por `POST` (`/empleados/:id/qr`,
     `/empleados/:id/pin`).
 
-## Convenciones de código
-
-- **Formularios reutilizables/embebibles: nunca un `<form>` anidado.** Un
-  `<form>` dentro de otro es HTML inválido; el navegador dispara un *submit*
-  nativo (recarga la página) en vez del handler de React, y la petición no se
-  envía. Los formularios de gestión (alta/edición) se construyen con `<div>` + un
-  botón `type="button"` con `onClick` que valida y llama al servicio — nunca con
-  `<form>`. Es el estándar del paquete de Administración (sedes, empleados,
-  cajas) y de cualquier formulario que pueda embeberse dentro de otro. (Origen:
-  bug del alta inline de proveedor, diagnosticado 2026-05-29.)
+> Las convenciones de **código y de proceso** (formularios, verificación por UI,
+> revisión adversarial) viven en `docs/CONVENCIONES.md`.
 
 ## Finanzas
 

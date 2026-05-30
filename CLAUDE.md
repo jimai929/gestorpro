@@ -26,6 +26,9 @@ Vite · JWT con refresh · Vitest + Testcontainers.
 - `docs/BRIEF_FASE_0.md`, `docs/BRIEF_BLOQUE_1.md`, `docs/BRIEF_BLOQUE_2.md`
   — el detalle de cada fase.
 - `docs/ESTRUCTURA_DE_CARPETAS.md` — dónde va cada archivo.
+- `docs/CONVENCIONES.md` — convenciones de código y de proceso (formularios,
+  verificación por UI, revisión adversarial).
+- `docs/BUGS_PREEXISTENTES.md` — bugs preexistentes destapados por verificables.
 
 Construir en el orden del plan: Fase 0 primero, luego 1 → 6. No saltarse
 fases.
