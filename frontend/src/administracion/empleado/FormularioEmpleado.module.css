@@ -60,6 +60,37 @@
   cursor: not-allowed;
 }
 
+/* ── Roles operativos (checkboxes) ── */
+.roles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rolesLista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.rolItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9375rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.rolItem input {
+  cursor: pointer;
+}
+
+.rolesVacio {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
 .acciones {
   display: flex;
   gap: 0.625rem;

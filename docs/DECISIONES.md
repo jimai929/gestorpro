@@ -40,13 +40,20 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
     referencia queda como campo preparado para el reconocimiento facial futuro
     (sin engine ahora). Rotación de secretos por `POST` (`/empleados/:id/qr`,
     `/empleados/:id/pin`).
-  - **`Caja`**: catálogo de cajas registradoras por sede (`core/caja` backend +
-    `administracion/caja` frontend). El `numero` es **reciclable**: un índice
-    único **PARCIAL** `uq_caja_sede_numero_activa` garantiza solo **una activa**
-    por `(sede, numero)`; las inactivas no cuentan, así que un número liberado
-    por una baja puede reutilizarse. Baja **lógica** (`activo`), nunca física.
-    El cierre de caja guardará el `numero` como **snapshot** (no FK), para que
-    renumerar o dar de baja una caja no altere el histórico.
+  - **Roles operativos — añadido 2026-06-01:** lo que un empleado *hace* en la
+    operación (cajera, verificador y, a futuro, vendedor, técnico…) son **roles
+    operativos**, NO una entidad aparte y NO lo mismo que `Usuario.rol` (que es
+    la autorización del sistema). Un empleado puede tener **varios a la vez**
+    (N:M: `RolOperativo` + join `EmpleadoRolOperativo`). El catálogo es
+    **extensible por seed** (`cajera`, `verificador` de base); baja lógica
+    (`activo`). `GET /empleados?rol=cajera` filtra por la **clave** del rol; la
+    asignación va por los endpoints de Empleado (solo admin).
+  - **Catálogo de cajas físicas — ELIMINADO 2026-06-01.** Se llegó a construir un
+    catálogo `Caja` por sede (parte (c)), pero el dominio se reencuadró: el cierre
+    se identifica por la **cajera** (empleado con rol operativo), no por un
+    registro físico. El modelo `Caja`, su módulo, rutas, pantalla y enlaces se
+    eliminaron con una **migración de DROP nueva** (sin editar el histórico ya
+    aplicado).
 
 > Las convenciones de **código y de proceso** (formularios, verificación por UI,
 > revisión adversarial) viven en `docs/CONVENCIONES.md`.
@@ -80,22 +87,27 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
   sin empleadoId, o categoría normal con empleadoId).
 - Dashboard: ganancia = ventas − compras − gastos. Compras por criterio
   **devengado** (fecha de emisión de la factura), no de caja.
-- **`VentaDiaria` (cierre de caja) — decisión revisada 2026-05-29:** la
-  operación es de 24 h con varias cajas y tres turnos, así que la unicidad pasa
-  de (sede, fecha) a **(sede, fecha, turno, caja)**: una caja cierra una vez por
-  turno. Sigue siendo un único cierre `normal` por esa llave, con índice único
-  parcial; los asientos de corrección quedan exentos. Cada cierre registra un
-  **arqueo de caja** con desglose por tipo (efectivo, tarjeta, Yappy, lotería)
-  en `DetalleCierre`. El **total del cierre = suma de los tipos** y **debe
-  cuadrar con el total que reporta Firestec**. La **lotería son premios pagados
-  que están en el cajón, NO un ingreso**; el arqueo existe para **cuadrar la
-  caja contra Firestec y detectar descuadres**, no para calcular ganancia por
+- **`VentaDiaria` (cierre de caja) — revisado 2026-05-29; cajera 2026-06-01:** la
+  operación es de 24 h con tres turnos. La unicidad es **(sede, fecha, turno,
+  cajera)**: una **cajera** cierra una vez por turno (campo `cajera`, antes
+  `caja`). Sigue siendo un único cierre `normal` por esa llave, con índice único
+  parcial `uq_venta_normal`; los asientos de corrección quedan exentos. Cada
+  cierre registra un **arqueo de caja** con desglose por tipo (efectivo, tarjeta,
+  Yappy, lotería) en `DetalleCierre`. El **total del cierre = suma de los tipos**
+  y **debe cuadrar con el total que reporta Firestec**. La **lotería son premios
+  pagados que están en el cajón, NO un ingreso**; el arqueo existe para **cuadrar
+  la caja contra Firestec y detectar descuadres**, no para calcular ganancia por
   tipo. La **ganancia del dashboard usa el total del cierre**, sin desglosar por
-  tipo; el dashboard filtra cierres por **caja y turno** para auditar
-  descuadres. `cerradoPor` es solo la **identificación** de quién hizo el cierre
-  (no es FK a `Empleado`: las horas trabajadas son de asistencia).
-  `horaApertura`/`horaCierre` son descriptivas, fuera de la llave. **No es un
-  POS:** nunca se guardan ventas individuales ni productos, solo el cierre.
+  tipo; el dashboard filtra cierres por **cajera y turno** para auditar
+  descuadres (filtro **case-insensitive**, tolera valores legacy de texto libre).
+  `cajera` (quién operó la caja, rol operativo Cajera) y `cerradoPor` (quién
+  verificó/cerró, rol operativo Verificador) son **snapshot string**
+  `"E001 - Nombre"`, **NO FK** a `Empleado`: el cierre es auditoría inmutable y
+  debe quedar legible aunque el empleado cambie. Si la cajera y el verificador
+  son la **misma persona**, se **permite con advertencia** (no se bloquea: en
+  negocios pequeños a veces coinciden). `horaApertura`/`horaCierre` son
+  descriptivas, fuera de la llave. **No es un POS:** nunca se guardan ventas
+  individuales ni productos, solo el cierre.
 
 ## Asistencia
 

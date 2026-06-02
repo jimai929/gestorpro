@@ -46,6 +46,9 @@ const SELECT_EMPLEADO = {
   turnoId: true,
   activo: true,
   fotoReferencia: true,
+  rolesOperativos: {
+    select: { rolOperativo: { select: { id: true, clave: true, nombre: true } } },
+  },
 } as const;
 
 interface EmpleadoFila {
@@ -57,6 +60,7 @@ interface EmpleadoFila {
   turnoId: string | null;
   activo: boolean;
   fotoReferencia: string | null;
+  rolesOperativos: Array<{ rolOperativo: { id: string; clave: string; nombre: string } }>;
 }
 
 /**
@@ -64,6 +68,7 @@ interface EmpleadoFila {
  * QR solo se devuelve por los endpoints de admin (`GET/POST /empleados/:id/qr`).
  * El dinero va como `number`. `tieneFoto` indica si hay foto de referencia
  * (preparada para el reconocimiento facial futuro), sin exponer su contenido.
+ * `roles` son los roles OPERATIVOS asignados (cajera, verificador, …).
  */
 function aEmpleadoDto(e: EmpleadoFila) {
   return {
@@ -75,6 +80,7 @@ function aEmpleadoDto(e: EmpleadoFila) {
     turnoId: e.turnoId,
     activo: e.activo,
     tieneFoto: e.fotoReferencia != null,
+    roles: e.rolesOperativos.map((r) => r.rolOperativo),
   };
 }
 
@@ -85,6 +91,8 @@ export interface DatosEmpleado {
   salarioFijo: number;
   turnoId?: string | null;
   pin: string;
+  /** IDs de los roles operativos a asignar (cajera, verificador, …). */
+  rolesOperativos?: string[];
 }
 
 /**
@@ -106,6 +114,9 @@ export async function crearEmpleado(datos: DatosEmpleado) {
         ...(datos.turnoId ? { turnoId: datos.turnoId } : {}),
         pinHash,
         qrToken,
+        ...(datos.rolesOperativos && datos.rolesOperativos.length > 0
+          ? { rolesOperativos: { create: datos.rolesOperativos.map((rolOperativoId) => ({ rolOperativoId })) } }
+          : {}),
       },
       select: SELECT_EMPLEADO,
     });
@@ -115,7 +126,7 @@ export async function crearEmpleado(datos: DatosEmpleado) {
       throw new ErrorConflicto('Ya existe un empleado con ese número.');
     }
     if (esErrorPrisma(error, 'P2003')) {
-      throw new ErrorValidacion('La sede o el turno indicados no existen.');
+      throw new ErrorValidacion('La sede, el turno o algún rol indicados no existen.');
     }
     throw error;
   }
@@ -128,9 +139,16 @@ export interface DatosEditarEmpleado {
   salarioFijo?: number;
   turnoId?: string | null;
   activo?: boolean;
+  /** Si se envía, REEMPLAZA el conjunto de roles operativos (lista vacía = sin
+   *  roles). Si es `undefined`, los roles no se tocan. */
+  rolesOperativos?: string[];
 }
 
-/** Edita un empleado (parcial) e incluye la baja/alta lógica (`activo`). */
+/**
+ * Edita un empleado (parcial) e incluye la baja/alta lógica (`activo`). Si llega
+ * `rolesOperativos`, reemplaza el conjunto de roles dentro de una transacción
+ * (borra los actuales y crea los nuevos), para que no quede un estado a medias.
+ */
 export async function editarEmpleado(id: string, datos: DatosEditarEmpleado) {
   const data = {
     ...(datos.numero !== undefined ? { numero: datos.numero } : {}),
@@ -141,7 +159,18 @@ export async function editarEmpleado(id: string, datos: DatosEditarEmpleado) {
     ...(datos.activo !== undefined ? { activo: datos.activo } : {}),
   };
   try {
-    const empleado = await prisma.empleado.update({ where: { id }, data, select: SELECT_EMPLEADO });
+    const empleado = await prisma.$transaction(async (tx) => {
+      await tx.empleado.update({ where: { id }, data });
+      if (datos.rolesOperativos !== undefined) {
+        await tx.empleadoRolOperativo.deleteMany({ where: { empleadoId: id } });
+        if (datos.rolesOperativos.length > 0) {
+          await tx.empleadoRolOperativo.createMany({
+            data: datos.rolesOperativos.map((rolOperativoId) => ({ empleadoId: id, rolOperativoId })),
+          });
+        }
+      }
+      return tx.empleado.findUniqueOrThrow({ where: { id }, select: SELECT_EMPLEADO });
+    });
     return aEmpleadoDto(empleado);
   } catch (error) {
     if (esErrorPrisma(error, 'P2025')) {
@@ -151,7 +180,7 @@ export async function editarEmpleado(id: string, datos: DatosEditarEmpleado) {
       throw new ErrorConflicto('Ya existe un empleado con ese número.');
     }
     if (esErrorPrisma(error, 'P2003')) {
-      throw new ErrorValidacion('La sede o el turno indicados no existen.');
+      throw new ErrorValidacion('La sede, el turno o algún rol indicados no existen.');
     }
     throw error;
   }
@@ -160,14 +189,22 @@ export async function editarEmpleado(id: string, datos: DatosEditarEmpleado) {
 /**
  * Lista empleados. Por defecto solo activos (para los selectores: cobro y el
  * cierre de caja); con `incluirInactivos`, todos (para la gestión). `sedeId`
- * filtra por sede (lo usa el selector de `cerradoPor` del cierre).
+ * filtra por sede; `rol` filtra por la CLAVE de un rol operativo (lo usan los
+ * selects de cajera/verificador del cierre: `?rol=cajera`, `?rol=verificador`).
  */
-export function listarEmpleados(filtros?: { incluirInactivos?: boolean; sedeId?: string }) {
+export function listarEmpleados(filtros?: {
+  incluirInactivos?: boolean;
+  sedeId?: string;
+  rol?: string;
+}) {
   return prisma.empleado
     .findMany({
       where: {
         ...(filtros?.incluirInactivos ? {} : { activo: true }),
         ...(filtros?.sedeId ? { sedeId: filtros.sedeId } : {}),
+        ...(filtros?.rol
+          ? { rolesOperativos: { some: { rolOperativo: { clave: filtros.rol, activo: true } } } }
+          : {}),
       },
       orderBy: { numero: 'asc' },
       select: SELECT_EMPLEADO,

@@ -168,7 +168,7 @@ describe('corrección de movimientos (Gasto)', () => {
 });
 
 describe('corrección de movimientos (VentaDiaria)', () => {
-  it('anulación pura crea un reverso sobre la misma caja/turno copiando el arqueo, sin violar el índice parcial', async () => {
+  it('anulación pura crea un reverso sobre la misma cajera/turno copiando el arqueo, sin violar el índice parcial', async () => {
     contador += 1;
     const sede = await prisma.sede.create({ data: { nombre: `SedeV ${contador}` } });
     const usuario = await prisma.usuario.create({
@@ -176,8 +176,8 @@ describe('corrección de movimientos (VentaDiaria)', () => {
     });
     const venta = await prisma.ventaDiaria.create({
       data: {
-        sedeId: sede.id, fechaOperacion: new Date('2026-03-10'), turno: 'manana', caja: '1',
-        cerradoPor: 'Cajero 1', monto: 1000, tipo: 'normal', usuarioId: usuario.id,
+        sedeId: sede.id, fechaOperacion: new Date('2026-03-10'), turno: 'manana', cajera: 'E001 - Cajero 1',
+        cerradoPor: 'E004 - Verificador 1', monto: 1000, tipo: 'normal', usuarioId: usuario.id,
         detalles: { create: [{ tipoArqueo: 'efectivo', monto: 600 }, { tipoArqueo: 'tarjeta', monto: 400 }] },
       },
     });
@@ -191,7 +191,7 @@ describe('corrección de movimientos (VentaDiaria)', () => {
     expect(original?.tipo).toBe('normal');
     expect(Number(original?.monto)).toBe(1000);
 
-    // El reverso comparte (sede, fecha, turno, caja) con el original: uq_venta_normal
+    // El reverso comparte (sede, fecha, turno, cajera) con el original: uq_venta_normal
     // no lo bloquea porque solo aplica a tipo = 'normal'. Y copia el arqueo, para
     // que el neto por tipo siga cuadrando.
     const reverso = await prisma.ventaDiaria.findUnique({

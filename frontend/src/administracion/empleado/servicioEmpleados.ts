@@ -3,21 +3,35 @@
  */
 
 import { api } from '../../core/api';
-import type { Empleado, EmpleadoCreado, CuerpoCrearEmpleado, CuerpoEditarEmpleado } from './tipos';
+import type {
+  Empleado,
+  EmpleadoCreado,
+  CuerpoCrearEmpleado,
+  CuerpoEditarEmpleado,
+  RolOperativo,
+} from './tipos';
 
 /**
  * Lista empleados. Por defecto solo activos; con `incluirInactivos`, todos.
- * `sedeId` filtra por sede. Nunca trae secretos (PIN/QR).
+ * `sedeId` filtra por sede; `rol` filtra por la clave de un rol operativo
+ * (`cajera`, `verificador`). Nunca trae secretos (PIN/QR).
  */
 export function obtenerEmpleados(opciones?: {
   incluirInactivos?: boolean;
   sedeId?: string;
+  rol?: string;
 }): Promise<Empleado[]> {
   const params = new URLSearchParams();
   if (opciones?.incluirInactivos) params.set('incluirInactivos', 'true');
   if (opciones?.sedeId) params.set('sedeId', opciones.sedeId);
+  if (opciones?.rol) params.set('rol', opciones.rol);
   const query = params.toString();
   return api.get<Empleado[]>(`/empleados${query ? `?${query}` : ''}`);
+}
+
+/** Lista los roles operativos activos del catálogo (para asignar a empleados). */
+export function obtenerRolesOperativos(): Promise<RolOperativo[]> {
+  return api.get<RolOperativo[]>('/roles-operativos');
 }
 
 /** Alta. Devuelve el empleado + su qrToken (una vez, para imprimir el QR). Solo admin. */

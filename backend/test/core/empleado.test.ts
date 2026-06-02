@@ -24,6 +24,11 @@ function datos(sedeId: string, extra: Record<string, unknown> = {}) {
   return { numero: `E-${i}`, nombre: `Empleado ${i}`, sedeId, salarioFijo: 1000, pin: '5293', ...extra };
 }
 
+/** Crea (o reutiliza) un rol operativo por su clave. */
+async function rolOp(clave: string, nombre: string) {
+  return prisma.rolOperativo.upsert({ where: { clave }, update: {}, create: { clave, nombre } });
+}
+
 describe('gestión de empleados', () => {
   it('alta: el PIN queda hasheado, el QR se genera y el empleado nace activo', async () => {
     const sede = await nuevaSede();
@@ -130,5 +135,43 @@ describe('gestión de empleados', () => {
     expect(deA.length).toBeGreaterThan(0);
     expect(deA.every((e) => e.sedeId === sedeA.id)).toBe(true);
     expect(deA.some((e) => e.sedeId === sedeB.id)).toBe(false);
+  });
+
+  it('asigna VARIOS roles operativos a un empleado y el DTO los devuelve', async () => {
+    const sede = await nuevaSede();
+    const cajera = await rolOp('cajera', 'Cajera');
+    const verificador = await rolOp('verificador', 'Verificador');
+    const emp = await crearEmpleado(datos(sede.id, { rolesOperativos: [cajera.id, verificador.id] }));
+    expect(emp.roles.map((r) => r.clave).sort()).toEqual(['cajera', 'verificador']);
+  });
+
+  it('lista empleados por rol operativo: ?rol=cajera y ?rol=verificador', async () => {
+    const sede = await nuevaSede();
+    const cajera = await rolOp('cajera', 'Cajera');
+    const verificador = await rolOp('verificador', 'Verificador');
+    const soloCajera = await crearEmpleado(datos(sede.id, { rolesOperativos: [cajera.id] }));
+    const soloVerif = await crearEmpleado(datos(sede.id, { rolesOperativos: [verificador.id] }));
+    const ambos = await crearEmpleado(datos(sede.id, { rolesOperativos: [cajera.id, verificador.id] }));
+
+    const idsCajera = (await listarEmpleados({ rol: 'cajera' })).map((e) => e.id);
+    expect(idsCajera).toEqual(expect.arrayContaining([soloCajera.id, ambos.id]));
+    expect(idsCajera).not.toContain(soloVerif.id);
+
+    const idsVerif = (await listarEmpleados({ rol: 'verificador' })).map((e) => e.id);
+    expect(idsVerif).toEqual(expect.arrayContaining([soloVerif.id, ambos.id]));
+    expect(idsVerif).not.toContain(soloCajera.id);
+  });
+
+  it('editar REEMPLAZA el conjunto de roles (lista vacía = sin roles)', async () => {
+    const sede = await nuevaSede();
+    const cajera = await rolOp('cajera', 'Cajera');
+    const verificador = await rolOp('verificador', 'Verificador');
+    const emp = await crearEmpleado(datos(sede.id, { rolesOperativos: [cajera.id] }));
+
+    const aVerif = await editarEmpleado(emp.id, { rolesOperativos: [verificador.id] });
+    expect(aVerif.roles.map((r) => r.clave)).toEqual(['verificador']);
+
+    const sinRoles = await editarEmpleado(emp.id, { rolesOperativos: [] });
+    expect(sinRoles.roles).toEqual([]);
   });
 });

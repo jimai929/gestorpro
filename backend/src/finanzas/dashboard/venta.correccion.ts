@@ -11,7 +11,7 @@ interface VentaMovimiento extends MovimientoBase {
   sedeId: string;
   fechaOperacion: Date;
   turno: 'manana' | 'tarde' | 'noche';
-  caja: string;
+  cajera: string;
   cerradoPor: string;
   horaApertura: string | null;
   horaCierre: string | null;
@@ -25,7 +25,7 @@ function redondear(n: number): number {
 
 /**
  * Adaptador de corrección para el cierre de caja. Los asientos de reverso y
- * corrección llevan la misma (sede, fecha, turno, caja) que el original: no
+ * corrección llevan la misma (sede, fecha, turno, cajera) que el original: no
  * chocan con `uq_venta_normal` porque éste solo aplica a `tipo = 'normal'`. El
  * reverso copia el arqueo del original; la corrección lleva el arqueo corregido
  * (no un único monto), para que el neto por tipo y el total sigan cuadrando.
@@ -42,7 +42,7 @@ export const adaptadorVenta: AdaptadorCorreccion<VentaMovimiento> = {
         sedeId: true,
         fechaOperacion: true,
         turno: true,
-        caja: true,
+        cajera: true,
         cerradoPor: true,
         horaApertura: true,
         horaCierre: true,
@@ -62,7 +62,7 @@ export const adaptadorVenta: AdaptadorCorreccion<VentaMovimiento> = {
         sedeId: original.sedeId,
         fechaOperacion: original.fechaOperacion,
         turno: original.turno,
-        caja: original.caja,
+        cajera: original.cajera,
         cerradoPor: original.cerradoPor,
         horaApertura: original.horaApertura,
         horaCierre: original.horaCierre,
@@ -97,7 +97,7 @@ export const adaptadorVenta: AdaptadorCorreccion<VentaMovimiento> = {
         sedeId: original.sedeId,
         fechaOperacion: original.fechaOperacion,
         turno: original.turno,
-        caja: original.caja,
+        cajera: original.cajera,
         cerradoPor: original.cerradoPor,
         horaApertura: original.horaApertura,
         horaCierre: original.horaCierre,

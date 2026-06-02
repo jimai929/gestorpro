@@ -144,6 +144,27 @@
   border: 1px solid #d1d5db;
 }
 
+/* ── Chips de roles operativos ── */
+
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.55rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1a56db;
+  border: 1px solid #bfdbfe;
+  white-space: nowrap;
+}
+
 /* ── Acciones de fila ── */
 
 .colAccion {

@@ -1,1 +1,0 @@
-export { PantallaCajas } from './PantallaCajas';

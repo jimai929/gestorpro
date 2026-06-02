@@ -54,13 +54,22 @@ export interface VentaDiaria {
   sedeId: string;
   fechaOperacion: string;   // YYYY-MM-DD
   turno: TurnoVenta;
-  caja: string;
-  cerradoPor: string;
+  cajera: string;           // snapshot "E001 - Nombre" (o legacy texto libre)
+  cerradoPor: string;       // snapshot del verificador
   horaApertura: string | null;
   horaCierre: string | null;
   monto: number;            // total del arqueo (cuadra con Firestec)
   tipo: string;
   detalles: LineaArqueo[];
+}
+
+/** Empleado para los selects de cajera/verificador del cierre. */
+export interface EmpleadoCierre {
+  id: string;
+  numero: string;
+  nombre: string;
+  sedeId: string;
+  roles: { id: string; clave: string; nombre: string }[];
 }
 
 // ── Cuerpo de petición ────────────────────────────────────────────────────
@@ -69,8 +78,8 @@ export interface CuerpoRegistrarVenta {
   sedeId: string;
   fechaOperacion: string;   // YYYY-MM-DD
   turno: TurnoVenta;
-  caja: string;
-  cerradoPor: string;
+  cajera: string;           // snapshot "E001 - Nombre"
+  cerradoPor: string;       // snapshot del verificador
   horaApertura?: string;    // "HH:MM"
   horaCierre?: string;      // "HH:MM"
   detalles: LineaArqueo[];
@@ -82,7 +91,7 @@ export interface FiltrosDashboard {
   desde: string;            // YYYY-MM-DD
   hasta: string;            // YYYY-MM-DD
   sedeId?: string;
-  caja?: string;
+  cajera?: string;
   turno?: TurnoVenta;
 }
 

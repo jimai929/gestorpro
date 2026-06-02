@@ -29,6 +29,7 @@ import {
   obtenerGanancia,
   obtenerGastosPorCategoria,
   obtenerVentas,
+  obtenerCajeras,
 } from './servicioDashboard';
 import { formatearDinero, formatearFecha, primerDiaDelMes, fechaHoy } from './utilidades';
 import { TURNOS, TIPOS_ARQUEO } from './tipos';
@@ -46,10 +47,11 @@ const ETIQUETA_ARQUEO: Record<string, string> = Object.fromEntries(
 export function PantallaDashboard() {
   // Filtros
   const [sedes, setSedes] = useState<Sede[]>([]);
+  const [cajeras, setCajeras] = useState<string[]>([]);
   const [desde, setDesde] = useState(primerDiaDelMes());
   const [hasta, setHasta] = useState(fechaHoy());
   const [sedeId, setSedeId] = useState('');
-  const [caja, setCaja] = useState('');
+  const [cajera, setCajera] = useState('');
   const [turno, setTurno] = useState<TurnoVenta | ''>('');
 
   // Datos del dashboard
@@ -70,12 +72,17 @@ export function PantallaDashboard() {
   const [avisoExito, setAvisoExito] = useState<string | null>(null);
   const [idResaltado, setIdResaltado] = useState<string | null>(null);
 
-  // Cargar sedes al montar
+  // Cargar sedes y valores de cajera (para los filtros) al montar.
   useEffect(() => {
     void obtenerSedes()
       .then(setSedes)
       .catch(() => {
         // Las sedes son opcionales para el filtro; no bloqueamos si fallan
+      });
+    void obtenerCajeras()
+      .then(setCajeras)
+      .catch(() => {
+        // El filtro de cajera es opcional; no bloqueamos si falla
       });
   }, []);
 
@@ -89,7 +96,7 @@ export function PantallaDashboard() {
         desde,
         hasta,
         ...(sedeId ? { sedeId } : {}),
-        ...(caja ? { caja } : {}),
+        ...(cajera ? { cajera } : {}),
         ...(turno ? { turno } : {}),
       };
       const [resumenData, categoriasData] = await Promise.all([
@@ -105,7 +112,7 @@ export function PantallaDashboard() {
     } finally {
       setCargandoDashboard(false);
     }
-  }, [desde, hasta, sedeId, caja, turno]);
+  }, [desde, hasta, sedeId, cajera, turno]);
 
   /** Carga la lista de ventas diarias del período. */
   const cargarVentas = useCallback(async () => {
@@ -117,7 +124,7 @@ export function PantallaDashboard() {
         desde,
         hasta,
         ...(sedeId ? { sedeId } : {}),
-        ...(caja ? { caja } : {}),
+        ...(cajera ? { cajera } : {}),
         ...(turno ? { turno } : {}),
       };
       const lista = await obtenerVentas(filtros);
@@ -129,7 +136,7 @@ export function PantallaDashboard() {
     } finally {
       setCargandoVentas(false);
     }
-  }, [desde, hasta, sedeId, caja, turno]);
+  }, [desde, hasta, sedeId, cajera, turno]);
 
   // Cargar al montar y cuando cambian los filtros
   useEffect(() => {
@@ -317,18 +324,22 @@ export function PantallaDashboard() {
           </div>
 
           <div className={styles.grupoFiltro}>
-            <label className={styles.etiquetaFiltro} htmlFor="filtro-caja">
-              Caja
+            <label className={styles.etiquetaFiltro} htmlFor="filtro-cajera">
+              Cajera
             </label>
-            <input
-              id="filtro-caja"
-              type="text"
+            <select
+              id="filtro-cajera"
               className={styles.inputFiltro}
-              value={caja}
-              onChange={(e) => setCaja(e.target.value)}
-              placeholder="Todas"
-              maxLength={20}
-            />
+              value={cajera}
+              onChange={(e) => setCajera(e.target.value)}
+            >
+              <option value="">Todas las cajeras</option>
+              {cajeras.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
 
           <Boton
@@ -359,10 +370,10 @@ export function PantallaDashboard() {
 
         {!errorDashboard && !cargandoDashboard && resumen && (
           <>
-            {(caja || turno) && (
+            {(cajera || turno) && (
               <p className={styles.notaFiltroVentas}>
-                El filtro de caja/turno acota solo las <strong>Ventas</strong>; las compras y los
-                gastos no tienen caja y se muestran de toda la sede del período.
+                El filtro de cajera/turno acota solo las <strong>Ventas</strong>; las compras y los
+                gastos no tienen cajera y se muestran de toda la sede del período.
               </p>
             )}
             <div className={styles.cuadriculaTarjetas}>
@@ -488,7 +499,7 @@ export function PantallaDashboard() {
                   <th>Fecha</th>
                   <th>Sede</th>
                   <th>Turno</th>
-                  <th>Caja</th>
+                  <th>Cajera</th>
                   <th>Cerrado por</th>
                   <th>Total / arqueo</th>
                   <th>Tipo</th>
@@ -505,7 +516,7 @@ export function PantallaDashboard() {
                       {sedes.find((s) => s.id === venta.sedeId)?.nombre ?? venta.sedeId}
                     </td>
                     <td>{ETIQUETA_TURNO[venta.turno] ?? venta.turno}</td>
-                    <td>{venta.caja}</td>
+                    <td>{venta.cajera}</td>
                     <td>{venta.cerradoPor}</td>
                     <td>
                       <div className={styles.celdaTotal}>

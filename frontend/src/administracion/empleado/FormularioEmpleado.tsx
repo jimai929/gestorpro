@@ -15,8 +15,8 @@ import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { obtenerSedes } from '../sedes/servicioSedes';
 import type { Sede } from '../sedes/tipos';
-import { crearEmpleado, editarEmpleado } from './servicioEmpleados';
-import type { Empleado, EmpleadoCreado } from './tipos';
+import { crearEmpleado, editarEmpleado, obtenerRolesOperativos } from './servicioEmpleados';
+import type { Empleado, EmpleadoCreado, RolOperativo } from './tipos';
 import styles from './FormularioEmpleado.module.css';
 
 interface PropiedadesFormulario {
@@ -29,11 +29,14 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
   const esEdicion = empleado !== undefined;
 
   const [sedes, setSedes] = useState<Sede[]>([]);
+  const [roles, setRoles] = useState<RolOperativo[]>([]);
   const [numero, setNumero] = useState(empleado?.numero ?? '');
   const [nombre, setNombre] = useState(empleado?.nombre ?? '');
   const [sedeId, setSedeId] = useState(empleado?.sedeId ?? '');
   const [salario, setSalario] = useState(empleado ? String(empleado.salarioFijo) : '');
   const [pin, setPin] = useState('');
+  // IDs de roles operativos seleccionados (en edición arrancan con los actuales).
+  const [rolesIds, setRolesIds] = useState<string[]>(empleado?.roles.map((r) => r.id) ?? []);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +44,16 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
     void obtenerSedes()
       .then(setSedes)
       .catch(() => setError('No se pudieron cargar las sedes.'));
+    void obtenerRolesOperativos()
+      .then(setRoles)
+      .catch(() => setError('No se pudieron cargar los roles operativos.'));
   }, []);
+
+  const alternarRol = (id: string) => {
+    setRolesIds((previo) =>
+      previo.includes(id) ? previo.filter((r) => r !== id) : [...previo, id],
+    );
+  };
 
   const guardar = async () => {
     setError(null);
@@ -68,6 +80,7 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
             nombre: nombre.trim(),
             sedeId,
             salarioFijo: salarioNum,
+            rolesOperativos: rolesIds,
           })
         : await crearEmpleado({
             numero: numero.trim(),
@@ -75,6 +88,7 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
             sedeId,
             salarioFijo: salarioNum,
             pin,
+            rolesOperativos: rolesIds,
           });
       onGuardado(resultado);
     } catch (err) {
@@ -156,6 +170,28 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
             disabled
             readOnly
           />
+        </div>
+      </div>
+
+      {/* Roles operativos (cajera, verificador, …). Un empleado puede tener varios. */}
+      <div className={styles.roles}>
+        <span className={styles.etiqueta}>Roles operativos</span>
+        <div className={styles.rolesLista}>
+          {roles.length === 0 ? (
+            <span className={styles.rolesVacio}>No hay roles operativos disponibles.</span>
+          ) : (
+            roles.map((rol) => (
+              <label key={rol.id} className={styles.rolItem}>
+                <input
+                  type="checkbox"
+                  checked={rolesIds.includes(rol.id)}
+                  onChange={() => alternarRol(rol.id)}
+                  disabled={guardando}
+                />
+                {rol.nombre}
+              </label>
+            ))
+          )}
         </div>
       </div>
 

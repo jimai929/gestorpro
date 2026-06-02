@@ -46,30 +46,8 @@ model Sede {
   empleados Empleado[]
   kioscos   Kiosco[]
   turnos    Turno[]
-  cajas     Caja[]
 
   @@map("sede")
-}
-
-/// Caja registradora de una sede (punto de cobro). Catálogo GESTIONABLE por el
-/// admin desde Administración. El cierre elige una; su `numero` queda como
-/// snapshot en `VentaDiaria.caja` (NO es FK: el cierre es auditoría inmutable).
-/// El número se RECICLA: solo puede haber UNA caja `activa` por (sede, numero),
-/// garantizado por el índice único PARCIAL `uq_caja_sede_numero_activa` (SQL
-/// manual en la migración — Prisma no soporta unique parcial declarativo; igual
-/// que `uq_venta_normal`). Las inactivas no cuentan, así que un número liberado
-/// por una baja se puede reusar. La baja es lógica (`activo`).
-model Caja {
-  id       String   @id @default(uuid()) @db.Uuid
-  sedeId   String   @map("sede_id") @db.Uuid
-  sede     Sede     @relation(fields: [sedeId], references: [id])
-  numero   String   @db.VarChar(20)
-  nombre   String
-  activo   Boolean  @default(true)
-  creadoEn DateTime @default(now()) @map("creado_en")
-
-  @@index([sedeId])
-  @@map("caja")
 }
 
 /// Cuenta de acceso al sistema. La crea un administrador (no hay registro
@@ -269,19 +247,20 @@ enum TipoArqueo {
 
 /// Cierre de caja de un turno (dato tecleado desde Firestec). MOVIMIENTO DE
 /// DINERO INMUTABLE: se corrige con reverso + corrección. Solo puede existir UN
-/// cierre `normal` por (sede, fecha, turno, caja): lo garantiza el índice único
+/// cierre `normal` por (sede, fecha, turno, cajera): lo garantiza el índice único
 /// parcial `uq_venta_normal` (en SQL manual), que exenta los asientos de
 /// corrección. El `monto` es el TOTAL del arqueo (= suma de `detalles`) y debe
-/// cuadrar con el total que reporta Firestec. `cerradoPor` es solo la
-/// identificación de quién hizo el cierre (NO es FK a Empleado: las horas
-/// trabajadas son de asistencia). `horaApertura`/`horaCierre` son descriptivas.
+/// cuadrar con el total que reporta Firestec. `cajera` (quién operó la caja) y
+/// `cerradoPor` (quién verificó/cerró) son SNAPSHOT string `"E001 - Nombre"`, NO
+/// FK a Empleado: el cierre es auditoría inmutable y debe quedar legible aunque
+/// el empleado cambie. `horaApertura`/`horaCierre` son descriptivas.
 model VentaDiaria {
   id             String          @id @default(uuid()) @db.Uuid
   sedeId         String          @map("sede_id") @db.Uuid
   sede           Sede            @relation(fields: [sedeId], references: [id])
   fechaOperacion DateTime        @map("fecha_operacion") @db.Date
   turno          TurnoVenta
-  caja           String          @db.VarChar(20)
+  cajera         String          @db.VarChar(120)
   cerradoPor     String          @map("cerrado_por")
   horaApertura   String?         @map("hora_apertura")
   horaCierre     String?         @map("hora_cierre")
@@ -354,8 +333,41 @@ model Empleado {
   jornadas        Jornada[]
   saldoHorasExtra SaldoHorasExtra?
   solicitudes     SolicitudCobro[]
+  rolesOperativos EmpleadoRolOperativo[]
 
   @@map("empleado")
+}
+
+/// Rol OPERATIVO de un empleado: qué hace en la operación (cajera, verificador y,
+/// a futuro, vendedor, técnico, supervisor…). Es DISTINTO de `Usuario.rol`, que
+/// es la autorización del sistema. Catálogo EXTENSIBLE (se siembran roles nuevos
+/// sin tocar el modelo); la baja es lógica (`activo`). Un empleado puede tener
+/// varios a la vez (N:M vía `EmpleadoRolOperativo`).
+model RolOperativo {
+  id       String   @id @default(uuid()) @db.Uuid
+  clave    String   @unique // llave estable de máquina: 'cajera', 'verificador'
+  nombre   String // etiqueta para mostrar
+  activo   Boolean  @default(true)
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  empleados EmpleadoRolOperativo[]
+
+  @@map("rol_operativo")
+}
+
+/// Asignación N:M entre Empleado y RolOperativo (una persona puede ser cajera Y
+/// verificador). Join EXPLÍCITO para poder anexar metadatos a futuro. La baja de
+/// un empleado o de un rol arrastra sus asignaciones (onDelete: Cascade).
+model EmpleadoRolOperativo {
+  empleadoId     String       @map("empleado_id") @db.Uuid
+  empleado       Empleado     @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  rolOperativoId String       @map("rol_operativo_id") @db.Uuid
+  rolOperativo   RolOperativo @relation(fields: [rolOperativoId], references: [id], onDelete: Cascade)
+  asignadoEn     DateTime     @default(now()) @map("asignado_en")
+
+  @@id([empleadoId, rolOperativoId])
+  @@index([rolOperativoId])
+  @@map("empleado_rol_operativo")
 }
 
 /// Kiosco (tablet/PC) de fichaje, pertenece a una sede.

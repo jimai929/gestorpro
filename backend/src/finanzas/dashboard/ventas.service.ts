@@ -14,6 +14,17 @@ function redondear(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Escapa los comodines de LIKE (`\ % _`) en un valor. El filtro case-insensitive
+ * de Prisma (`mode: 'insensitive'`) se traduce a `ILIKE` en PostgreSQL, donde
+ * `%` y `_` son comodines: sin escapar, un valor legacy como `caja_1` haría
+ * match con filas ajenas. Escapado, `ILIKE` lo trata como literal exacto (solo
+ * insensible a mayúsculas). Se exporta para reusarlo en el dashboard.
+ */
+export function escaparComodinesLike(valor: string): string {
+  return valor.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 /** Un tipo del arqueo de caja. */
 export type TipoArqueo = 'efectivo' | 'tarjeta' | 'yappy' | 'loteria';
 
@@ -63,7 +74,7 @@ export interface DatosVenta {
   sedeId: string;
   fechaOperacion: string;
   turno: 'manana' | 'tarde' | 'noche';
-  caja: string;
+  cajera: string;
   cerradoPor: string;
   horaApertura?: string;
   horaCierre?: string;
@@ -74,7 +85,8 @@ export interface DatosVenta {
 /**
  * Registra el cierre de caja de un turno (movimiento `normal`) con su arqueo.
  * El `monto` total es la suma de las líneas del arqueo y debe cuadrar con
- * Firestec. Un segundo cierre normal para la misma (sede, fecha, turno, caja) se
+ * Firestec. `cajera` y `cerradoPor` son snapshot string (`"E001 - Nombre"`), no
+ * FK. Un segundo cierre normal para la misma (sede, fecha, turno, cajera) se
  * rechaza con 409: lo impide el índice único parcial `uq_venta_normal`, cuyo
  * P2002 se traduce aquí.
  */
@@ -91,7 +103,7 @@ export async function registrarVenta(datos: DatosVenta) {
         sedeId: datos.sedeId,
         fechaOperacion: new Date(datos.fechaOperacion),
         turno: datos.turno,
-        caja: datos.caja,
+        cajera: datos.cajera,
         cerradoPor: datos.cerradoPor,
         ...(datos.horaApertura ? { horaApertura: datos.horaApertura } : {}),
         ...(datos.horaCierre ? { horaCierre: datos.horaCierre } : {}),
@@ -108,7 +120,7 @@ export async function registrarVenta(datos: DatosVenta) {
   } catch (error) {
     if (esErrorPrisma(error, 'P2002')) {
       throw new ErrorConflicto(
-        'Ya existe el cierre de esa caja y turno para la fecha; use una corrección para ajustarlo.',
+        'Ya existe el cierre de esa cajera y turno para la fecha; use una corrección para ajustarlo.',
       );
     }
     if (esErrorPrisma(error, 'P2003')) {
@@ -122,14 +134,19 @@ export async function listarVentas(filtros: {
   desde?: string;
   hasta?: string;
   sedeId?: string;
-  caja?: string;
+  cajera?: string;
   turno?: string;
 }) {
   const ventas = await prisma.ventaDiaria.findMany({
     where: {
       tipo: 'normal',
       ...(filtros.sedeId ? { sedeId: filtros.sedeId } : {}),
-      ...(filtros.caja ? { caja: filtros.caja } : {}),
+      // Filtro de cajera CASE-INSENSITIVE: tolera el texto libre legacy
+      // ('yoany', '9 yon') tecleado antes del catálogo de roles. Se escapan los
+      // comodines de LIKE para que ILIKE haga match EXACTO (insensible a caso).
+      ...(filtros.cajera
+        ? { cajera: { equals: escaparComodinesLike(filtros.cajera), mode: 'insensitive' } }
+        : {}),
       ...(filtros.turno ? { turno: filtros.turno as 'manana' | 'tarde' | 'noche' } : {}),
       ...(filtros.desde || filtros.hasta
         ? {
@@ -140,8 +157,22 @@ export async function listarVentas(filtros: {
           }
         : {}),
     },
-    orderBy: [{ fechaOperacion: 'desc' }, { turno: 'asc' }, { caja: 'asc' }],
+    orderBy: [{ fechaOperacion: 'desc' }, { turno: 'asc' }, { cajera: 'asc' }],
     include: { detalles: true },
   });
   return ventas.map(aVentaDto);
+}
+
+/**
+ * Valores DISTINTOS de `cajera` presentes en los cierres, para poblar el filtro
+ * del dashboard. Incluye los valores legacy/texto libre ('yoany', '9 yon', '1',
+ * '2') que se limpiarán en una fase posterior. Ordenados alfabéticamente.
+ */
+export async function listarCajeras(): Promise<string[]> {
+  const filas = await prisma.ventaDiaria.findMany({
+    distinct: ['cajera'],
+    select: { cajera: true },
+    orderBy: { cajera: 'asc' },
+  });
+  return filas.map((f) => f.cajera);
 }

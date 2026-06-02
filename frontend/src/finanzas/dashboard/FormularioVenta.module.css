@@ -148,10 +148,32 @@
   line-height: 1.45;
 }
 
+/* Advertencia (no bloquea): misma persona como cajera y verificador. Tono
+   ámbar más suave que el conflicto. */
+.avisoAdvertencia {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: #fff7ed;
+  border: 1.5px solid #fdba74;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #9a3412;
+  line-height: 1.45;
+}
+
 .iconoAviso {
   flex-shrink: 0;
   font-size: 1rem;
   margin-top: 0.05rem;
+}
+
+/* Ayuda contextual bajo un campo (p. ej. sede sin cajeras). */
+.ayudaCampo {
+  font-size: 0.75rem;
+  color: #b45309;
 }
 
 /* ── Acciones ── */

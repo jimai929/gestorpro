@@ -1,11 +1,12 @@
 import { prisma } from '../../core/prisma.js';
+import { escaparComodinesLike } from './ventas.service.js';
 
 export interface RangoFiltro {
   desde: string;
   hasta: string;
   sedeId?: string;
-  /** Filtros de cierre (solo acotan las ventas; compras/gastos no tienen caja/turno). */
-  caja?: string;
+  /** Filtros de cierre (solo acotan las ventas; compras/gastos no tienen cajera/turno). */
+  cajera?: string;
   turno?: string;
 }
 
@@ -22,16 +23,20 @@ function redondear(n: number): number {
  *  - Compras por criterio DEVENGADO (fecha de emisión), monto total de la factura.
  *  - Ventas y gastos se toman netos: un `reverso` resta; `normal`/`correccion` suman.
  *  - Las ventas usan el TOTAL del cierre (que cuadra con Firestec), sin
- *    desglosar por tipo de arqueo. `caja`/`turno` acotan SOLO las ventas; las
+ *    desglosar por tipo de arqueo. `cajera`/`turno` acotan SOLO las ventas; las
  *    compras y gastos no tienen esa dimensión y quedan a nivel sede/período.
  */
 export async function gananciaDelPeriodo(filtros: RangoFiltro) {
-  const { desde, hasta, sedeId, caja, turno } = filtros;
+  const { desde, hasta, sedeId, cajera, turno } = filtros;
   const sede = sedeId ? { sedeId } : {};
   const enRango = { gte: new Date(desde), lte: new Date(hasta) };
   const filtroCierre = {
     ...sede,
-    ...(caja ? { caja } : {}),
+    // Cajera CASE-INSENSITIVE: tolera el texto libre legacy en cierres viejos.
+    // Se escapan los comodines de LIKE (ILIKE) para un match exacto insensible.
+    ...(cajera
+      ? { cajera: { equals: escaparComodinesLike(cajera), mode: 'insensitive' as const } }
+      : {}),
     ...(turno ? { turno: turno as 'manana' | 'tarde' | 'noche' } : {}),
   };
 

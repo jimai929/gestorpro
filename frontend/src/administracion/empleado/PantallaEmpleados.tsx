@@ -194,7 +194,6 @@ export function PantallaEmpleados() {
         <nav className={styles.navAdmin} aria-label="Administración">
           <NavLink to="/sedes" className={claseNav}>Sedes</NavLink>
           <NavLink to="/empleados" className={claseNav}>Empleados</NavLink>
-          <NavLink to="/cajas" className={claseNav}>Cajas</NavLink>
         </nav>
 
         <div className={styles.encabezado}>
@@ -244,6 +243,7 @@ export function PantallaEmpleados() {
                   <th>Número</th>
                   <th>Nombre</th>
                   <th>Sede</th>
+                  <th>Roles</th>
                   <th>Salario</th>
                   <th>Estado</th>
                   <th className={styles.colAccion}></th>
@@ -255,6 +255,17 @@ export function PantallaEmpleados() {
                     <td>{emp.numero}</td>
                     <td>{emp.nombre}</td>
                     <td className={styles.tenue}>{sedes[emp.sedeId] ?? emp.sedeId}</td>
+                    <td>
+                      {emp.roles.length === 0 ? (
+                        <span className={styles.tenue}>—</span>
+                      ) : (
+                        <span className={styles.chips}>
+                          {emp.roles.map((r) => (
+                            <span key={r.id} className={styles.chip}>{r.nombre}</span>
+                          ))}
+                        </span>
+                      )}
+                    </td>
                     <td className={styles.tenue}>B/. {emp.salarioFijo.toFixed(2)}</td>
                     <td>
                       <span className={emp.activo ? styles.badgeActivo : styles.badgeInactivo}>

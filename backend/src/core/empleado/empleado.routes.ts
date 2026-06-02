@@ -9,6 +9,15 @@ import {
   resetearPin,
 } from './empleado.service.js';
 
+// Roles operativos: lista de IDs (uuid) de RolOperativo a asignar. `uniqueItems`
+// evita IDs repetidos que violarían la PK compuesta del join (P2002 con mensaje
+// engañoso de "número duplicado").
+const esquemaRoles = {
+  type: 'array',
+  uniqueItems: true,
+  items: { type: 'string', minLength: 1 },
+} as const;
+
 const esquemaEmpleado = {
   body: {
     type: 'object',
@@ -22,6 +31,7 @@ const esquemaEmpleado = {
       turnoId: { type: ['string', 'null'] },
       // El PIN se valida en el servicio (4 dígitos, anti-trivial).
       pin: { type: 'string' },
+      rolesOperativos: esquemaRoles,
     },
   },
 } as const;
@@ -37,6 +47,7 @@ const esquemaEditarEmpleado = {
       salarioFijo: { type: 'number', minimum: 0 },
       turnoId: { type: ['string', 'null'] },
       activo: { type: 'boolean' },
+      rolesOperativos: esquemaRoles,
     },
   },
 } as const;
@@ -57,6 +68,7 @@ interface CuerpoEmpleado {
   salarioFijo: number;
   turnoId?: string | null;
   pin: string;
+  rolesOperativos?: string[];
 }
 
 interface CuerpoEditarEmpleado {
@@ -66,6 +78,7 @@ interface CuerpoEditarEmpleado {
   salarioFijo?: number;
   turnoId?: string | null;
   activo?: boolean;
+  rolesOperativos?: string[];
 }
 
 /**
@@ -81,14 +94,18 @@ export async function empleadoRoutes(app: FastifyInstance): Promise<void> {
   };
   const autenticado = { preHandler: [app.autenticar] };
 
-  app.get<{ Querystring: { incluirInactivos?: string; sedeId?: string } }>(
+  app.get<{ Querystring: { incluirInactivos?: string; sedeId?: string; rol?: string } }>(
     '/empleados',
     autenticado,
     async (request, reply) => {
       try {
         const incluirInactivos = request.query.incluirInactivos === 'true';
         return await reply.send(
-          await listarEmpleados({ incluirInactivos, sedeId: request.query.sedeId }),
+          await listarEmpleados({
+            incluirInactivos,
+            sedeId: request.query.sedeId,
+            rol: request.query.rol,
+          }),
         );
       } catch (error) {
         return responderError(error, request, reply);

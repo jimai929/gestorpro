@@ -33,14 +33,36 @@ async function main(): Promise<void> {
     },
   });
 
+  await sembrarRolesOperativos();
   await sembrarCategoriasGasto();
-  await sembrarDemoFinanzas(admin.id, sede.id);
+  // Los empleados (con sus roles operativos) antes de los cierres, para que la
+  // cajera/verificador de los cierres demo correspondan a empleados reales.
   await sembrarDemoAsistencia(sede.id);
+  await sembrarDemoFinanzas(admin.id, sede.id);
   await sembrarConfiguracionCobro();
 
   console.log('Semilla aplicada:');
   console.log(`  Sede:    ${sede.nombre} (${sede.id})`);
   console.log(`  Usuario: ${email}  /  Admin1234*  (rol administrador)`);
+}
+
+/**
+ * Roles operativos base (cajera, verificador). Catálogo extensible: añadir un
+ * rol nuevo (vendedor, técnico, …) es agregar una entrada aquí. Idempotente
+ * (upsert por `clave`).
+ */
+async function sembrarRolesOperativos(): Promise<void> {
+  const roles = [
+    { clave: 'cajera', nombre: 'Cajera' },
+    { clave: 'verificador', nombre: 'Verificador' },
+  ];
+  for (const rol of roles) {
+    await prisma.rolOperativo.upsert({
+      where: { clave: rol.clave },
+      update: {},
+      create: rol,
+    });
+  }
 }
 
 /** Configuración de cobro por defecto (80% cobrable, umbral B/. 100). Idempotente. */
@@ -164,7 +186,7 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
   // con la suma del arqueo.
   await prisma.ventaDiaria.create({
     data: {
-      sedeId, fechaOperacion: dias(-1), turno: 'manana', caja: '1', cerradoPor: 'María Pérez',
+      sedeId, fechaOperacion: dias(-1), turno: 'manana', cajera: 'E001 - María Pérez', cerradoPor: 'E004 - Carlos Méndez',
       horaApertura: '06:00', horaCierre: '14:00', monto: 1200, tipo: 'normal', usuarioId: adminId,
       detalles: {
         create: [
@@ -178,7 +200,7 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
   });
   await prisma.ventaDiaria.create({
     data: {
-      sedeId, fechaOperacion: dias(-1), turno: 'tarde', caja: '1', cerradoPor: 'Luis Gómez',
+      sedeId, fechaOperacion: dias(-1), turno: 'tarde', cajera: 'E002 - Luis Gómez', cerradoPor: 'E001 - María Pérez',
       horaApertura: '14:00', horaCierre: '22:00', monto: 1530.5, tipo: 'normal', usuarioId: adminId,
       detalles: {
         create: [
@@ -191,7 +213,7 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
   });
   await prisma.ventaDiaria.create({
     data: {
-      sedeId, fechaOperacion: dias(-1), turno: 'manana', caja: '2', cerradoPor: 'Ana Ruiz',
+      sedeId, fechaOperacion: dias(-1), turno: 'manana', cajera: 'E003 - Ana Ruiz', cerradoPor: 'E004 - Carlos Méndez',
       horaApertura: '06:00', horaCierre: '14:00', monto: 880, tipo: 'normal', usuarioId: adminId,
       detalles: {
         create: [
@@ -204,7 +226,7 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
   });
   await prisma.ventaDiaria.create({
     data: {
-      sedeId, fechaOperacion: dias(-2), turno: 'noche', caja: '1', cerradoPor: 'Luis Gómez',
+      sedeId, fechaOperacion: dias(-2), turno: 'noche', cajera: 'E002 - Luis Gómez', cerradoPor: 'E001 - María Pérez',
       horaApertura: '22:00', horaCierre: '06:00', monto: 740, tipo: 'normal', usuarioId: adminId,
       detalles: {
         create: [
@@ -217,8 +239,10 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
 }
 
 /**
- * Datos de demostración de asistencia: un kiosco y un empleado con PIN hasheado.
- * Idempotente (guarda por número de empleado). El PIN de demo es 1234.
+ * Datos de demostración de asistencia: un kiosco y varios empleados con PIN
+ * hasheado y roles operativos asignados (cajera / verificador), suficientes para
+ * ejercitar los selects de cajera y verificador del cierre. Idempotente (guarda
+ * por el número del primer empleado). El PIN de demo es 1234.
  */
 async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
   const yaSembrado = await prisma.empleado.findUnique({ where: { numero: 'E001' } });
@@ -238,17 +262,36 @@ async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
     },
   });
 
-  await prisma.empleado.create({
-    data: {
-      numero: 'E001',
-      nombre: 'María Pérez',
-      sedeId,
-      turnoId: turno.id,
-      qrToken: randomBytes(24).toString('base64url'),
-      pinHash: await hashearContrasena('1234'),
-      salarioFijo: 1200,
-    },
+  const cajera = await prisma.rolOperativo.findUniqueOrThrow({ where: { clave: 'cajera' } });
+  const verificador = await prisma.rolOperativo.findUniqueOrThrow({
+    where: { clave: 'verificador' },
   });
+
+  const pinHash = await hashearContrasena('1234');
+  const qr = () => randomBytes(24).toString('base64url');
+
+  // Empleados demo con sus roles operativos. María y Luis son cajera+verificador
+  // (cubren varios puestos); Ana solo cajera; Carlos solo verificador.
+  const empleados = [
+    { numero: 'E001', nombre: 'María Pérez', salario: 1200, roles: [cajera.id, verificador.id] },
+    { numero: 'E002', nombre: 'Luis Gómez', salario: 1100, roles: [cajera.id, verificador.id] },
+    { numero: 'E003', nombre: 'Ana Ruiz', salario: 1000, roles: [cajera.id] },
+    { numero: 'E004', nombre: 'Carlos Méndez', salario: 1000, roles: [verificador.id] },
+  ];
+  for (const e of empleados) {
+    await prisma.empleado.create({
+      data: {
+        numero: e.numero,
+        nombre: e.nombre,
+        sedeId,
+        turnoId: turno.id,
+        qrToken: qr(),
+        pinHash,
+        salarioFijo: e.salario,
+        rolesOperativos: { create: e.roles.map((rolOperativoId) => ({ rolOperativoId })) },
+      },
+    });
+  }
 
   await prisma.diaFestivo.createMany({
     data: [

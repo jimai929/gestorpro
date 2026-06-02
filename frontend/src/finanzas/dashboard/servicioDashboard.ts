@@ -9,6 +9,7 @@ import type {
   ResumenGanancia,
   GastoPorCategoria,
   VentaDiaria,
+  EmpleadoCierre,
   CuerpoRegistrarVenta,
   FiltrosDashboard,
 } from './tipos';
@@ -18,6 +19,17 @@ import type {
 /** Lista todas las sedes registradas. */
 export function obtenerSedes(): Promise<Sede[]> {
   return api.get<Sede[]>('/sedes');
+}
+
+// ── Empleados por rol operativo (selects de cajera/verificador) ─────────────
+
+/**
+ * Empleados activos con un rol operativo dado (`cajera`, `verificador`). NO se
+ * filtra por sede: a veces un empleado cubre otra sede. El orden por sede del
+ * cierre se aplica en el formulario.
+ */
+export function obtenerEmpleadosPorRol(rol: string): Promise<EmpleadoCierre[]> {
+  return api.get<EmpleadoCierre[]>(`/empleados?rol=${encodeURIComponent(rol)}`);
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -32,8 +44,8 @@ export function obtenerGanancia(filtros: FiltrosDashboard): Promise<ResumenGanan
   params.set('desde', filtros.desde);
   params.set('hasta', filtros.hasta);
   if (filtros.sedeId) params.set('sedeId', filtros.sedeId);
-  // Caja y turno acotan solo las ventas (auditoría de descuadres).
-  if (filtros.caja) params.set('caja', filtros.caja);
+  // Cajera y turno acotan solo las ventas (auditoría de descuadres).
+  if (filtros.cajera) params.set('cajera', filtros.cajera);
   if (filtros.turno) params.set('turno', filtros.turno);
   return api.get<ResumenGanancia>(`/dashboard/ganancia?${params.toString()}`);
 }
@@ -55,7 +67,7 @@ export function obtenerGastosPorCategoria(
 
 /**
  * Error especial que indica que ya existe un cierre normal para esa
- * (sede, fecha, turno, caja). El backend devuelve 409 con { mensaje } en ese caso.
+ * (sede, fecha, turno, cajera). El backend devuelve 409 con { mensaje } en ese caso.
  */
 export class ErrorCierreDuplicado extends Error {
   constructor(mensaje: string) {
@@ -69,7 +81,7 @@ const URL_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 /**
  * Registra el cierre de caja de un turno (con su arqueo).
  * Lanza `ErrorCierreDuplicado` si el backend responde 409 (ya existe el cierre
- * normal de esa sede, fecha, turno y caja). Para cualquier otro error, lanza Error.
+ * normal de esa sede, fecha, turno y cajera). Para cualquier otro error, lanza Error.
  */
 export async function registrarVenta(cuerpo: CuerpoRegistrarVenta): Promise<VentaDiaria> {
   // Necesitamos acceder al status HTTP crudo para distinguir 409 del resto;
@@ -90,7 +102,7 @@ export async function registrarVenta(cuerpo: CuerpoRegistrarVenta): Promise<Vent
   });
 
   if (respuesta.status === 409) {
-    let mensaje = 'Ya existe el cierre de esa caja y turno; use una corrección para ajustarlo.';
+    let mensaje = 'Ya existe el cierre de esa cajera y turno; use una corrección para ajustarlo.';
     try {
       const cuerpoError = await respuesta.json() as { mensaje?: string };
       mensaje = cuerpoError.mensaje ?? mensaje;
@@ -122,7 +134,15 @@ export function obtenerVentas(filtros: FiltrosDashboard): Promise<VentaDiaria[]>
   params.set('desde', filtros.desde);
   params.set('hasta', filtros.hasta);
   if (filtros.sedeId) params.set('sedeId', filtros.sedeId);
-  if (filtros.caja) params.set('caja', filtros.caja);
+  if (filtros.cajera) params.set('cajera', filtros.cajera);
   if (filtros.turno) params.set('turno', filtros.turno);
   return api.get<VentaDiaria[]>(`/ventas?${params.toString()}`);
+}
+
+/**
+ * Valores distintos de cajera presentes en los cierres, para poblar el filtro
+ * del dashboard (incluye los valores legacy/texto libre).
+ */
+export function obtenerCajeras(): Promise<string[]> {
+  return api.get<string[]>('/ventas/cajeras');
 }
