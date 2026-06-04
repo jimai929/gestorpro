@@ -30,3 +30,6 @@ gestorpro-*.png
 
 # Claude Code (ajustes locales personales)
 .claude/settings.local.json
+
+# Scratchpad de las agent-skills (PRDs/issues locales, no se versiona)
+.scratch/
