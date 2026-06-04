@@ -93,3 +93,25 @@ por qué.
 
 El proyecto nació en Windows y migra a Mac vía Git. Mientras el desarrollo
 sea en Windows: usar PowerShell 7, no comandos bash/Linux.
+
+---
+
+## Agent skills
+
+Configuración para las skills de ingeniería (`to-issues`, `to-prd`, `triage`,
+`diagnose`, `tdd`, `improve-codebase-architecture`, `zoom-out`).
+
+### Issue tracker
+
+Los issues se guardan como markdown en `.scratch/<feature>/`. Ver
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Las 5 etiquetas canónicas, usadas por defecto. Ver
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` en la raíz del repo. Ver
+`docs/agents/domain.md`.
