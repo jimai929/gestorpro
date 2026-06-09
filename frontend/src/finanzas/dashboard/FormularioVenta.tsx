@@ -11,7 +11,7 @@
  * diferenciado (no es un error de validación, sino un conflicto de negocio).
  */
 
-import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import {
@@ -69,13 +69,17 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
   // Datos del select de sedes
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [cargandoSedes, setCargandoSedes] = useState(true);
+  const [errorSedes, setErrorSedes] = useState<string | null>(null);
 
   // Empleados por rol operativo para los selects de cajera y verificador.
   const [cajeras, setCajeras] = useState<EmpleadoCierre[]>([]);
   const [verificadores, setVerificadores] = useState<EmpleadoCierre[]>([]);
-  // Distingue "aún no cargó / falló" de "cargó y no hay": evita el mensaje
-  // engañoso "no hay cajeras" cuando en realidad el fetch falló.
-  const [empleadosListos, setEmpleadosListos] = useState(false);
+  // Estado propio de la carga de empleados (cargando / falló): distingue "aún no
+  // cargó / falló" de "cargó y no hay", para no mostrar el mensaje engañoso "no
+  // hay cajeras" cuando en realidad el fetch falló, y separa este error del de
+  // envío. Antes ambos compartían un único `error` y "recarga la página".
+  const [cargandoEmpleados, setCargandoEmpleados] = useState(true);
+  const [errorEmpleados, setErrorEmpleados] = useState<string | null>(null);
 
   // Campos del cierre
   const [sedeId, setSedeId] = useState('');
@@ -95,21 +99,21 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
   const [error, setError] = useState<string | null>(null);
   const [avisoConflicto, setAvisoConflicto] = useState<string | null>(null);
 
-  // Cargar sedes y empleados (cajeras / verificadores) al montar.
-  useEffect(() => {
-    const cargar = async () => {
-      try {
-        const lista = await obtenerSedes();
-        setSedes(lista);
-      } catch {
-        setError('No se pudieron cargar las sedes. Recarga la página.');
-      } finally {
-        setCargandoSedes(false);
-      }
-    };
-    void cargar();
-    // Carga cajeras y verificadores; si falla, se AVISA (no se traga el error,
-    // que dejaría los selects vacíos pareciendo "no hay empleados con el rol").
+  const cargarSedes = useCallback(() => {
+    setCargandoSedes(true);
+    setErrorSedes(null);
+    void obtenerSedes()
+      .then(setSedes)
+      .catch(() => setErrorSedes('No se pudieron cargar las sedes.'))
+      .finally(() => setCargandoSedes(false));
+  }, []);
+
+  // Carga cajeras y verificadores juntas; si falla, se AVISA y se ofrece
+  // reintentar (no se traga el error, que dejaría los selects vacíos pareciendo
+  // "no hay empleados con el rol").
+  const cargarEmpleados = useCallback(() => {
+    setCargandoEmpleados(true);
+    setErrorEmpleados(null);
     void Promise.all([
       obtenerEmpleadosPorRol('cajera'),
       obtenerEmpleadosPorRol('verificador'),
@@ -117,12 +121,16 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
       .then(([listaCajeras, listaVerificadores]) => {
         setCajeras(listaCajeras);
         setVerificadores(listaVerificadores);
-        setEmpleadosListos(true);
       })
-      .catch(() =>
-        setError('No se pudieron cargar las cajeras/verificadores. Recarga la página.'),
-      );
+      .catch(() => setErrorEmpleados('No se pudieron cargar las cajeras/verificadores.'))
+      .finally(() => setCargandoEmpleados(false));
   }, []);
+
+  // Cargar sedes y empleados (cajeras / verificadores) al montar.
+  useEffect(() => {
+    cargarSedes();
+    cargarEmpleados();
+  }, [cargarSedes, cargarEmpleados]);
 
   // Listas ordenadas: primero los de la sede del cierre, luego otras sedes.
   const cajerasOrdenadas = useMemo(() => ordenarPorSede(cajeras, sedeId), [cajeras, sedeId]);
@@ -241,10 +249,10 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
               value={sedeId}
               onChange={(e) => cambiarSede(e.target.value)}
               required
-              disabled={cargandoSedes || guardando}
+              disabled={cargandoSedes || errorSedes !== null || guardando}
             >
               <option value="">
-                {cargandoSedes ? 'Cargando…' : 'Seleccionar sede'}
+                {cargandoSedes ? 'Cargando…' : errorSedes ? 'No disponible' : 'Seleccionar sede'}
               </option>
               {sedes.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -252,6 +260,14 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
                 </option>
               ))}
             </select>
+            {errorSedes && (
+              <span className={styles.ayudaError}>
+                {errorSedes}{' '}
+                <button type="button" className={styles.enlaceReintentar} onClick={cargarSedes}>
+                  Reintentar
+                </button>
+              </span>
+            )}
           </div>
 
           {/* Turno */}
@@ -281,9 +297,17 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
               value={cajera}
               onChange={(e) => setCajera(e.target.value)}
               required
-              disabled={guardando || !sedeId}
+              disabled={guardando || !sedeId || cargandoEmpleados || errorEmpleados !== null}
             >
-              <option value="">{sedeId ? 'Seleccionar cajera' : 'Elija una sede primero'}</option>
+              <option value="">
+                {!sedeId
+                  ? 'Elija una sede primero'
+                  : cargandoEmpleados
+                    ? 'Cargando…'
+                    : errorEmpleados
+                      ? 'No disponible'
+                      : 'Seleccionar cajera'}
+              </option>
               {cajerasOrdenadas.map((e) => (
                 <option key={e.id} value={snapshotEmpleado(e)}>
                   {snapshotEmpleado(e)}
@@ -291,7 +315,15 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
                 </option>
               ))}
             </select>
-            {sedeId && empleadosListos && cajeras.length === 0 && (
+            {errorEmpleados && (
+              <span className={styles.ayudaError}>
+                {errorEmpleados}{' '}
+                <button type="button" className={styles.enlaceReintentar} onClick={cargarEmpleados}>
+                  Reintentar
+                </button>
+              </span>
+            )}
+            {sedeId && !cargandoEmpleados && !errorEmpleados && cajeras.length === 0 && (
               <span className={styles.ayudaCampo}>
                 No hay empleados con rol Cajera. Asígnalo en Empleados.
               </span>
@@ -316,9 +348,17 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
               value={cerradoPor}
               onChange={(e) => setCerradoPor(e.target.value)}
               required
-              disabled={guardando || !sedeId}
+              disabled={guardando || !sedeId || cargandoEmpleados || errorEmpleados !== null}
             >
-              <option value="">{sedeId ? 'Seleccionar verificador' : 'Elija una sede primero'}</option>
+              <option value="">
+                {!sedeId
+                  ? 'Elija una sede primero'
+                  : cargandoEmpleados
+                    ? 'Cargando…'
+                    : errorEmpleados
+                      ? 'No disponible'
+                      : 'Seleccionar verificador'}
+              </option>
               {verificadoresOrdenados.map((e) => (
                 <option key={e.id} value={snapshotEmpleado(e)}>
                   {snapshotEmpleado(e)}
@@ -326,7 +366,15 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
                 </option>
               ))}
             </select>
-            {sedeId && empleadosListos && verificadores.length === 0 && (
+            {errorEmpleados && (
+              <span className={styles.ayudaError}>
+                {errorEmpleados}{' '}
+                <button type="button" className={styles.enlaceReintentar} onClick={cargarEmpleados}>
+                  Reintentar
+                </button>
+              </span>
+            )}
+            {sedeId && !cargandoEmpleados && !errorEmpleados && verificadores.length === 0 && (
               <span className={styles.ayudaCampo}>
                 No hay empleados con rol Verificador. Asígnalo en Empleados.
               </span>

@@ -57,7 +57,10 @@ export function PantallaEmpleados() {
   const [pinError, setPinError] = useState<string | null>(null);
   const [guardandoPin, setGuardandoPin] = useState(false);
 
-  const cargar = useCallback(async () => {
+  // Devuelve `true` si la recarga tuvo éxito, para que quien la dispara tras una
+  // mutación (p. ej. el alta) decida si seguir (abrir el QR) o no abrir nada
+  // sobre una tabla en estado de error.
+  const cargar = useCallback(async (): Promise<boolean> => {
     setCargando(true);
     setErrorCarga(null);
     try {
@@ -67,8 +70,10 @@ export function PantallaEmpleados() {
       ]);
       setEmpleados(lista);
       setSedes(Object.fromEntries(listaSedes.map((s) => [s.id, s.nombre])));
+      return true;
     } catch (err) {
       setErrorCarga(err instanceof Error ? err.message : 'Error al cargar los empleados.');
+      return false;
     } finally {
       setCargando(false);
     }
@@ -92,12 +97,17 @@ export function PantallaEmpleados() {
   const manejarGuardado = (resultado: Empleado | EmpleadoCreado) => {
     setMostrarFormNuevo(false);
     setEmpleadoEditar(null);
-    void cargar();
-    // Tras un alta, mostrar el QR del nuevo empleado para imprimirlo.
-    if ('qrToken' in resultado) {
-      setQrError(null);
-      setQr({ empleadoId: resultado.id, nombre: resultado.nombre, token: resultado.qrToken });
-    }
+    // Tras un alta, mostrar el QR del nuevo empleado para imprimirlo — pero solo
+    // si la lista se recargó bien: no abrir el modal QR sobre una tabla en estado
+    // de error. El empleado YA se creó; con la recarga fallida se ve su error y
+    // botón de reintento. Tras reintentar con éxito, la fila aparece y el QR se
+    // abre desde su botón "QR".
+    void cargar().then((recargaOk) => {
+      if (recargaOk && 'qrToken' in resultado) {
+        setQrError(null);
+        setQr({ empleadoId: resultado.id, nombre: resultado.nombre, token: resultado.qrToken });
+      }
+    });
   };
 
   const abrirEdicion = (emp: Empleado) => {

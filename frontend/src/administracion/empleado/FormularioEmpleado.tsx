@@ -10,7 +10,7 @@
  * facial es una tarea futura; aquí solo se deja el hueco.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { obtenerSedes } from '../sedes/servicioSedes';
@@ -38,16 +38,37 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
   // IDs de roles operativos seleccionados (en edición arrancan con los actuales).
   const [rolesIds, setRolesIds] = useState<string[]>(empleado?.roles.map((r) => r.id) ?? []);
   const [guardando, setGuardando] = useState(false);
+  // `error` es SOLO del guardado. Las cargas de sedes y de roles tienen su propio
+  // estado (cargando / falló + reintento) para que un fallo no pise al otro ni al
+  // mensaje de guardado, y para no fingir "no hay roles" cuando el fetch falló.
   const [error, setError] = useState<string | null>(null);
+  const [cargandoSedes, setCargandoSedes] = useState(true);
+  const [errorSedes, setErrorSedes] = useState<string | null>(null);
+  const [cargandoRoles, setCargandoRoles] = useState(true);
+  const [errorRoles, setErrorRoles] = useState<string | null>(null);
 
-  useEffect(() => {
+  const cargarSedes = useCallback(() => {
+    setCargandoSedes(true);
+    setErrorSedes(null);
     void obtenerSedes()
       .then(setSedes)
-      .catch(() => setError('No se pudieron cargar las sedes.'));
+      .catch(() => setErrorSedes('No se pudieron cargar las sedes.'))
+      .finally(() => setCargandoSedes(false));
+  }, []);
+
+  const cargarRoles = useCallback(() => {
+    setCargandoRoles(true);
+    setErrorRoles(null);
     void obtenerRolesOperativos()
       .then(setRoles)
-      .catch(() => setError('No se pudieron cargar los roles operativos.'));
+      .catch(() => setErrorRoles('No se pudieron cargar los roles operativos.'))
+      .finally(() => setCargandoRoles(false));
   }, []);
+
+  useEffect(() => {
+    cargarSedes();
+    cargarRoles();
+  }, [cargarSedes, cargarRoles]);
 
   const alternarRol = (id: string) => {
     setRolesIds((previo) =>
@@ -98,7 +119,7 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
     }
   };
 
-  const completo = numero.trim() && nombre.trim() && sedeId && salario && (esEdicion || pin.length === 4);
+  const completo = numero.trim() && nombre.trim() && sedeId && salario && (esEdicion || pin.length === 4) && (esEdicion || !errorRoles);
 
   return (
     <div className={styles.contenedor}>
@@ -127,15 +148,25 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
             className={styles.select}
             value={sedeId}
             onChange={(e) => setSedeId(e.target.value)}
-            disabled={guardando}
+            disabled={guardando || cargandoSedes || errorSedes !== null}
           >
-            <option value="">Seleccionar sede</option>
+            <option value="">
+              {cargandoSedes ? 'Cargando…' : errorSedes ? 'No disponible' : 'Seleccionar sede'}
+            </option>
             {sedes.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nombre}
               </option>
             ))}
           </select>
+          {errorSedes && (
+            <span className={styles.ayudaError}>
+              {errorSedes}{' '}
+              <button type="button" className={styles.enlaceReintentar} onClick={cargarSedes}>
+                Reintentar
+              </button>
+            </span>
+          )}
         </div>
         <Entrada
           etiqueta="Salario fijo (B/.) *"
@@ -177,7 +208,16 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
       <div className={styles.roles}>
         <span className={styles.etiqueta}>Roles operativos</span>
         <div className={styles.rolesLista}>
-          {roles.length === 0 ? (
+          {cargandoRoles ? (
+            <span className={styles.rolesVacio}>Cargando roles…</span>
+          ) : errorRoles ? (
+            <span className={styles.ayudaError}>
+              {errorRoles}{' '}
+              <button type="button" className={styles.enlaceReintentar} onClick={cargarRoles}>
+                Reintentar
+              </button>
+            </span>
+          ) : roles.length === 0 ? (
             <span className={styles.rolesVacio}>No hay roles operativos disponibles.</span>
           ) : (
             roles.map((rol) => (

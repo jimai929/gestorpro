@@ -109,6 +109,40 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
   descriptivas, fuera de la llave. **No es un POS:** nunca se guardan ventas
   individuales ni productos, solo el cierre.
 
+## Datos y arranque
+
+- **GestorPro arranca desde cero — decisión 2026-06-02.** El sistema parte sin
+  datos del cliente: la base se llena operando, no importando un histórico.
+- **No habrá migración ni importación de datos históricos** del cliente, ni
+  ahora ni más adelante. No se construye ningún pipeline de importación.
+- **Los datos sucios que hubo en el dev DB eran basura de prueba** (cierres con
+  `cajera`/`cerradoPor` de texto libre: `yoany`, `9 yon`, `1`, `2`, `Principal`,
+  `migración`, …) acumulada en verificaciones por UI. Se **eliminaron con un
+  `prisma migrate reset`** del dev DB (autorizado), no se preservó nada.
+- **No se construye script de normalización de datos legacy.** Se descartó el
+  plan de `normalizar-cajeras-legacy.ts` / `mapeo-cajeras.ts`: no hay datos
+  reales que preservar, así que mapear texto libre a empleados no aporta valor.
+- **La normalización de identidad de `cajera`/`cerradoPor`**, si alguna vez
+  hiciera falta (p. ej. un typo en un snapshot real), sería **mantenimiento de
+  calidad de dato** (corregir una etiqueta de identidad), **no** una corrección
+  de dinero. Tocaría solo el snapshot string, nunca `monto`/`detalles`/`tipo`.
+- **La regla de inmutabilidad sigue intacta** para los movimientos y montos
+  financieros reales (Gasto, PagoProveedor, VentaDiaria): se corrigen con
+  reverso + corrección, nunca se editan ni se borran. El punto anterior es una
+  excepción acotada a la *etiqueta de identidad*, no al dinero.
+- **Sembrado del dev DB en Prisma ORM v7 — nota 2026-06-02.** En Prisma v7
+  `prisma migrate reset` **YA NO ejecuta el seed automáticamente** (lo hacía en
+  v6 y anteriores; se eliminó en v7). El flujo correcto para preparar el dev DB
+  es un único comando: **`npm run db:reset`**, que ejecuta
+  `prisma migrate reset --force && prisma db seed`. (También existe
+  `npm run db:seed` = `prisma db seed` para sembrar sin resetear.) **No se toca
+  `prisma.config.ts`**: el hook `migrations.seed` está correcto y lo dispara
+  `prisma db seed`. El **seed debe seguir siendo idempotente** (correrlo dos
+  veces no duplica ni falla), porque `db:seed` puede ejecutarse sobre una base
+  ya sembrada. **⚠️ `db:reset` es SOLO para entornos de desarrollo. NUNCA
+  ejecutarlo contra producción** — `prisma migrate reset --force` borra todos
+  los datos sin confirmación.
+
 ## Asistencia
 
 - El **`Fichaje` es el hecho crudo inmutable**; la **`Jornada` es

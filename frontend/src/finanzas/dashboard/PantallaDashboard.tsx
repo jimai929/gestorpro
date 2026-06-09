@@ -64,6 +64,16 @@ export function PantallaDashboard() {
   const [cargandoVentas, setCargandoVentas] = useState(false);
   const [errorDashboard, setErrorDashboard] = useState<string | null>(null);
   const [errorVentas, setErrorVentas] = useState<string | null>(null);
+  // Estado propio del filtro de cajeras: distingue "cargando" de "falló" de
+  // "cargó y está vacío", para no mostrar "Todas" como si todo estuviera bien
+  // cuando en realidad el fetch falló.
+  const [cargandoCajeras, setCargandoCajeras] = useState(true);
+  const [errorCajeras, setErrorCajeras] = useState<string | null>(null);
+  // Mismo criterio para las sedes del filtro: distinguir cargando / falló /
+  // cargó-vacío, para no esconder el filtro ni mostrar el UUID crudo en la
+  // columna Sede en silencio cuando el fetch falla.
+  const [cargandoSedes, setCargandoSedes] = useState(true);
+  const [errorSedes, setErrorSedes] = useState<string | null>(null);
 
   // UI
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -72,19 +82,39 @@ export function PantallaDashboard() {
   const [avisoExito, setAvisoExito] = useState<string | null>(null);
   const [idResaltado, setIdResaltado] = useState<string | null>(null);
 
-  // Cargar sedes y valores de cajera (para los filtros) al montar.
-  useEffect(() => {
-    void obtenerSedes()
-      .then(setSedes)
-      .catch(() => {
-        // Las sedes son opcionales para el filtro; no bloqueamos si fallan
-      });
+  /**
+   * Carga los valores de cajera para el filtro. No se traga el error: si falla,
+   * lo registra en `errorCajeras` para avisar (y permitir reintentar), en vez de
+   * dejar el select vacío fingiendo que "Todas" es la lista completa.
+   */
+  const cargarCajeras = useCallback(() => {
+    setCargandoCajeras(true);
+    setErrorCajeras(null);
     void obtenerCajeras()
       .then(setCajeras)
-      .catch(() => {
-        // El filtro de cajera es opcional; no bloqueamos si falla
-      });
+      .catch(() => setErrorCajeras('No se pudo cargar la lista de cajeras.'))
+      .finally(() => setCargandoCajeras(false));
   }, []);
+
+  /**
+   * Carga las sedes para el filtro. No se traga el error (dejaría el filtro
+   * escondido y la columna Sede mostrando UUIDs como si todo estuviera bien);
+   * lo registra en `errorSedes` para avisar y permitir reintentar.
+   */
+  const cargarSedes = useCallback(() => {
+    setCargandoSedes(true);
+    setErrorSedes(null);
+    void obtenerSedes()
+      .then(setSedes)
+      .catch(() => setErrorSedes('No se pudo cargar la lista de sedes.'))
+      .finally(() => setCargandoSedes(false));
+  }, []);
+
+  // Cargar sedes y valores de cajera (para los filtros) al montar.
+  useEffect(() => {
+    cargarSedes();
+    cargarCajeras();
+  }, [cargarSedes, cargarCajeras]);
 
   /** Carga el resumen de ganancia y el desglose por categoría. */
   const cargarDashboard = useCallback(async () => {
@@ -283,7 +313,7 @@ export function PantallaDashboard() {
             />
           </div>
 
-          {sedes.length > 0 && (
+          {(cargandoSedes || errorSedes !== null || sedes.length > 0) && (
             <div className={styles.grupoFiltro}>
               <label className={styles.etiquetaFiltro} htmlFor="filtro-sede">
                 Sede
@@ -293,14 +323,35 @@ export function PantallaDashboard() {
                 className={styles.inputFiltro}
                 value={sedeId}
                 onChange={(e) => setSedeId(e.target.value)}
+                disabled={cargandoSedes || errorSedes !== null}
               >
-                <option value="">Todas las sedes</option>
+                <option value="">
+                  {cargandoSedes
+                    ? 'Cargando sedes…'
+                    : errorSedes
+                      ? 'No disponible'
+                      : 'Todas las sedes'}
+                </option>
                 {sedes.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre}
                   </option>
                 ))}
               </select>
+              {/* Falló la carga: avisar y ofrecer reintento. Sin sedes el filtro
+                  queda inservible y la columna Sede muestra identificadores. */}
+              {errorSedes && (
+                <span className={styles.ayudaFiltroError}>
+                  {errorSedes}{' '}
+                  <button
+                    type="button"
+                    className={styles.enlaceReintentar}
+                    onClick={cargarSedes}
+                  >
+                    Reintentar
+                  </button>
+                </span>
+              )}
             </div>
           )}
 
@@ -332,14 +383,40 @@ export function PantallaDashboard() {
               className={styles.inputFiltro}
               value={cajera}
               onChange={(e) => setCajera(e.target.value)}
+              disabled={cargandoCajeras || errorCajeras !== null}
             >
-              <option value="">Todas las cajeras</option>
+              <option value="">
+                {cargandoCajeras
+                  ? 'Cargando cajeras…'
+                  : errorCajeras
+                    ? 'No disponible'
+                    : 'Todas las cajeras'}
+              </option>
               {cajeras.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
             </select>
+            {/* Falló la carga: avisar y ofrecer reintento, no fingir "Todas". */}
+            {errorCajeras && (
+              <span className={styles.ayudaFiltroError}>
+                {errorCajeras}{' '}
+                <button
+                  type="button"
+                  className={styles.enlaceReintentar}
+                  onClick={cargarCajeras}
+                >
+                  Reintentar
+                </button>
+              </span>
+            )}
+            {/* Cargó bien pero no hay ninguna cajera en los cierres todavía. */}
+            {!cargandoCajeras && !errorCajeras && cajeras.length === 0 && (
+              <span className={styles.ayudaFiltro}>
+                Aún no hay cierres con cajeras registradas.
+              </span>
+            )}
           </div>
 
           <Boton

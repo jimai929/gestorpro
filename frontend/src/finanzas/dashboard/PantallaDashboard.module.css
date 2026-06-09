@@ -159,6 +159,30 @@
   background: #ffffff;
 }
 
+/* Ayuda contextual bajo un filtro (p. ej. no hay cajeras todavía). */
+.ayudaFiltro {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Aviso de error bajo un filtro cuando falló su carga. */
+.ayudaFiltroError {
+  font-size: 0.75rem;
+  color: #b91c1c;
+}
+
+/* Enlace "Reintentar" dentro del aviso de error del filtro. */
+.enlaceReintentar {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #1a56db;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* Nota cuando hay filtro de caja/turno: acota solo las ventas. */
 .notaFiltroVentas {
   margin: 0;

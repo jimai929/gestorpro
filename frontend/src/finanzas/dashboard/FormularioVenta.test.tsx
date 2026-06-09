@@ -86,3 +86,37 @@ describe('FormularioVenta — selects de cajera y verificador', () => {
     expect(screen.getByText(/misma persona/i)).toBeTruthy();
   });
 });
+
+describe('FormularioVenta — fallo de carga y reintento', () => {
+  it('si las sedes fallan, el select queda "No disponible" y ofrece reintentar', async () => {
+    vi.mocked(servicio.obtenerSedes).mockRejectedValueOnce(new Error('boom'));
+    render(<FormularioVenta onRegistrada={vi.fn()} />);
+
+    // Aparece el aviso con reintento (no se traga el error ni finge "Seleccionar sede").
+    const reintentar = await screen.findByRole('button', { name: /reintentar/i });
+    expect(reintentar).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'No disponible' })).toBeTruthy();
+  });
+
+  it('reintentar recupera las sedes tras un fallo transitorio', async () => {
+    vi.mocked(servicio.obtenerSedes).mockRejectedValueOnce(new Error('boom'));
+    const user = userEvent.setup();
+    render(<FormularioVenta onRegistrada={vi.fn()} />);
+
+    const reintentar = await screen.findByRole('button', { name: /reintentar/i });
+    await user.click(reintentar);
+
+    // La segunda carga resuelve (mock por defecto): aparecen las sedes y se va el aviso.
+    await screen.findByRole('option', { name: 'Sede A' });
+    expect(screen.queryByRole('button', { name: /reintentar/i })).toBeNull();
+  });
+
+  it('si los empleados fallan, cajera y verificador avisan con reintento (uno por select)', async () => {
+    // Promise.all rechaza si cualquiera de los dos falla; basta con el primero.
+    vi.mocked(servicio.obtenerEmpleadosPorRol).mockRejectedValueOnce(new Error('boom'));
+    render(<FormularioVenta onRegistrada={vi.fn()} />);
+
+    const reintentos = await screen.findAllByRole('button', { name: /reintentar/i });
+    expect(reintentos).toHaveLength(2);
+  });
+});

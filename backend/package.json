@@ -14,7 +14,9 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset --force && prisma db seed"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",

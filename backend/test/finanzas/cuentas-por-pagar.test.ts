@@ -9,13 +9,35 @@ import {
   listarCuentasPorPagar,
 } from '../../src/finanzas/cuentas-por-pagar/cuentas-por-pagar.service.js';
 import { gananciaDelPeriodo } from '../../src/finanzas/dashboard/dashboard.service.js';
-import { ErrorNoEncontrado, ErrorValidacion } from '../../src/core/errors.js';
+import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../../src/core/errors.js';
 
 let contador = 0;
 
 async function nuevaSede() {
   contador += 1;
   return prisma.sede.create({ data: { nombre: `SedeCXP ${contador}` } });
+}
+
+async function nuevoUsuario() {
+  contador += 1;
+  return prisma.usuario.create({
+    data: {
+      nombre: 'Usuario CXP',
+      email: `cxp${contador}@gestorpro.local`,
+      rol: 'administrador',
+      passwordHash: 'x',
+    },
+  });
+}
+
+/** Ejecuta la promesa y devuelve el error que lanza (o null si no lanzó). */
+async function capturarError(promesa: Promise<unknown>): Promise<unknown> {
+  try {
+    await promesa;
+    return null;
+  } catch (error) {
+    return error;
+  }
 }
 
 describe('proveedores (alta, edición con contacto, baja lógica)', () => {
@@ -145,5 +167,126 @@ describe('compras contado vs crédito', () => {
     // Las dos compras suman como costo, sin importar el tipo.
     expect(resumen.compras).toBe(1000);
     expect(resumen.ganancia).toBe(-1000); // sin ventas ni gastos en esta sede
+  });
+});
+
+describe('alta de compra: factura duplicada (P2002 → ErrorConflicto)', () => {
+  it('rechaza una factura repetida (mismo proveedor + número) y no crea una segunda', async () => {
+    const sede = await nuevaSede();
+    const prov = await crearProveedor({ nombre: `Prov dup ${contador}` });
+    const datos = {
+      proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'DUP-001',
+      montoTotal: 250, tipo: 'credito' as const, fechaEmision: '2026-05-14',
+      fechaVencimiento: '2026-06-14',
+    };
+    await registrarCompra(datos);
+
+    const error = await capturarError(registrarCompra(datos));
+    expect(error).toBeInstanceOf(ErrorConflicto);
+    expect((error as Error).message).toMatch(/DUP-001/);
+
+    // La segunda alta no creó otra compra: sigue habiendo exactamente una.
+    const compras = await prisma.compra.findMany({
+      where: { proveedorId: prov.id, numeroFactura: 'DUP-001' },
+    });
+    expect(compras).toHaveLength(1);
+  });
+});
+
+describe('pagos / abonos: saldo, sobrepago y compra inexistente', () => {
+  it('registra un abono dentro del saldo y actualiza el saldo (camino feliz)', async () => {
+    const sede = await nuevaSede();
+    const prov = await crearProveedor({ nombre: `Prov pago ${contador}` });
+    const usuario = await nuevoUsuario();
+    const compra = await registrarCompra({
+      proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'PAGO-OK',
+      montoTotal: 1000, tipo: 'credito', fechaEmision: '2026-05-15',
+      fechaVencimiento: '2026-06-15',
+    });
+
+    const pago = await registrarPago({ compraId: compra.id, monto: 400, usuarioId: usuario.id });
+    expect(Number(pago.monto)).toBe(400);
+    expect(pago.tipo).toBe('normal');
+    expect(pago.compraId).toBe(compra.id);
+
+    const [cuenta] = await listarCuentasPorPagar({ sedeId: sede.id });
+    expect(cuenta?.compraId).toBe(compra.id);
+    expect(cuenta?.totalPagado).toBe(400);
+    expect(cuenta?.saldo).toBe(600);
+    expect(cuenta?.estado).toBe('parcial');
+  });
+
+  it('rechaza un sobrepago (excede el saldo): no crea el pago ni mueve el saldo', async () => {
+    const sede = await nuevaSede();
+    const prov = await crearProveedor({ nombre: `Prov sobrepago ${contador}` });
+    const usuario = await nuevoUsuario();
+    const compra = await registrarCompra({
+      proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'PAGO-EXC',
+      montoTotal: 1000, tipo: 'credito', fechaEmision: '2026-05-16',
+      fechaVencimiento: '2026-06-16',
+    });
+
+    // Un primer abono deja el saldo en 600.
+    await registrarPago({ compraId: compra.id, monto: 400, usuarioId: usuario.id });
+
+    // El segundo abono (700) excede el saldo pendiente (600): debe rechazarse.
+    const error = await capturarError(
+      registrarPago({ compraId: compra.id, monto: 700, usuarioId: usuario.id }),
+    );
+    expect(error).toBeInstanceOf(ErrorValidacion);
+    expect((error as Error).message).toMatch(/excede el saldo/);
+
+    // No se creó el segundo pago: sigue habiendo exactamente uno.
+    const pagos = await prisma.pagoProveedor.count({ where: { compraId: compra.id } });
+    expect(pagos).toBe(1);
+
+    // El saldo no se movió: sigue en 600.
+    const [cuenta] = await listarCuentasPorPagar({ sedeId: sede.id });
+    expect(cuenta?.totalPagado).toBe(400);
+    expect(cuenta?.saldo).toBe(600);
+  });
+
+  it('rechaza un pago a una compra inexistente: ErrorNoEncontrado, sin crear pago', async () => {
+    const usuario = await nuevoUsuario();
+    const compraIdInexistente = '00000000-0000-0000-0000-000000000000';
+
+    const error = await capturarError(
+      registrarPago({ compraId: compraIdInexistente, monto: 100, usuarioId: usuario.id }),
+    );
+    expect(error).toBeInstanceOf(ErrorNoEncontrado);
+
+    const pagos = await prisma.pagoProveedor.count({ where: { compraId: compraIdInexistente } });
+    expect(pagos).toBe(0);
+  });
+});
+
+describe('alta de compra: proveedor o sede inexistente (P2003 → ErrorValidacion)', () => {
+  it('rechaza una compra con proveedor o sede inexistente', async () => {
+    const sede = await nuevaSede();
+    const prov = await crearProveedor({ nombre: `Prov fk ${contador}` });
+    const idInexistente = '00000000-0000-0000-0000-000000000000';
+
+    // Proveedor inexistente (sede real).
+    const errProv = await capturarError(
+      registrarCompra({
+        proveedorId: idInexistente, sedeId: sede.id, numeroFactura: 'FK-PROV',
+        montoTotal: 100, tipo: 'contado', fechaEmision: '2026-05-18',
+      }),
+    );
+    expect(errProv).toBeInstanceOf(ErrorValidacion);
+    expect((errProv as Error).message).toMatch(/no existen/);
+    // El rollback dejó la tabla intacta: no se creó la compra.
+    expect(await prisma.compra.findMany({ where: { numeroFactura: 'FK-PROV' } })).toHaveLength(0);
+
+    // Sede inexistente (proveedor real).
+    const errSede = await capturarError(
+      registrarCompra({
+        proveedorId: prov.id, sedeId: idInexistente, numeroFactura: 'FK-SEDE',
+        montoTotal: 100, tipo: 'contado', fechaEmision: '2026-05-18',
+      }),
+    );
+    expect(errSede).toBeInstanceOf(ErrorValidacion);
+    expect((errSede as Error).message).toMatch(/no existen/);
+    expect(await prisma.compra.findMany({ where: { numeroFactura: 'FK-SEDE' } })).toHaveLength(0);
   });
 });
