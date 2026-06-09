@@ -197,6 +197,7 @@ export function PantallaDashboard() {
     setIdResaltado(venta.id);
     void cargarDashboard();
     void cargarVentas();
+    void cargarCajeras();
   };
 
   // Calcular el total de gastos para los porcentajes de categorías
