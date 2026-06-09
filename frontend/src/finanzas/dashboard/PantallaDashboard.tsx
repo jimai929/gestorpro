@@ -313,47 +313,52 @@ export function PantallaDashboard() {
             />
           </div>
 
-          {(cargandoSedes || errorSedes !== null || sedes.length > 0) && (
-            <div className={styles.grupoFiltro}>
-              <label className={styles.etiquetaFiltro} htmlFor="filtro-sede">
-                Sede
-              </label>
-              <select
-                id="filtro-sede"
-                className={styles.inputFiltro}
-                value={sedeId}
-                onChange={(e) => setSedeId(e.target.value)}
-                disabled={cargandoSedes || errorSedes !== null}
-              >
-                <option value="">
-                  {cargandoSedes
-                    ? 'Cargando sedes…'
-                    : errorSedes
-                      ? 'No disponible'
-                      : 'Todas las sedes'}
+          <div className={styles.grupoFiltro}>
+            <label className={styles.etiquetaFiltro} htmlFor="filtro-sede">
+              Sede
+            </label>
+            <select
+              id="filtro-sede"
+              className={styles.inputFiltro}
+              value={sedeId}
+              onChange={(e) => setSedeId(e.target.value)}
+              disabled={cargandoSedes || errorSedes !== null}
+            >
+              <option value="">
+                {cargandoSedes
+                  ? 'Cargando sedes…'
+                  : errorSedes
+                    ? 'No disponible'
+                    : 'Todas las sedes'}
+              </option>
+              {sedes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombre}
                 </option>
-                {sedes.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
-                ))}
-              </select>
-              {/* Falló la carga: avisar y ofrecer reintento. Sin sedes el filtro
-                  queda inservible y la columna Sede muestra identificadores. */}
-              {errorSedes && (
-                <span className={styles.ayudaFiltroError}>
-                  {errorSedes}{' '}
-                  <button
-                    type="button"
-                    className={styles.enlaceReintentar}
-                    onClick={cargarSedes}
-                  >
-                    Reintentar
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
+              ))}
+            </select>
+            {/* Falló la carga: avisar y ofrecer reintento. Sin sedes el filtro
+                queda inservible y la columna Sede cae a "Sede no disponible". */}
+            {errorSedes && (
+              <span className={styles.ayudaFiltroError}>
+                {errorSedes}{' '}
+                <button
+                  type="button"
+                  className={styles.enlaceReintentar}
+                  onClick={cargarSedes}
+                >
+                  Reintentar
+                </button>
+              </span>
+            )}
+            {/* Cargó bien pero no hay ninguna sede todavía: estado vacío,
+                simétrico con el del filtro de cajeras (no se oculta el grupo). */}
+            {!cargandoSedes && !errorSedes && sedes.length === 0 && (
+              <span className={styles.ayudaFiltro}>
+                Aún no hay sedes registradas.
+              </span>
+            )}
+          </div>
 
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-turno">
@@ -590,7 +595,7 @@ export function PantallaDashboard() {
                   >
                     <td>{formatearFecha(venta.fechaOperacion)}</td>
                     <td>
-                      {sedes.find((s) => s.id === venta.sedeId)?.nombre ?? venta.sedeId}
+                      {sedes.find((s) => s.id === venta.sedeId)?.nombre ?? 'Sede no disponible'}
                     </td>
                     <td>{ETIQUETA_TURNO[venta.turno] ?? venta.turno}</td>
                     <td>{venta.cajera}</td>

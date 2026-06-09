@@ -366,14 +366,6 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
                 </option>
               ))}
             </select>
-            {errorEmpleados && (
-              <span className={styles.ayudaError}>
-                {errorEmpleados}{' '}
-                <button type="button" className={styles.enlaceReintentar} onClick={cargarEmpleados}>
-                  Reintentar
-                </button>
-              </span>
-            )}
             {sedeId && !cargandoEmpleados && !errorEmpleados && verificadores.length === 0 && (
               <span className={styles.ayudaCampo}>
                 No hay empleados con rol Verificador. Asígnalo en Empleados.

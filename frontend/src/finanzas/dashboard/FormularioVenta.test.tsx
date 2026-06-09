@@ -111,12 +111,13 @@ describe('FormularioVenta — fallo de carga y reintento', () => {
     expect(screen.queryByRole('button', { name: /reintentar/i })).toBeNull();
   });
 
-  it('si los empleados fallan, cajera y verificador avisan con reintento (uno por select)', async () => {
+  it('si los empleados fallan, se muestra un único aviso de error con reintento', async () => {
     // Promise.all rechaza si cualquiera de los dos falla; basta con el primero.
     vi.mocked(servicio.obtenerEmpleadosPorRol).mockRejectedValueOnce(new Error('boom'));
     render(<FormularioVenta onRegistrada={vi.fn()} />);
 
+    // El error de carga de empleados se renderiza UNA sola vez (no duplicado bajo cada select).
     const reintentos = await screen.findAllByRole('button', { name: /reintentar/i });
-    expect(reintentos).toHaveLength(2);
+    expect(reintentos).toHaveLength(1);
   });
 });
