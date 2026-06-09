@@ -206,3 +206,7 @@ Hallazgos del batch 1 (H2/H4/H5 — capa de presentación del dashboard) — bac
 
 | B1 | baja | `frontend/src/finanzas/dashboard/FormularioVenta.test.tsx:114-122` | El test de H2 solo verifica el número de botones Reintentar (toHaveLength(1)); discrimina el de-dup pero no ancla la posición del aviso (un aviso que migre a Cerrado por seguiría contando 1). Falta una aserción que ancle el aviso bajo Cajera. | backlog |
 | B2 | baja | `frontend/src/finanzas/dashboard/PantallaDashboard.test.tsx:37-43,55,66` | Aislamiento de mocks frágil: vitest.config sin restoreMocks/clearMocks y beforeEach sin vi.clearAllMocks(); hoy funciona por la semántica de reemplazo de mockResolvedValue, pero reordenar describes o pasar a ...Once (semántica de cola) filtraría → verde/rojo intermitente. Fijar restoreMocks:true o vi.clearAllMocks() en beforeEach. | backlog |
+
+Hallazgo del batch 2 (H3 — refresco del filtro de cajeras tras registrar) — backlog:
+
+| C1 | baja | `frontend/src/finanzas/dashboard/PantallaDashboard.tsx:200` (con select 387-406) | Efecto UX esperado de H3: tras registrar, cargarCajeras reusa el state cargandoCajeras, deshabilitando el select de filtro de cajera durante el refresco (placeholder 'Cargando cajeras…'). A diferencia de cargarDashboard/cargarVentas (no tocan selects). La selección no se pierde (value={cajera} se conserva, opciones vuelven al resolver); flicker subsegundo, no funcional. Opcional: refresco con un flag que no toque disabled. | backlog |
