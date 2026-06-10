@@ -150,7 +150,8 @@ nada. Candidatos a backlog para una iteración futura.
   de "falló"). **Por qué se difiere:** el token ya se muestra como texto bajo la
   imagen y el botón Imprimir se deshabilita sin imagen; el fallo de `toDataURL`
   (entrada válida, render local en el navegador) es rarísimo y no toca dinero ni
-  datos.
+  datos. **Hecho en batch 4** (= H7), commit `764a3fc`: estado de fallo propio
+  (`qrImagenError`) + Reintentar que solo redibuja, sin rotar el token.
 - **B7 — `backend/src/finanzas/cuentas-por-pagar/cuentas-por-pagar.service.ts:105-107`.**
   Falta test del guardia `montoTotal <= 0` de `registrarCompra` → `ErrorValidacion`.
   **Por qué se difiere:** la guarda YA existe y es correcta (verificada por
@@ -184,7 +185,7 @@ decisión cerrada.
 | H4 | baja | `frontend/src/finanzas/dashboard/PantallaDashboard.tsx:593` | Si las sedes fallan, la columna Sede de la tabla muestra el UUID crudo sin aviso en la propia tabla (el aviso solo aparece en el filtro). | backlog |
 | H5 | baja | `frontend/src/finanzas/dashboard/PantallaDashboard.tsx:316` (+415-419) | Si `obtenerSedes` resuelve vacío (0 sedes, sin error) el grupo del filtro Sede se oculta, mientras Cajera sí muestra su estado vacío (asimetría de UI). | backlog |
 | H6 | baja | `frontend/src/administracion/empleado/FormularioEmpleado.tsx:53-66` | `cargarSedes`/`cargarRoles` hacen `setState` en then/catch/finally sin guardia de montaje ni cancelación (setState sobre componente desmontado tras reintento/desmontaje). | backlog |
-| H7 | baja | `frontend/src/administracion/empleado/PantallaEmpleados.tsx:87-95` | `QRCode.toDataURL(...).catch(()=>setQrImagen(null))`: si el render del QR falla, el modal queda en "Generando…" perpetuo. **= A5 ya diferido.** | backlog |
+| H7 | baja | `frontend/src/administracion/empleado/PantallaEmpleados.tsx:87-95` | `QRCode.toDataURL(...).catch(()=>setQrImagen(null))`: si el render del QR falla, el modal queda en "Generando…" perpetuo. **= A5 ya diferido.** | **hecho en batch 4**, commit `764a3fc` |
 | H8 | baja | `backend/prisma/seed.ts:308-332` | Reasignación de roles operativos solo aditiva (upsert sin `deleteMany`): un re-seed con `db:seed` sobre datos viejos deja roles obsoletos pegados. | backlog |
 | H9 | baja | `backend/prisma/seed.ts:311-323` | La rama `update` del upsert de empleado no toca `qrToken` ni `pinHash`; un re-seed que reusa un registro deja credenciales del anterior ligadas al nuevo nombre. | backlog |
 | H10 | baja | `backend/prisma/seed.ts:274` | El guard de idempotencia del turno busca solo por nombre y no por sede; `Turno.nombre` no es único en el schema. | backlog |
@@ -193,7 +194,8 @@ decisión cerrada.
 | H13 | baja | `backend/test/finanzas/cuentas-por-pagar.test.ts:219-247` | El test de sobrepago solo cubre un único abono que excede; falta el borde `monto==saldo` y la concurrencia que protege `FOR UPDATE`. | backlog |
 | H14 | baja | `backend/test/asistencia/cobro.test.ts:137-142` | "Pagar inexistente" afirma `ErrorNoEncontrado` pero no verifica ausencia de `Gasto` huérfano (la rama de `Gasto` es inalcanzable: `!sol` corta antes; cobertura cosmética). | backlog |
 | H15 | baja | `backend/test/asistencia/cobro.test.ts:119-133` | El `beforeAll` del 2º describe muta la fila única `configuracionCobro` compartida; depende de `fileParallelism:false` para no contaminar otros tests. | backlog |
-| H16 | baja | `frontend/src/administracion/empleado/PantallaEmpleados.tsx:97-111` | `manejarGuardado` cierra el formulario antes de la recarga; si la recarga falla tras un alta, el QR del nuevo empleado no se muestra (recuperable vía `verQr`). | backlog |
+| H16 | baja | `frontend/src/administracion/empleado/PantallaEmpleados.tsx:97-111` | `manejarGuardado` cierra el formulario antes de la recarga; si la recarga falla tras un alta, el QR del nuevo empleado no se muestra (recuperable vía `verQr`). | **hecho en batch 4 (opción b)**, commit `764a3fc` — revisado en batch 4: A1 se mantiene + aviso aplicado. |
+| H17 | baja | `frontend/src/administracion/empleado/PantallaEmpleados.tsx:125` | Simetría pendiente de H16: en EDICIÓN exitosa + recarga fallida también hay silencio (ambas ramas exigen `'qrToken' in resultado`); menor daño que el alta (re-PUT idempotente, no duplica personas). H16(b) se acotó deliberadamente al alta. | backlog |
 
 Hallazgos de la 3ª revisión (pre-commit) — hardening del test de regresión de H1/N1:
 
