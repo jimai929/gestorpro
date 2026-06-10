@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FormularioEmpleado } from './FormularioEmpleado';
 import * as servicioSedes from '../sedes/servicioSedes';
@@ -20,6 +20,9 @@ const sedeA: Sede = {
 const rolCajera: RolOperativo = { id: 'rc', clave: 'cajera', nombre: 'Cajera', activo: true };
 
 beforeEach(() => {
+  // Limpia el historial de llamadas entre tests: los asserts sobre mock.calls[0] no
+  // deben depender del orden de los casos del archivo (vitest no trae clearMocks).
+  vi.clearAllMocks();
   vi.mocked(servicioSedes.obtenerSedes).mockResolvedValue([sedeA]);
   vi.mocked(servicioEmpleados.obtenerRolesOperativos).mockResolvedValue([rolCajera]);
 });
@@ -59,8 +62,8 @@ describe('FormularioEmpleado — gating del alta cuando los roles no cargan (H1)
 
 describe('FormularioEmpleado — edición NO se bloquea por errorRoles (N1)', () => {
   it('en EDICIÓN, si el catálogo de roles falla, "Guardar cambios" sigue habilitado (los roles ya vienen precargados)', async () => {
-    // En edición los roles ya vienen del empleado y editarEmpleado los reenvía intactos; editar
-    // salario/sede no depende del catálogo, así que errorRoles NO debe bloquear (solo gatea el alta).
+    // En edición editar salario/sede no depende del catálogo de roles, así que errorRoles NO debe
+    // bloquear (solo gatea el alta); al guardar con errorRoles se omite rolesOperativos (ver caso N4).
     vi.mocked(servicioEmpleados.obtenerRolesOperativos).mockRejectedValueOnce(new Error('boom'));
     const empleado: Empleado = {
       id: 'e1',
@@ -79,5 +82,69 @@ describe('FormularioEmpleado — edición NO se bloquea por errorRoles (N1)', ()
 
     const guardar = screen.getByRole('button', { name: /guardar cambios/i }) as HTMLButtonElement;
     expect(guardar.disabled).toBe(false);
+  });
+});
+
+describe('FormularioEmpleado — edición con roles caídos omite rolesOperativos (N4)', () => {
+  it('en EDICIÓN, si el catálogo de roles falla, al guardar NO se envía rolesOperativos (el backend conserva los actuales)', async () => {
+    vi.mocked(servicioEmpleados.obtenerRolesOperativos).mockRejectedValueOnce(new Error('boom'));
+    const empleado: Empleado = {
+      id: 'e1',
+      numero: 'E001',
+      nombre: 'María Pérez',
+      sedeId: 'sa',
+      salarioFijo: 1000,
+      turnoId: null,
+      activo: true,
+      tieneFoto: false,
+      roles: [{ id: 'rc', clave: 'cajera', nombre: 'Cajera' }],
+    };
+    vi.mocked(servicioEmpleados.editarEmpleado).mockResolvedValue(empleado);
+    const onGuardado = vi.fn();
+    const user = userEvent.setup();
+    render(<FormularioEmpleado empleado={empleado} onGuardado={onGuardado} onCancelar={vi.fn()} />);
+
+    await screen.findByText(/no se pudieron cargar los roles/i); // errorRoles activo
+
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(onGuardado).toHaveBeenCalled()); // el guardado completó
+
+    // editarEmpleado se llamó SIN rolesOperativos (campo omitido → el backend conserva los actuales).
+    // Si la rama de edición siguiera enviando rolesOperativos: rolesIds, este assert fallaría.
+    const [, body] = vi.mocked(servicioEmpleados.editarEmpleado).mock.calls[0]!;
+    // Ancla positiva: con errorRoles se omite SOLO rolesOperativos, el resto del body va
+    // íntegro (distingue "campo omitido adrede" de "body vaciado por una regresión").
+    expect(body).toMatchObject({ numero: 'E001', nombre: 'María Pérez', sedeId: 'sa', salarioFijo: 1000 });
+    expect(body.rolesOperativos).toBeUndefined();
+  });
+});
+
+describe('FormularioEmpleado — edición con catálogo OK SÍ envía rolesOperativos (brazo feliz de N4)', () => {
+  it('en EDICIÓN sin errorRoles, al guardar el body lleva rolesOperativos con la selección actual', async () => {
+    const empleado: Empleado = {
+      id: 'e1',
+      numero: 'E001',
+      nombre: 'María Pérez',
+      sedeId: 'sa',
+      salarioFijo: 1000,
+      turnoId: null,
+      activo: true,
+      tieneFoto: false,
+      roles: [{ id: 'rc', clave: 'cajera', nombre: 'Cajera' }],
+    };
+    vi.mocked(servicioEmpleados.editarEmpleado).mockResolvedValue(empleado);
+    const onGuardado = vi.fn();
+    const user = userEvent.setup();
+    render(<FormularioEmpleado empleado={empleado} onGuardado={onGuardado} onCancelar={vi.fn()} />);
+
+    await screen.findByText('Cajera'); // catálogo cargado: checkboxes renderizados, sin errorRoles
+
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(onGuardado).toHaveBeenCalled()); // el guardado completó
+
+    // El brazo sin error de la bifurcación de N4: rolesOperativos viaja con la selección.
+    // Si una regresión omitiera el campo SIEMPRE (spread invertido o quitado), fallaría aquí.
+    const [, body] = vi.mocked(servicioEmpleados.editarEmpleado).mock.calls[0]!;
+    expect(body.rolesOperativos).toEqual(['rc']);
   });
 });

@@ -101,7 +101,10 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
             nombre: nombre.trim(),
             sedeId,
             salarioFijo: salarioNum,
-            rolesOperativos: rolesIds,
+            // Si el catálogo de roles falló, se OMITE rolesOperativos: el backend conserva los
+            // actuales (contrato: undefined = no se tocan). No se reenvía a ciegas un conjunto
+            // que el admin no pudo ver ni editar. (ALTA va por la otra rama y H1 ya la bloquea.)
+            ...(errorRoles ? {} : { rolesOperativos: rolesIds }),
           })
         : await crearEmpleado({
             numero: numero.trim(),
@@ -216,6 +219,7 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
               <button type="button" className={styles.enlaceReintentar} onClick={cargarRoles}>
                 Reintentar
               </button>
+              {esEdicion && ' Se conservan los roles actuales al guardar.'}
             </span>
           ) : roles.length === 0 ? (
             <span className={styles.rolesVacio}>No hay roles operativos disponibles.</span>
