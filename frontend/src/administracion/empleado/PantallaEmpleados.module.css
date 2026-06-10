@@ -219,6 +219,17 @@
   gap: 1rem;
 }
 
+/* Aviso informativo (no error): p. ej. "empleado creado" cuando la recarga falló. */
+.avisoInfo {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  color: #1e40af;
+  font-size: 0.9375rem;
+  margin-bottom: 1rem;
+}
+
 /* ── Modales (QR / PIN) ── */
 
 .overlay {

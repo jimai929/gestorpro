@@ -44,10 +44,15 @@ export function PantallaEmpleados() {
   const [mostrarFormNuevo, setMostrarFormNuevo] = useState(false);
   const [empleadoEditar, setEmpleadoEditar] = useState<Empleado | null>(null);
   const [actualizandoId, setActualizandoId] = useState<string | null>(null);
+  // Aviso de alta exitosa cuando la recarga posterior falló (ver manejarGuardado).
+  const [avisoAlta, setAvisoAlta] = useState<string | null>(null);
 
   // Modal de QR (imagen escaneable).
   const [qr, setQr] = useState<EstadoQr | null>(null);
   const [qrImagen, setQrImagen] = useState<string | null>(null);
+  // Fallo del DIBUJO de la imagen (no de la API): sin él, `qrImagen` null no
+  // distingue "generando" de "falló" y el modal se queda en "Generando…" eterno.
+  const [qrImagenError, setQrImagenError] = useState<string | null>(null);
   const [regenerando, setRegenerando] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
 
@@ -70,6 +75,7 @@ export function PantallaEmpleados() {
       ]);
       setEmpleados(lista);
       setSedes(Object.fromEntries(listaSedes.map((s) => [s.id, s.nombre])));
+      setAvisoAlta(null); // la fila ya es visible: el aviso de alta deja de hacer falta
       return true;
     } catch (err) {
       setErrorCarga(err instanceof Error ? err.message : 'Error al cargar los empleados.');
@@ -83,16 +89,26 @@ export function PantallaEmpleados() {
     void cargar();
   }, [cargar]);
 
+  // Dibuja el token como imagen. Resetea al empezar: distingue "generando" de
+  // "falló" (con reintento que NO rota el token) y no deja en pantalla el QR
+  // anterior (ya revocado) mientras se dibuja el nuevo tras un Regenerar.
+  const generarImagen = useCallback((token: string) => {
+    setQrImagen(null);
+    setQrImagenError(null);
+    void QRCode.toDataURL(token, { width: 240, margin: 1 })
+      .then(setQrImagen)
+      .catch(() => setQrImagenError('No se pudo generar la imagen del QR.'));
+  }, []);
+
   // Render del QR como imagen cuando cambia el token mostrado.
   useEffect(() => {
     if (!qr) {
       setQrImagen(null);
+      setQrImagenError(null);
       return;
     }
-    void QRCode.toDataURL(qr.token, { width: 240, margin: 1 })
-      .then(setQrImagen)
-      .catch(() => setQrImagen(null));
-  }, [qr]);
+    generarImagen(qr.token);
+  }, [qr, generarImagen]);
 
   const manejarGuardado = (resultado: Empleado | EmpleadoCreado) => {
     setMostrarFormNuevo(false);
@@ -106,6 +122,10 @@ export function PantallaEmpleados() {
       if (recargaOk && 'qrToken' in resultado) {
         setQrError(null);
         setQr({ empleadoId: resultado.id, nombre: resultado.nombre, token: resultado.qrToken });
+      } else if ('qrToken' in resultado) {
+        // Recarga fallida tras el alta: decir que el alta SÍ se completó, para que
+        // el admin no la dé por fallida y la repita. El QR queda en el botón "QR".
+        setAvisoAlta('El empleado se creó correctamente. Su fila aparecerá al recargar la lista; el QR está en su botón "QR".');
       }
     });
   };
@@ -233,6 +253,7 @@ export function PantallaEmpleados() {
         )}
 
         <div className={styles.tarjeta}>
+          {avisoAlta && <div className={styles.avisoInfo}>{avisoAlta}</div>}
           {errorCarga && (
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
@@ -315,7 +336,18 @@ export function PantallaEmpleados() {
           <div className={styles.modal}>
             <h2 className={styles.modalTitulo}>QR de {qr.nombre}</h2>
             <div className={styles.qrCaja}>
-              {qrImagen ? <img src={qrImagen} alt={`QR de ${qr.nombre}`} className={styles.qrImagen} /> : <p>Generando…</p>}
+              {qrImagen ? (
+                <img src={qrImagen} alt={`QR de ${qr.nombre}`} className={styles.qrImagen} />
+              ) : qrImagenError ? (
+                <div className={styles.error}>
+                  {qrImagenError}{' '}
+                  <Boton variante="secundario" onClick={() => generarImagen(qr.token)}>
+                    Reintentar
+                  </Boton>
+                </div>
+              ) : (
+                <p>Generando…</p>
+              )}
             </div>
             <p className={styles.qrToken}>{qr.token}</p>
             <p className={styles.qrNota}>Regenerar invalida el QR anterior al instante.</p>

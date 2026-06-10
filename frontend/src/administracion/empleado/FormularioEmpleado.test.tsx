@@ -21,7 +21,7 @@ const rolCajera: RolOperativo = { id: 'rc', clave: 'cajera', nombre: 'Cajera', a
 
 beforeEach(() => {
   // Limpia el historial de llamadas entre tests: los asserts sobre mock.calls[0] no
-  // deben depender del orden de los casos del archivo (vitest no trae clearMocks).
+  // deben depender del orden de los casos del archivo (la config del proyecto no activa clearMocks).
   vi.clearAllMocks();
   vi.mocked(servicioSedes.obtenerSedes).mockResolvedValue([sedeA]);
   vi.mocked(servicioEmpleados.obtenerRolesOperativos).mockResolvedValue([rolCajera]);
