@@ -107,11 +107,11 @@ Si una sede pierde internet, el kiosco no puede fichar. Dos etapas:
    - **Decisión explícita sobre el verificador facial**: conectar un proveedor
      real, o declarar el simulador como riesgo aceptado con TODOS los fichajes
      marcados a revisión. P2 con simulador = fichaje sin verificación facial.
-3. **Refresh-on-401 en el frontend**: `cliente.ts` intercepta un 401, llama a
-   `POST /auth/refresh` (ya existe) con el refresh token, reintenta UNA vez y,
-   si vuelve a fallar, cierra sesión. El interceptor DEBE excluir las rutas
-   `/auth/*` para no entrar en bucle. Hoy el access token (15 min) expira sin
-   reintento. Tarea de código pequeña, previa al piloto.
+3. **Refresh-on-401 en el frontend** — **HECHO** (commit `2536b0c`):
+   `cliente.ts` intercepta un 401, renueva el access token UNA vez (vía el
+   manejador que inyecta `ContextoAuth`) y reintenta; si el refresh ya no
+   vale, cierra sesión. Las rutas `/auth/*` usan `omitirAuth`, así que el 401
+   del propio refresh no entra en bucle; refrescos concurrentes se deduplican.
 4. **Zona horaria**: `TZ=America/Panama` en backend y Postgres. En Postgres el
    timezone del clúster se fija en el `initdb` del PRIMER arranque del volumen;
    cambiarlo después no surte efecto sobre datos ya escritos — fijarlo al crear
@@ -232,7 +232,7 @@ en Caddy hasta P2.
       + REVOKE de auditoría verificado tras `migrate deploy` (UPDATE como app debe fallar).
 - [ ] Seed de producción separado del demo (`SEED_DEMO`), admin desde
       `ADMIN_EMAIL`/`ADMIN_PASSWORD`, Sede inicial + 'Pago a empleado' incluidos.
-- [ ] Refresh-on-401 implementado (excluye `/auth/*`) y probado.
+- [x] Refresh-on-401 implementado (excluye `/auth/*`) y probado — commit `2536b0c`.
 - [ ] Rate limiting en `/auth/*` y `/fichajes`; rutas de kiosco restringidas
       por red/bloqueadas en Caddy hasta P2.
 - [ ] Backups diarios (`pg_dump` + `pg_dumpall --roles-only`) + restauración
