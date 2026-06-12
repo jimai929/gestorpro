@@ -192,7 +192,7 @@ describe('cobro: transiciones inválidas y rechazo (B10, B11)', () => {
 });
 
 describe('cobro: guardas de configuración y categoría (B12, B13)', () => {
-  it('pagarCobro sin categoría de pago-empleado activa lanza ErrorValidacion y revierte todo', async () => {
+  it('pagarCobro sin categoría de pago-empleado activa lanza ErrorValidacion y no escribe nada', async () => {
     const emp = await crearEmpleadoConSaldo(200);
     const admin = await nuevoUsuarioJefe();
     const cobro = await solicitarCobro({ empleadoId: emp.id, monto: 50 }); // ≤ umbral 100 → nace 'aprobada'
@@ -207,8 +207,12 @@ describe('cobro: guardas de configuración y categoría (B12, B13)', () => {
     const ids = activas.map((c) => c.id);
     await prisma.categoriaGasto.updateMany({ where: { id: { in: ids } }, data: { activo: false } });
     try {
-      await expect(pagarCobro(cobro.id, admin.id)).rejects.toBeInstanceOf(ErrorValidacion);
-      // Rollback completo: la solicitud sigue 'aprobada' (no quedó 'pagada')…
+      // Anclar el mensaje fija QUÉ ErrorValidacion es (el del guard de categoría): un
+      // ErrorValidacion previo añadido en un refactor futuro no pasaría desapercibido.
+      const error = await capturarError(pagarCobro(cobro.id, admin.id));
+      expect(error).toBeInstanceOf(ErrorValidacion);
+      expect((error as Error).message).toMatch(/categoría/);
+      // El guard corta ANTES de toda escritura: la solicitud sigue 'aprobada' (no quedó 'pagada')…
       const sol = await prisma.solicitudCobro.findUnique({ where: { id: cobro.id } });
       expect(sol?.estado).toBe('aprobada');
       // …y NO se creó ningún Gasto ligado a la solicitud.
@@ -235,5 +239,27 @@ describe('cobro: guardas de configuración y categoría (B12, B13)', () => {
     expect(despues?.id).toBe(antes?.id);
     expect(despues?.porcentajeCobrable).toBe(antes?.porcentajeCobrable);
     expect(Number(despues?.umbralAprobacion)).toBe(Number(antes?.umbralAprobacion));
+  });
+
+  it('definirConfiguracionCobro acepta los bordes válidos (0 y 100 de porcentaje, umbral 0) y restaura la config', async () => {
+    // Ancla los operadores estrictos del guard por el lado de la aceptación: un
+    // endurecimiento (`<` → `<=` / `>` → `>=`) rechazaría 0/100 y pondría esto en rojo.
+    const antes = await prisma.configuracionCobro.findFirst();
+    try {
+      const enCero = await definirConfiguracionCobro({ porcentajeCobrable: 0, umbralAprobacion: 0 });
+      expect(enCero.porcentajeCobrable).toBe(0);
+      expect(Number(enCero.umbralAprobacion)).toBe(0);
+
+      const enCien = await definirConfiguracionCobro({ porcentajeCobrable: 100 });
+      expect(enCien.porcentajeCobrable).toBe(100);
+    } finally {
+      // La fila es única y compartida (solicitarCobro depende de 80/100): restaurar
+      // SIEMPRE, también si un expect falla a mitad. Vía el propio servicio (de paso
+      // cubre su camino de update con valores normales).
+      await definirConfiguracionCobro({
+        porcentajeCobrable: antes?.porcentajeCobrable ?? 80,
+        umbralAprobacion: Number(antes?.umbralAprobacion ?? 100),
+      });
+    }
   });
 });
