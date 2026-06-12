@@ -62,14 +62,12 @@ Si una sede pierde internet, el kiosco no puede fichar. Dos etapas:
 - **v1 (sale con el piloto):** procedimiento administrativo — el supervisor
   anota entrada/salida en papel y, al volver la conexión, se corrige la
   jornada con el mecanismo existente (`Correccion`, inmutable, vía
-  `POST /jornadas/correccion`). **Límite conocido:** `corregirJornada` exige
-  una `Jornada` ya existente, y una jornada solo nace de un fichaje de salida
-  o del barrido de huérfanos (que solo procesa entradas sin salida). Si la
-  sede pierde internet ANTES de la primera entrada del día, no hay jornada que
-  corregir y hoy no existe alta manual de jornada. Por tanto v1 cubre **cortes
-  parciales** (entrada ya registrada). Tarea pequeña pre-P2 para cerrar el
-  hueco: permitir que `corregirJornada` cree la jornada del día con motivo
-  obligatorio (manteniendo la `Correccion` como rastro inmutable).
+  `POST /jornadas/correccion`) para cortes PARCIALES (la entrada ya quedó
+  registrada). Para un corte de DÍA COMPLETO (nadie pudo fichar, no hay
+  jornada que corregir) el jefe la crea a mano con **`POST /jornadas/manual`**
+  (commit `ad90e78`): deja la `Correccion` inmutable como rastro y acredita el
+  saldo igual que la corrección. Las ausencias de entrada-sin-salida las marca
+  el barrido de huérfanos.
 - **v2 (opcional, post-piloto):** kiosco como PWA con cola offline — los
   fichajes hechos sin conexión se guardan localmente y se reenvían al volver,
   SIEMPRE marcados para revisión (el timestamp del dispositivo no es
@@ -199,7 +197,7 @@ simulado).
 |---|---|---|
 | P0 | VPS + dominio + Compose + TLS + roles de BD + backups + seed prod + refresh-on-401 | — |
 | P1 | **Piloto de FINANZAS** en producción (cuentas por pagar, gastos, dashboard) con datos reales | ninguno externo; Firestec solo afecta la comodidad de captura |
-| P2 | **Asistencia** (kioscos, jornada, cobros) | **(a) validación legal de `jornada/legal.ts`; (b) protección del kiosco §4.2 (auth/red + rate-limit + decisión facial); (c) alta de kioscos §6; (d) jornada manual §3 — todos bloqueantes** |
+| P2 | **Asistencia** (kioscos, jornada, cobros) | **(a) validación legal de `jornada/legal.ts` — pendiente; (b) protección del kiosco §4.2 (rate-limit hecho; falta restricción de red + decisión facial); (c) alta de kioscos — hecha; (d) jornada manual §3 — hecha (`ad90e78`)** |
 
 Esto respeta el principio del plan ("finanzas en producción y en uso real
 antes de seguir") que el desarrollo ya dejó atrás pero el despliegue puede
@@ -247,4 +245,4 @@ en Caddy hasta P2.
 - [ ] Protección del kiosco aplicada (auth/red + rate-limit) y decisión sobre
       el verificador facial (real o riesgo aceptado con todo a revisión).
 - [x] Provisión de kioscos: API (`POST /kioscos`, commit `74c2817`) + pantalla de gestión (commit `7c37819`).
-- [ ] Alta manual de jornada para cortes de día completo (§3).
+- [x] Alta manual de jornada para cortes de día completo (`POST /jornadas/manual`, commit `ad90e78`).
