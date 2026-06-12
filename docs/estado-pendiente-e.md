@@ -156,17 +156,20 @@ nada. Candidatos a backlog para una iteración futura.
   Falta test del guardia `montoTotal <= 0` de `registrarCompra` → `ErrorValidacion`.
   **Por qué se difiere:** la guarda YA existe y es correcta (verificada por
   lectura); es solo cobertura, y el schema de la ruta valida el monto antes de
-  llegar al servicio. Sin test no se introduce riesgo de dinero.
+  llegar al servicio. Sin test no se introduce riesgo de dinero. **Hecho en
+  batch 5**, commit `c8abfca`.
 - **B12 — `backend/src/asistencia/cobro/cobro.service.ts:152-156`.**
   Falta test de `pagarCobro` sin categoría de "pago a empleado" activa →
   `ErrorValidacion`. **Por qué se difiere:** guarda existente y correcta; el seed
   siempre crea esa categoría, así que el caso solo ocurre con una BD mal
-  configurada. Cobertura baja, sin riesgo.
+  configurada. Cobertura baja, sin riesgo. **Hecho en batch 5**, commit `c8abfca`
+  (con capture/restore de las categorías compartidas en finally).
 - **B13 — `backend/src/asistencia/cobro/cobro.service.ts:29-37`.**
   Falta test de `definirConfiguracionCobro` con % fuera de 0–100 o umbral
   negativo → `ErrorValidacion`. **Por qué se difiere:** guardas existentes y
   correctas; endpoint de configuración de uso interno y poco frecuente.
-  Cobertura baja, sin riesgo.
+  Cobertura baja, sin riesgo. **Hecho en batch 5**, commit `c8abfca` (solo
+  inválidos; los bordes válidos quedan como E4).
 
 ### Hallazgos de la 2ª revisión adversarial (H2–H16) — backlog
 
@@ -191,8 +194,8 @@ decisión cerrada.
 | H10 | baja | `backend/prisma/seed.ts:274` | El guard de idempotencia del turno busca solo por nombre y no por sede; `Turno.nombre` no es único en el schema. | backlog |
 | H11 | baja | `backend/prisma/seed.ts:102-105` (+184-253, 262-264) | `sembrarDemoFinanzas` sigue all-or-nothing (early-return por proveedor) y las 5 `ventaDiaria.create` no van en transacción → un fallo parcial + re-corrida con `db:seed` deja cierres demo incompletos. | backlog |
 | H12 | n/a | `backend/package.json:18-19` | `db:reset` ejecuta `prisma migrate reset --force` (destructivo) sin guard de `NODE_ENV`. **Guard `NODE_ENV` opcional, decisión 3** (solo-dev, advertencia ya en DECISIONES.md). | backlog |
-| H13 | baja | `backend/test/finanzas/cuentas-por-pagar.test.ts:219-247` | El test de sobrepago solo cubre un único abono que excede; falta el borde `monto==saldo` y la concurrencia que protege `FOR UPDATE`. | backlog |
-| H14 | baja | `backend/test/asistencia/cobro.test.ts:137-142` | "Pagar inexistente" afirma `ErrorNoEncontrado` pero no verifica ausencia de `Gasto` huérfano (la rama de `Gasto` es inalcanzable: `!sol` corta antes; cobertura cosmética). | backlog |
+| H13 | baja | `backend/test/finanzas/cuentas-por-pagar.test.ts:219-247` | El test de sobrepago solo cubre un único abono que excede; falta el borde `monto==saldo` y la concurrencia que protege `FOR UPDATE`. | **hecho en batch 5**, commit `c8abfca` (borde exacto + carrera FOR UPDATE; ver E1 y notas). |
+| H14 | baja | `backend/test/asistencia/cobro.test.ts:137-142` | "Pagar inexistente" afirma `ErrorNoEncontrado` pero no verifica ausencia de `Gasto` huérfano (la rama de `Gasto` es inalcanzable: `!sol` corta antes; cobertura cosmética). | **hecho en batch 5**, commit `c8abfca` (assert de no-Gasto-huérfano en el it existente). |
 | H15 | baja | `backend/test/asistencia/cobro.test.ts:119-133` | El `beforeAll` del 2º describe muta la fila única `configuracionCobro` compartida; depende de `fileParallelism:false` para no contaminar otros tests. | backlog |
 | H16 | baja | `frontend/src/administracion/empleado/PantallaEmpleados.tsx:97-111` | `manejarGuardado` cierra el formulario antes de la recarga; si la recarga falla tras un alta, el QR del nuevo empleado no se muestra (recuperable vía `verQr`). | **hecho en batch 4 (opción b)**, commit `764a3fc` — revisado en batch 4: A1 se mantiene + aviso aplicado. |
 | H17 | baja | `frontend/src/administracion/empleado/PantallaEmpleados.tsx:125` | Simetría pendiente de H16: en EDICIÓN exitosa + recarga fallida también hay silencio (ambas ramas exigen `'qrToken' in resultado`); menor daño que el alta (re-PUT idempotente, no duplica personas). H16(b) se acotó deliberadamente al alta. | backlog |
@@ -215,6 +218,15 @@ Hallazgo del batch 2 (H3 — refresco del filtro de cajeras tras registrar) — 
 
 Hallazgos del batch 3 (N4 — omisión de `rolesOperativos` con catálogo caído; 4ª revisión adversarial pre-commit) — backlog:
 
-| D1 | media | `backend/test/core/empleado.test.ts:165` | El contrato del que depende N4 (`rolesOperativos === undefined` → roles intactos; `empleado.service.ts:164`) no tiene test backend: solo se cubre reemplazo con array y lista vacía. Una regresión tipo `datos.rolesOperativos ?? []` vaciaría los roles en silencio con toda la suite verde (el test frontend solo fija que el body omite el campo). Añadir caso `editarEmpleado(emp.id, {})` sobre un empleado CON roles que aserte que persisten. | backlog |
+| D1 | media | `backend/test/core/empleado.test.ts:165` | El contrato del que depende N4 (`rolesOperativos === undefined` → roles intactos; `empleado.service.ts:164`) no tiene test backend: solo se cubre reemplazo con array y lista vacía. Una regresión tipo `datos.rolesOperativos ?? []` vaciaría los roles en silencio con toda la suite verde (el test frontend solo fija que el body omite el campo). Añadir caso `editarEmpleado(emp.id, {})` sobre un empleado CON roles que aserte que persisten. | **hecho en batch 5**, commit `c8abfca`: caso con {nombre} y {} + mutante `?? []` verificado (solo D1 falla). |
 | D2 | baja | `frontend/src/administracion/empleado/FormularioEmpleado.tsx:61` (+125) | Ventana en vuelo: `cargarRoles` limpia `errorRoles` ANTES de que el fetch resuelva y `completo` no gatea por `cargandoRoles` en edición → guardar durante la recarga (Reintentar en vuelo o carga inicial) SÍ envía `rolesOperativos` (snapshot del montaje; los checkboxes nunca se renderizaron). Inocuo salvo edición concurrente de roles en otra sesión (= comportamiento pre-fix; N4 reduce la superficie, no la cierra). Hardening opcional: gatear también por `cargandoRoles` en edición. | backlog |
 | D3 | baja | `frontend/package.json:9` | `"lint": "eslint ."` inejecutable: eslint no está en devDependencies y no existe `eslint.config.*` ni en frontend ni en la raíz → hueco de verificación silencioso para todo cambio frontend (hoy compensado con `tsc -b` + vitest). Preexistente, no introducido por N4. | backlog |
+
+Hallazgos del batch 5 (tests backend D1+B7+B12+B13+H13+H14; 5ª revisión adversarial) — backlog:
+
+| E1 | media | `backend/src/finanzas/cuentas-por-pagar/cuentas-por-pagar.service.ts:170` | `registrarPago` abre `$transaction` sin `isolationLevel` ni `timeout`: el invariante anti-sobrepago descansa en el default implícito READ COMMITTED — bajo REPEATABLE READ (un GUC basta) el SUM de la tx perdedora usaría snapshot stale y entrarían AMBOS pagos (sobrepago real; H13b se pondría rojo). La vista no tiene CHECK/trigger: el service es la única defensa. Hardening de una línea: `{ isolationLevel: 'ReadCommitted', timeout: 15000 }` — de paso elimina el vector de falso rojo P2028 de H13b en CI patológicamente lenta. | backlog |
+| E2 | baja | `backend/tsconfig.json:30` | Ningún comando del repo typechequea `backend/test/` (include solo `src`, exclude `test`; vitest transpila con esbuild sin chequear tipos). Gemelo backend del D3 frontend. Mitigado a mano en batch 5: `tsc --ignoreConfig --noEmit` con los flags estrictos sobre los 3 archivos → exit 0. | backlog |
+| E3 | baja | `backend/test/asistencia/cobro.test.ts:210` | Hardening B12: anclar el mensaje del reject (`/categoría/`) para blindarlo ante un futuro `ErrorValidacion` previo al guard, y renombrar el it («revierte todo» promete rollback transaccional que el escenario no ejercita: el guard corre antes de toda escritura). | backlog |
+| E4 | baja | `backend/test/asistencia/cobro.test.ts:229` | B13 no fija los bordes VÁLIDOS (0 y 100 de porcentaje, umbral 0): un endurecimiento del guard (`<`→`<=`) pasaría toda la suite en verde. Añadir casos de aceptación exige escribir la fila única compartida de `configuracionCobro` con restauración en finally. | backlog |
+
+Notas sin acción del batch 5: la detección del mutante sin `FOR UPDATE` en H13b es probabilística (limitación inherente a tests de carrera caja-negra; forzar el solape exigiría instrumentar src) y B13 depende de los `beforeAll` de los describes anteriores bajo `-t` (rojo falso ruidoso, documentado en el comentario del propio test).
