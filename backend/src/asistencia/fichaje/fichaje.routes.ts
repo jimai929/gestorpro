@@ -56,9 +56,13 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.autenticar, app.autorizar('supervisor', 'administrador')],
   };
 
+  // Superficie pública del kiosco: acotada por rate limit (la clave es la IP;
+  // es defensa en profundidad, no la única protección — ver DESPLIEGUE.md §4.2).
+  const limiteKiosco = { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } };
+
   // Catálogo de kioscos para que el dispositivo se identifique. Público (el
   // kiosco no tiene sesión de usuario); expone nombre, sede y modo de excepción.
-  app.get('/kioscos', async (request, reply) => {
+  app.get('/kioscos', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     try {
       const kioscos = await prisma.kiosco.findMany({
         where: { activo: true },
@@ -73,7 +77,7 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: BodyFichaje }>(
     '/fichajes',
-    { schema: esquemaFichaje },
+    { schema: esquemaFichaje, ...limiteKiosco },
     async (request, reply) => {
       try {
         const resultado = await servicio.fichar(request.body);

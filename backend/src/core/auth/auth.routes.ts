@@ -42,7 +42,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: { email: string; password: string } }>(
     '/login',
-    { schema: esquemaLogin },
+    {
+      schema: esquemaLogin,
+      // Estricto: el login es el objetivo de fuerza bruta de contraseñas.
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
     async (request, reply) => {
       try {
         const { email, password } = request.body;
@@ -60,7 +64,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: { refreshToken: string } }>(
     '/refresh',
-    { schema: esquemaRefresh },
+    {
+      schema: esquemaRefresh,
+      // Más holgado que el login: el refresco es automático (refresh-on-401) y
+      // una sede comparte IP de salida; aun así acotado contra abuso.
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    },
     async (request, reply) => {
       try {
         const resultado = await servicio.refrescarAcceso(
@@ -79,7 +88,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: { refreshToken: string } }>(
     '/logout',
-    { schema: esquemaRefresh },
+    {
+      schema: esquemaRefresh,
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    },
     async (request, reply) => {
       await servicio.cerrarSesion(request.body.refreshToken);
       return reply.code(204).send();

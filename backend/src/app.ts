@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { authPlugin } from './core/auth/auth.plugin.js';
 import { authRoutes } from './core/auth/auth.routes.js';
 import { sedeRoutes } from './core/sede/sede.routes.js';
@@ -33,6 +34,15 @@ export function construirApp(): FastifyInstance {
     origin: (process.env.CORS_ORIGEN ?? 'http://localhost:5173').split(','),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+
+  // Rate limiting en modo NO global: solo afecta a las rutas que lo declaran
+  // (config.rateLimit). Se aplica a las superficies sensibles —/auth/* (fuerza
+  // bruta de credenciales) y el fichaje público del kiosco—, no a la API
+  // autenticada normal. La clave por defecto es la IP; una sede comparte IP de
+  // salida, así que esto es defensa en profundidad, no la única protección del
+  // kiosco (ver DESPLIEGUE.md §4.2: restricción de red / token de dispositivo).
+  // Debe registrarse ANTES que las rutas para que su config por ruta surta efecto.
+  app.register(rateLimit, { global: false });
 
   // Núcleo: autenticación (debe registrarse antes que las rutas que la usan).
   app.register(authPlugin);
