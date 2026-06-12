@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../core/prisma.js';
 import { responderError } from '../../core/http.js';
-import { barrerHuerfanos, corregirJornada } from './jornada.service.js';
+import { barrerHuerfanos, corregirJornada, crearJornadaManual } from './jornada.service.js';
 
 const esquemaCorreccion = {
   body: {
@@ -15,6 +15,22 @@ const esquemaCorreccion = {
       minutosExtra: { type: 'integer', minimum: 0 },
       montoExtra: { type: 'number', minimum: 0 },
       resolverAnomalia: { type: 'boolean' },
+    },
+  },
+} as const;
+
+const esquemaJornadaManual = {
+  body: {
+    type: 'object',
+    required: ['empleadoId', 'fecha', 'motivo'],
+    additionalProperties: false,
+    properties: {
+      empleadoId: { type: 'string', minLength: 1 },
+      fecha: { type: 'string', minLength: 1 },
+      motivo: { type: 'string', minLength: 1 },
+      minutosTrabajados: { type: 'integer', minimum: 0 },
+      minutosExtra: { type: 'integer', minimum: 0 },
+      montoExtra: { type: 'number', minimum: 0 },
     },
   },
 } as const;
@@ -77,6 +93,33 @@ export async function jornadaRoutes(app: FastifyInstance): Promise<void> {
       try {
         const jornada = await corregirJornada({ ...request.body, jefeId: request.user.sub });
         return await reply.send(aJornadaDto(jornada));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Alta manual de jornada para días sin fichajes (p. ej. corte de internet en
+  // la sede): no hay jornada que corregir, así que el jefe la crea a mano.
+  app.post<{
+    Body: {
+      empleadoId: string;
+      fecha: string;
+      motivo: string;
+      minutosTrabajados?: number;
+      minutosExtra?: number;
+      montoExtra?: number;
+    };
+  }>(
+    '/jornadas/manual',
+    {
+      preHandler: [app.autenticar, app.autorizar('supervisor', 'administrador')],
+      schema: esquemaJornadaManual,
+    },
+    async (request, reply) => {
+      try {
+        const jornada = await crearJornadaManual({ ...request.body, jefeId: request.user.sub });
+        return await reply.code(201).send(aJornadaDto(jornada));
       } catch (error) {
         return responderError(error, request, reply);
       }

@@ -226,3 +226,83 @@ export async function corregirJornada(datos: {
     return actualizada;
   });
 }
+
+/**
+ * Alta MANUAL de una jornada por el jefe, para días SIN fichajes (p. ej. la
+ * sede perdió conexión y nadie pudo fichar): no hay jornada que corregir porque
+ * nunca llegó a crearse. Crea la jornada con los minutos/monto que indique el
+ * jefe y deja una `Correccion` INMUTABLE como rastro (`valorAnterior` marca que
+ * no existía jornada previa). Falla si ya hay jornada para ese día —para eso
+ * está la corrección— y acredita el monto extra al saldo en la misma tx.
+ */
+export async function crearJornadaManual(datos: {
+  empleadoId: string;
+  fecha: string;
+  jefeId: string;
+  motivo: string;
+  minutosTrabajados?: number;
+  minutosExtra?: number;
+  montoExtra?: number;
+}) {
+  if (!datos.motivo || datos.motivo.trim().length === 0) {
+    throw new ErrorValidacion('El motivo es obligatorio.');
+  }
+  const instante = new Date(datos.fecha);
+  if (Number.isNaN(instante.getTime())) {
+    throw new ErrorValidacion('La fecha es inválida.');
+  }
+  const fecha = soloFecha(instante);
+  if (fecha.getTime() > soloFecha(new Date()).getTime()) {
+    throw new ErrorValidacion('No se puede registrar una jornada en una fecha futura.');
+  }
+
+  const minutosTrabajados = datos.minutosTrabajados ?? 0;
+  const minutosExtra = datos.minutosExtra ?? 0;
+  const montoExtra = datos.montoExtra ?? 0;
+
+  return prisma.$transaction(async (tx) => {
+    const empleado = await tx.empleado.findUnique({ where: { id: datos.empleadoId } });
+    if (!empleado) {
+      throw new ErrorNoEncontrado('El empleado no existe.');
+    }
+
+    const existente = await tx.jornada.findUnique({
+      where: { empleadoId_fecha: { empleadoId: datos.empleadoId, fecha } },
+    });
+    if (existente) {
+      throw new ErrorValidacion(
+        'Ya existe una jornada para ese empleado y fecha; use la corrección.',
+      );
+    }
+
+    const jornada = await tx.jornada.create({
+      data: {
+        empleadoId: datos.empleadoId,
+        fecha,
+        minutosTrabajados,
+        minutosExtra,
+        montoExtra,
+        // Creada a mano por el jefe: es una intervención humana, como la corrección.
+        estado: 'corregida',
+      },
+      include: { empleado: { select: { numero: true, nombre: true } } },
+    });
+
+    await tx.correccion.create({
+      data: {
+        jornadaId: jornada.id,
+        usuarioId: datos.jefeId,
+        valorAnterior: { existia: false } as Prisma.InputJsonValue,
+        valorNuevo: { minutosTrabajados, minutosExtra, montoExtra } as Prisma.InputJsonValue,
+        motivo: datos.motivo,
+      },
+    });
+
+    // No había jornada previa: se acredita el monto extra completo.
+    if (montoExtra !== 0) {
+      await acreditarSaldo(tx, datos.empleadoId, montoExtra);
+    }
+
+    return jornada;
+  });
+}

@@ -4,8 +4,11 @@ import {
   recalcularJornadaPorSalida,
   barrerHuerfanos,
   corregirJornada,
+  crearJornadaManual,
 } from '../../src/asistencia/jornada/jornada.service.js';
 import { crearServicioFichaje } from '../../src/asistencia/fichaje/fichaje.service.js';
+import { obtenerSaldo } from '../../src/asistencia/cobro/saldo.service.js';
+import { ErrorNoEncontrado, ErrorValidacion } from '../../src/core/errors.js';
 
 let n = 0;
 async function crearEmpleadoConTurno() {
@@ -96,5 +99,76 @@ describe('motor de jornada (persistencia)', () => {
     const correcciones = await prisma.correccion.findMany({ where: { jornadaId: jornada.id } });
     expect(correcciones).toHaveLength(1);
     expect(correcciones[0]?.motivo).toMatch(/salida/i);
+  });
+});
+
+describe('alta manual de jornada (día sin fichajes)', () => {
+  async function nuevoJefe() {
+    n += 1;
+    return prisma.usuario.create({
+      data: { nombre: 'Jefe', email: `jefe-man-${n}-${Date.now()}@gestorpro.local`, rol: 'administrador', passwordHash: 'x' },
+    });
+  }
+
+  it('crea la jornada, registra la Correccion inmutable y acredita el saldo', async () => {
+    const { empleado } = await crearEmpleadoConTurno();
+    const jefe = await nuevoJefe();
+
+    const jornada = await crearJornadaManual({
+      empleadoId: empleado.id,
+      fecha: '2026-04-20',
+      jefeId: jefe.id,
+      motivo: 'Sede sin internet todo el día; jornada registrada a mano',
+      minutosTrabajados: 480,
+      minutosExtra: 60,
+      montoExtra: 50,
+    });
+
+    expect(jornada.estado).toBe('corregida');
+    expect(jornada.minutosTrabajados).toBe(480);
+    expect(jornada.minutosExtra).toBe(60);
+    expect(Number(jornada.montoExtra)).toBe(50);
+
+    // Correccion inmutable: valorAnterior marca que NO había jornada previa.
+    const correcciones = await prisma.correccion.findMany({ where: { jornadaId: jornada.id } });
+    expect(correcciones).toHaveLength(1);
+    expect(correcciones[0]?.valorAnterior).toEqual({ existia: false });
+
+    // El monto extra completo se acreditó al saldo (no había jornada previa).
+    expect(await obtenerSaldo(empleado.id)).toBe(50);
+  });
+
+  it('rechaza el alta manual si ya existe jornada para ese empleado y fecha', async () => {
+    const { empleado } = await crearEmpleadoConTurno();
+    const jefe = await nuevoJefe();
+    await crearJornadaManual({
+      empleadoId: empleado.id, fecha: '2026-04-21', jefeId: jefe.id, motivo: 'primera', minutosTrabajados: 480,
+    });
+    await expect(
+      crearJornadaManual({
+        empleadoId: empleado.id, fecha: '2026-04-21', jefeId: jefe.id, motivo: 'segunda', minutosTrabajados: 100,
+      }),
+    ).rejects.toBeInstanceOf(ErrorValidacion);
+  });
+
+  it('rechaza el alta manual de un empleado inexistente', async () => {
+    const jefe = await nuevoJefe();
+    await expect(
+      crearJornadaManual({
+        empleadoId: '00000000-0000-0000-0000-000000000000', fecha: '2026-04-22', jefeId: jefe.id,
+        motivo: 'x', minutosTrabajados: 60,
+      }),
+    ).rejects.toBeInstanceOf(ErrorNoEncontrado);
+  });
+
+  it('rechaza una fecha futura', async () => {
+    const { empleado } = await crearEmpleadoConTurno();
+    const jefe = await nuevoJefe();
+    const futuro = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+    await expect(
+      crearJornadaManual({
+        empleadoId: empleado.id, fecha: futuro, jefeId: jefe.id, motivo: 'x', minutosTrabajados: 60,
+      }),
+    ).rejects.toBeInstanceOf(ErrorValidacion);
   });
 });
