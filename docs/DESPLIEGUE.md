@@ -161,9 +161,8 @@ simulado).
   default débil; el seed ya no la imprime). **Pendientes que quedan:** (a)
   verificar que los defaults del schema de `ConfiguracionCobro` (porcentaje
   cobrable / umbral) son los deseados para prod, o sembrarla explícita; (b)
-  provisión de kioscos — **endpoint hecho** (commit `74c2817`: `POST /kioscos`
-  solo admin); falta aún la pantalla de gestión en el frontend (hoy el admin da
-  de alta vía API). `db:reset` queda PROHIBIDO en
+  provisión de kioscos — **hecho**: endpoint `POST /kioscos` solo admin (commit
+  `74c2817`) y pantalla de gestión `/kioscos` (listar + alta, commit `7c37819`). `db:reset` queda PROHIBIDO en
   prod (advertencia ya en DECISIONES.md; Prisma 7 además lo bloquea para agentes).
 - **Backups:** `pg_dump` diario (datos + esquema, incluye la vista
   `cuenta_por_pagar` y los índices parciales) por cron a un directorio
@@ -247,5 +246,5 @@ en Caddy hasta P2.
 - [ ] Validación legal panameña de `jornada/legal.ts`.
 - [ ] Protección del kiosco aplicada (auth/red + rate-limit) y decisión sobre
       el verificador facial (real o riesgo aceptado con todo a revisión).
-- [x] Provisión de kioscos por API (`POST /kioscos`, commit `74c2817`); falta la pantalla de gestión.
+- [x] Provisión de kioscos: API (`POST /kioscos`, commit `74c2817`) + pantalla de gestión (commit `7c37819`).
 - [ ] Alta manual de jornada para cortes de día completo (§3).
