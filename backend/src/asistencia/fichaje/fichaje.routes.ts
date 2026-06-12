@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../core/prisma.js';
 import { responderError } from '../../core/http.js';
 import { crearServicioFichaje, colaRevision, revisarFichaje } from './fichaje.service.js';
+import { crearKiosco } from '../kiosco/kiosco.service.js';
 
 const esquemaFichaje = {
   body: {
@@ -17,6 +18,18 @@ const esquemaFichaje = {
       pin: { type: 'string' },
       supervisorEmail: { type: 'string' },
       supervisorPassword: { type: 'string' },
+    },
+  },
+} as const;
+
+const esquemaKiosco = {
+  body: {
+    type: 'object',
+    required: ['nombre', 'sedeId'],
+    additionalProperties: false,
+    properties: {
+      nombre: { type: 'string', minLength: 1 },
+      sedeId: { type: 'string', minLength: 1 },
     },
   },
 } as const;
@@ -55,6 +68,9 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
   const soloJefe = {
     preHandler: [app.autenticar, app.autorizar('supervisor', 'administrador')],
   };
+  const soloAdmin = {
+    preHandler: [app.autenticar, app.autorizar('administrador')],
+  };
 
   // Superficie pública del kiosco: acotada por rate limit (la clave es la IP;
   // es defensa en profundidad, no la única protección — ver DESPLIEGUE.md §4.2).
@@ -74,6 +90,20 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
       return responderError(error, request, reply);
     }
   });
+
+  // Alta de kioscos (gestión): solo administrador. La provisión de kioscos no
+  // tenía vía por API; antes solo los creaba el seed demo.
+  app.post<{ Body: { nombre: string; sedeId: string } }>(
+    '/kioscos',
+    { ...soloAdmin, schema: esquemaKiosco },
+    async (request, reply) => {
+      try {
+        return await reply.code(201).send(await crearKiosco(request.body));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
 
   app.post<{ Body: BodyFichaje }>(
     '/fichajes',
