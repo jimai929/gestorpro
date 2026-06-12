@@ -11,6 +11,7 @@ import { PantallaInicio } from './PantallaInicio';
 import { PantallaCuentasPorPagar, PantallaProveedores } from './finanzas/cuentas-por-pagar';
 import { PantallaSedes } from './administracion/sedes';
 import { PantallaEmpleados } from './administracion/empleado';
+import { PantallaKioscos } from './administracion/kioscos';
 import { PantallaGastos } from './finanzas/gastos';
 import { PantallaDashboard } from './finanzas/dashboard';
 import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
@@ -76,6 +77,10 @@ const router = createBrowserRouter([
       {
         path: '/empleados',
         element: <PantallaEmpleados />,
+      },
+      {
+        path: '/kioscos',
+        element: <PantallaKioscos />,
       },
       // ── Asistencia (Fases 4-6) ──
       {
