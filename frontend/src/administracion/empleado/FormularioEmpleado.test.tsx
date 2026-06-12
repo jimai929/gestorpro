@@ -58,6 +58,39 @@ describe('FormularioEmpleado — gating del alta cuando los roles no cargan (H1)
 
     expect(crear.disabled).toBe(false);
   });
+
+  it('si el reintento vuelve a fallar, "Crear empleado" sigue deshabilitado y el error reaparece (N3)', async () => {
+    // Cola de DOS rechazos: la carga inicial y el reintento fallan; el default del beforeEach queda detrás.
+    vi.mocked(servicioEmpleados.obtenerRolesOperativos)
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockRejectedValueOnce(new Error('boom'));
+    const user = userEvent.setup();
+    render(<FormularioEmpleado onGuardado={vi.fn()} onCancelar={vi.fn()} />);
+
+    await screen.findByText(/no se pudieron cargar los roles/i);
+    await rellenarCamposObligatorios(user);
+
+    await user.click(screen.getByRole('button', { name: /reintentar/i }));
+    // Tras el reintento fallido el botón queda (de nuevo) bloqueado y el error visible.
+    await waitFor(() => {
+      const crear = screen.getByRole('button', { name: /crear empleado/i }) as HTMLButtonElement;
+      expect(crear.disabled).toBe(true);
+    });
+    expect(screen.getByText(/no se pudieron cargar los roles/i)).toBeTruthy();
+  });
+
+  it('catálogo vacío SIN error: el alta no se bloquea y se informa que no hay roles (N3)', async () => {
+    vi.mocked(servicioEmpleados.obtenerRolesOperativos).mockResolvedValueOnce([]);
+    const user = userEvent.setup();
+    render(<FormularioEmpleado onGuardado={vi.fn()} onCancelar={vi.fn()} />);
+
+    await screen.findByText('No hay roles operativos disponibles.');
+    await rellenarCamposObligatorios(user);
+
+    // Vacío legítimo ≠ fallo de carga: H1 solo gatea el error, no la ausencia de roles.
+    const crear = screen.getByRole('button', { name: /crear empleado/i }) as HTMLButtonElement;
+    expect(crear.disabled).toBe(false);
+  });
 });
 
 describe('FormularioEmpleado — edición NO se bloquea por errorRoles (N1)', () => {
@@ -81,6 +114,40 @@ describe('FormularioEmpleado — edición NO se bloquea por errorRoles (N1)', ()
     await screen.findByText(/no se pudieron cargar los roles/i); // errorRoles activo
 
     const guardar = screen.getByRole('button', { name: /guardar cambios/i }) as HTMLButtonElement;
+    expect(guardar.disabled).toBe(false);
+  });
+});
+
+describe('FormularioEmpleado — en edición, vaciar un campo obligatorio bloquea Guardar (N5)', () => {
+  it('vaciar salario o sede deshabilita "Guardar cambios"; al restaurar se rehabilita', async () => {
+    const empleado: Empleado = {
+      id: 'e1',
+      numero: 'E001',
+      nombre: 'María Pérez',
+      sedeId: 'sa',
+      salarioFijo: 1000,
+      turnoId: null,
+      activo: true,
+      tieneFoto: false,
+      roles: [{ id: 'rc', clave: 'cajera', nombre: 'Cajera' }],
+    };
+    const user = userEvent.setup();
+    render(<FormularioEmpleado empleado={empleado} onGuardado={vi.fn()} onCancelar={vi.fn()} />);
+
+    await screen.findByText('Cajera'); // catálogo cargado
+    const guardar = screen.getByRole('button', { name: /guardar cambios/i }) as HTMLButtonElement;
+    expect(guardar.disabled).toBe(false);
+
+    // El resto de subpredicados de `completo` también gatean en edición (gemelo de N3).
+    const salario = screen.getByLabelText(/salario/i);
+    await user.clear(salario);
+    expect(guardar.disabled).toBe(true);
+    await user.type(salario, '1200');
+    expect(guardar.disabled).toBe(false);
+
+    await user.selectOptions(screen.getByRole('combobox'), ''); // Sede al placeholder
+    expect(guardar.disabled).toBe(true);
+    await user.selectOptions(screen.getByRole('combobox'), 'sa');
     expect(guardar.disabled).toBe(false);
   });
 });

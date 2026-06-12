@@ -57,6 +57,9 @@ const ventaUuidCrudo: VentaDiaria = {
 };
 
 beforeEach(() => {
+  // Limpia el historial de llamadas entre tests (B2): la config del proyecto no
+  // activa clearMocks y las implementaciones se re-fijan justo debajo.
+  vi.clearAllMocks();
   vi.mocked(servicio.obtenerSedes).mockResolvedValue([sedeA]);
   vi.mocked(servicio.obtenerCajeras).mockResolvedValue([]);
   vi.mocked(servicio.obtenerGanancia).mockResolvedValue(resumen);
