@@ -124,6 +124,20 @@ describe('compras contado vs crédito', () => {
     ).rejects.toBeInstanceOf(ErrorValidacion);
   });
 
+  it('rechaza una compra con montoTotal cero o negativo sin crear la fila', async () => {
+    const sede = await nuevaSede();
+    const prov = await crearProveedor({ nombre: `Prov monto ${contador}` });
+    const base = { proveedorId: prov.id, sedeId: sede.id, fechaEmision: '2026-05-20' };
+    await expect(
+      registrarCompra({ ...base, numeroFactura: 'MONTO-0', montoTotal: 0, tipo: 'contado' }),
+    ).rejects.toBeInstanceOf(ErrorValidacion);
+    await expect(
+      registrarCompra({ ...base, numeroFactura: 'MONTO-NEG', montoTotal: -50, tipo: 'credito', fechaVencimiento: '2026-06-20' }),
+    ).rejects.toBeInstanceOf(ErrorValidacion);
+    // El guard corta antes del create: no existe ninguna compra de este proveedor.
+    expect(await prisma.compra.findMany({ where: { proveedorId: prov.id } })).toHaveLength(0);
+  });
+
   it('rechaza un abono contra una compra de contado (pago invisible en la vista)', async () => {
     const sede = await nuevaSede();
     const prov = await crearProveedor({ nombre: `Prov ${contador}` });
@@ -244,6 +258,63 @@ describe('pagos / abonos: saldo, sobrepago y compra inexistente', () => {
     const [cuenta] = await listarCuentasPorPagar({ sedeId: sede.id });
     expect(cuenta?.totalPagado).toBe(400);
     expect(cuenta?.saldo).toBe(600);
+  });
+
+  it('acepta el pago exacto del saldo y deja la cuenta en estado pagado con saldo 0', async () => {
+    const sede = await nuevaSede();
+    const prov = await crearProveedor({ nombre: `Prov saldo exacto ${contador}` });
+    const usuario = await nuevoUsuario();
+    const compra = await registrarCompra({
+      proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'PAGO-EXACTO',
+      montoTotal: 1000, tipo: 'credito', fechaEmision: '2026-05-17',
+      fechaVencimiento: '2026-06-17',
+    });
+    await registrarPago({ compraId: compra.id, monto: 400, usuarioId: usuario.id });
+
+    // monto === saldo (600): se ACEPTA (el guard usa > estricto).
+    const pago = await registrarPago({ compraId: compra.id, monto: 600, usuarioId: usuario.id });
+    expect(Number(pago.monto)).toBe(600);
+
+    const [cuenta] = await listarCuentasPorPagar({ sedeId: sede.id });
+    expect(cuenta?.totalPagado).toBe(1000);
+    expect(cuenta?.saldo).toBe(0);
+    expect(cuenta?.estado).toBe('pagado'); // 'pagado', no 'pagada' (vista, migración 20260529130000:30)
+
+    // La cuenta saldada ya no admite ni un centavo más.
+    await expect(
+      registrarPago({ compraId: compra.id, monto: 1, usuarioId: usuario.id }),
+    ).rejects.toBeInstanceOf(ErrorValidacion);
+  });
+
+  it('dos abonos concurrentes que juntos exceden el saldo: el FOR UPDATE deja pasar exactamente uno', async () => {
+    const sede = await nuevaSede();
+    const prov = await crearProveedor({ nombre: `Prov concurrente ${contador}` });
+    const usuario = await nuevoUsuario();
+    const compra = await registrarCompra({
+      proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'PAGO-CONC',
+      montoTotal: 1000, tipo: 'credito', fechaEmision: '2026-05-18',
+      fechaVencimiento: '2026-06-18',
+    });
+
+    // Cada pago de 600 cabe solo (600 <= 1000) pero juntos exceden (1200 > 1000).
+    const resultados = await Promise.allSettled([
+      registrarPago({ compraId: compra.id, monto: 600, usuarioId: usuario.id }),
+      registrarPago({ compraId: compra.id, monto: 600, usuarioId: usuario.id }),
+    ]);
+    const exitosos = resultados.filter((r) => r.status === 'fulfilled');
+    const fallidos = resultados.filter((r) => r.status === 'rejected');
+    expect(exitosos).toHaveLength(1);
+    expect(fallidos).toHaveLength(1);
+    expect((fallidos[0] as PromiseRejectedResult).reason).toBeInstanceOf(ErrorValidacion);
+    expect(((fallidos[0] as PromiseRejectedResult).reason as Error).message).toMatch(/excede el saldo/);
+
+    // Persistencia: exactamente un pago de 600; el saldo nunca quedó negativo.
+    const agg = await prisma.pagoProveedor.aggregate({ _sum: { monto: true }, where: { compraId: compra.id } });
+    expect(Number(agg._sum.monto)).toBe(600);
+    expect(await prisma.pagoProveedor.count({ where: { compraId: compra.id } })).toBe(1);
+    const [cuenta] = await listarCuentasPorPagar({ sedeId: sede.id });
+    expect(cuenta?.totalPagado).toBe(600);
+    expect(cuenta?.saldo).toBe(400);
   });
 
   it('rechaza un pago a una compra inexistente: ErrorNoEncontrado, sin crear pago', async () => {

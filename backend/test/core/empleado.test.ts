@@ -174,4 +174,26 @@ describe('gestión de empleados', () => {
     const sinRoles = await editarEmpleado(emp.id, { rolesOperativos: [] });
     expect(sinRoles.roles).toEqual([]);
   });
+
+  it('editar SIN rolesOperativos (undefined) deja los roles intactos', async () => {
+    const sede = await nuevaSede();
+    const cajera = await rolOp('cajera', 'Cajera');
+    const verificador = await rolOp('verificador', 'Verificador');
+    const emp = await crearEmpleado(datos(sede.id, { rolesOperativos: [cajera.id, verificador.id] }));
+    const esperados = [cajera.id, verificador.id].sort();
+
+    // Edit parcial realista (la forma que envía el frontend tras N4: body sin el campo).
+    const renombrado = await editarEmpleado(emp.id, { nombre: 'Renombrado Sin Roles' });
+    expect(renombrado.nombre).toBe('Renombrado Sin Roles');
+    expect(renombrado.roles.map((r) => r.id).sort()).toEqual(esperados);
+
+    // Edit vacío puro: el contrato literal `undefined → no tocar` (backlog D1).
+    const intacto = await editarEmpleado(emp.id, {});
+    expect(intacto.roles.map((r) => r.id).sort()).toEqual(esperados);
+
+    // Nivel tabla: exactamente las mismas 2 filas (mismos rolOperativoId).
+    const filas = await prisma.empleadoRolOperativo.findMany({ where: { empleadoId: emp.id } });
+    expect(filas).toHaveLength(2);
+    expect(filas.map((f) => f.rolOperativoId).sort()).toEqual(esperados);
+  });
 });

@@ -6,6 +6,7 @@ import {
   aprobarCobro,
   pagarCobro,
   rechazarCobro,
+  definirConfiguracionCobro,
 } from '../../src/asistencia/cobro/cobro.service.js';
 import { ErrorNoEncontrado, ErrorValidacion } from '../../src/core/errors.js';
 
@@ -139,6 +140,8 @@ describe('cobro: transiciones inválidas y rechazo (B10, B11)', () => {
     await expect(aprobarCobro(ID_INEXISTENTE, jefe.id)).rejects.toBeInstanceOf(ErrorNoEncontrado);
     await expect(rechazarCobro(ID_INEXISTENTE, jefe.id)).rejects.toBeInstanceOf(ErrorNoEncontrado);
     await expect(pagarCobro(ID_INEXISTENTE, jefe.id)).rejects.toBeInstanceOf(ErrorNoEncontrado);
+    // El reject no dejó un Gasto huérfano: la transacción aborta antes de crearGastoEnTransaccion (H14).
+    expect(await prisma.gasto.count({ where: { referenciaOrigen: ID_INEXISTENTE } })).toBe(0);
   });
 
   it('el jefe rechaza un cobro pendiente: queda rechazada y NO debita el saldo', async () => {
@@ -185,5 +188,52 @@ describe('cobro: transiciones inválidas y rechazo (B10, B11)', () => {
     const solicitudes = await prisma.solicitudCobro.count({ where: { empleadoId: emp.id } });
     expect(solicitudes).toBe(1);
     expect(await obtenerSaldo(emp.id)).toBe(200); // saldo intacto (la pendiente no debita)
+  });
+});
+
+describe('cobro: guardas de configuración y categoría (B12, B13)', () => {
+  it('pagarCobro sin categoría de pago-empleado activa lanza ErrorValidacion y revierte todo', async () => {
+    const emp = await crearEmpleadoConSaldo(200);
+    const admin = await nuevoUsuarioJefe();
+    const cobro = await solicitarCobro({ empleadoId: emp.id, monto: 50 }); // ≤ umbral 100 → nace 'aprobada'
+    expect(cobro.estado).toBe('aprobada');
+
+    // Capturar y desactivar TODAS las categorías pago-empleado activas (el guard usa findFirst
+    // sobre los flags; gastos.test.ts deja otras en la BD compartida).
+    const activas = await prisma.categoriaGasto.findMany({
+      where: { esPagoEmpleado: true, activo: true },
+      select: { id: true },
+    });
+    const ids = activas.map((c) => c.id);
+    await prisma.categoriaGasto.updateMany({ where: { id: { in: ids } }, data: { activo: false } });
+    try {
+      await expect(pagarCobro(cobro.id, admin.id)).rejects.toBeInstanceOf(ErrorValidacion);
+      // Rollback completo: la solicitud sigue 'aprobada' (no quedó 'pagada')…
+      const sol = await prisma.solicitudCobro.findUnique({ where: { id: cobro.id } });
+      expect(sol?.estado).toBe('aprobada');
+      // …y NO se creó ningún Gasto ligado a la solicitud.
+      expect(await prisma.gasto.count({ where: { referenciaOrigen: cobro.id } })).toBe(0);
+    } finally {
+      // Restaurar exactamente las que estaban activas, DENTRO del propio it: si un expect falla
+      // a mitad, el finally restaura igual y no contamina los tests/archivos siguientes.
+      await prisma.categoriaGasto.updateMany({ where: { id: { in: ids } }, data: { activo: true } });
+    }
+  });
+
+  it('definirConfiguracionCobro rechaza % fuera de 0-100 y umbral negativo sin tocar la fila', async () => {
+    // Depende de los beforeAll de los describes anteriores del archivo (dejan la config en 80/100);
+    // con un filtro -t que los salte, la fila podría no existir.
+    const antes = await prisma.configuracionCobro.findFirst();
+    expect(antes).not.toBeNull();
+
+    await expect(definirConfiguracionCobro({ porcentajeCobrable: -1 })).rejects.toBeInstanceOf(ErrorValidacion);
+    await expect(definirConfiguracionCobro({ porcentajeCobrable: 101 })).rejects.toBeInstanceOf(ErrorValidacion);
+    await expect(definirConfiguracionCobro({ umbralAprobacion: -1 })).rejects.toBeInstanceOf(ErrorValidacion);
+
+    // La validación corre antes de tocar la BD: la fila única no cambió.
+    const despues = await prisma.configuracionCobro.findFirst();
+    expect(despues?.id).toBe(antes?.id);
+    expect(despues?.porcentajeCobrable).toBe(antes?.porcentajeCobrable);
+    expect(Number(despues?.umbralAprobacion)).toBe(Number(antes?.umbralAprobacion));
   });
 });
