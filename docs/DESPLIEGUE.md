@@ -149,21 +149,19 @@ simulado).
 - **Migraciones:** cada despliegue ejecuta `prisma migrate deploy` (con el rol
   migrador) ANTES de levantar el backend nuevo. Política additive-only que ya
   rige: nunca editar migraciones aplicadas.
-- **Seed de producción — TAREA PREVIA:** hoy `prisma/seed.ts` siembra SIEMPRE
-  datos demo (`sembrarDemoAsistencia`/`sembrarDemoFinanzas`, sin gate). Hay que
-  separar **seed base** (solo prod-safe) de **demo** (gate `SEED_DEMO`, solo
-  dev). El seed base debe incluir, como mínimo: el admin inicial (credencial
-  desde `ADMIN_EMAIL`/`ADMIN_PASSWORD`, NUNCA hardcodeada ni impresa en logs),
-  la **Sede inicial**, las categorías de gasto **incluida 'Pago a empleado'
-  (`esPagoEmpleado=true`)** — de la que depende `pagarCobro` — y los roles
-  operativos. `ConfiguracionCobro` se autocrea con sus defaults al primer uso
-  (`obtenerConfiguracionCobro`); **verificar que los defaults del schema
-  (porcentaje cobrable / umbral) son los deseados para prod** o sembrarla
-  explícita. **Hueco de P2:** no existe alta de `Kiosco` por API/UI (solo lo
-  crea el seed demo); para que el kiosco de la §1 sea utilizable hace falta o
-  un endpoint de alta de kioscos, o un paso de provisión por SQL documentado.
-  `db:reset` queda PROHIBIDO en prod (advertencia ya en DECISIONES.md; Prisma 7
-  además lo bloquea para agentes).
+- **Seed base vs demo — HECHO** (commit `4b2cb18`): `prisma/seed.ts` siembra
+  SIEMPRE lo base prod-safe (Sede inicial, admin, categorías de gasto **incluida
+  'Pago a empleado' `esPagoEmpleado=true`** de la que depende `pagarCobro`, roles
+  operativos, `ConfiguracionCobro`) y los datos demo solo si `demoHabilitado`
+  (gate `SEED_DEMO`; si no está, dev sí / prod no por `NODE_ENV`). El admin sale
+  de `ADMIN_EMAIL`/`ADMIN_PASSWORD` (en prod la contraseña es obligatoria, sin
+  default débil; el seed ya no la imprime). **Pendientes que quedan:** (a)
+  verificar que los defaults del schema de `ConfiguracionCobro` (porcentaje
+  cobrable / umbral) son los deseados para prod, o sembrarla explícita; (b)
+  **hueco de P2** — no existe alta de `Kiosco` por API/UI (solo el seed demo lo
+  crea); para que el kiosco de la §1 sea utilizable hace falta un endpoint de
+  alta o un paso de provisión por SQL documentado. `db:reset` queda PROHIBIDO en
+  prod (advertencia ya en DECISIONES.md; Prisma 7 además lo bloquea para agentes).
 - **Backups:** `pg_dump` diario (datos + esquema, incluye la vista
   `cuenta_por_pagar` y los índices parciales) por cron a un directorio
   versionado + copia fuera del VPS (objeto storage del proveedor), retención
@@ -230,8 +228,9 @@ en Caddy hasta P2.
 - [ ] Compose con Caddy TLS + backend + Postgres (TZ fijada en el initdb de ambos).
 - [ ] Roles `gestorpro_migrador` / `gestorpro_app` + `ALTER DEFAULT PRIVILEGES`
       + REVOKE de auditoría verificado tras `migrate deploy` (UPDATE como app debe fallar).
-- [ ] Seed de producción separado del demo (`SEED_DEMO`), admin desde
-      `ADMIN_EMAIL`/`ADMIN_PASSWORD`, Sede inicial + 'Pago a empleado' incluidos.
+- [x] Seed de producción separado del demo (`SEED_DEMO`), admin desde
+      `ADMIN_EMAIL`/`ADMIN_PASSWORD`, Sede inicial + 'Pago a empleado' incluidos
+      — commit `4b2cb18`. (Pendiente: defaults de `ConfiguracionCobro` y alta de kioscos.)
 - [x] Refresh-on-401 implementado (excluye `/auth/*`) y probado — commit `2536b0c`.
 - [ ] Rate limiting en `/auth/*` y `/fichajes`; rutas de kiosco restringidas
       por red/bloqueadas en Caddy hasta P2.
