@@ -4,24 +4,30 @@ import { randomBytes } from 'node:crypto';
 import { prisma } from '../src/core/prisma.js';
 import { hashearContrasena } from '../src/core/auth/contrasena.js';
 import { Rol } from '../src/generated/prisma/enums.js';
+import { demoHabilitado, resolverPasswordAdmin } from './seed-opciones.js';
 
 /**
  * Semilla de la base de datos de GestorPro.
  *
- * Crea una sede base y el usuario administrador inicial (los usuarios los crea
- * un administrador; no hay registro abierto). Idempotente: se puede correr
- * varias veces sin duplicar.
+ * Siembra SIEMPRE lo base (prod-safe): sede inicial, admin, catálogos y
+ * configuración. Los datos de DEMOSTRACIÓN (proveedores/compras/cierres y
+ * empleados/kiosco de prueba) solo se siembran en desarrollo o con `SEED_DEMO`
+ * explícito — ver `seed-opciones.ts`. Idempotente: se puede correr varias veces
+ * sin duplicar.
  */
 async function main(): Promise<void> {
+  const demoOn = demoHabilitado(process.env);
+
   // Sede base (idempotente por nombre).
   let sede = await prisma.sede.findFirst({ where: { nombre: 'Sede Central' } });
   if (!sede) {
     sede = await prisma.sede.create({ data: { nombre: 'Sede Central' } });
   }
 
-  // Usuario administrador inicial.
-  const email = 'admin@gestorpro.local';
-  const passwordHash = await hashearContrasena('Admin1234*');
+  // Usuario administrador inicial. La contraseña viene de ADMIN_PASSWORD; en
+  // producción es obligatoria (sin default débil) — ver resolverPasswordAdmin.
+  const email = process.env.ADMIN_EMAIL ?? 'admin@gestorpro.local';
+  const passwordHash = await hashearContrasena(resolverPasswordAdmin(process.env, demoOn));
   const admin = await prisma.usuario.upsert({
     where: { email },
     update: {},
@@ -33,17 +39,23 @@ async function main(): Promise<void> {
     },
   });
 
+  // Base (prod-safe): catálogos y configuración.
   await sembrarRolesOperativos();
   await sembrarCategoriasGasto();
-  // Los empleados (con sus roles operativos) antes de los cierres, para que la
-  // cajera/verificador de los cierres demo correspondan a empleados reales.
-  await sembrarDemoAsistencia(sede.id);
-  await sembrarDemoFinanzas(admin.id, sede.id);
   await sembrarConfiguracionCobro();
+
+  // Datos de demostración: solo en desarrollo (o con SEED_DEMO=true).
+  if (demoOn) {
+    // Los empleados (con sus roles operativos) antes de los cierres, para que la
+    // cajera/verificador de los cierres demo correspondan a empleados reales.
+    await sembrarDemoAsistencia(sede.id);
+    await sembrarDemoFinanzas(admin.id, sede.id);
+  }
 
   console.log('Semilla aplicada:');
   console.log(`  Sede:    ${sede.nombre} (${sede.id})`);
-  console.log(`  Usuario: ${email}  /  Admin1234*  (rol administrador)`);
+  console.log(`  Admin:   ${email}${process.env.ADMIN_PASSWORD ? '' : '  (contraseña por defecto de desarrollo)'}`);
+  console.log(`  Datos demo: ${demoOn ? 'sí' : 'no (modo producción)'}`);
 }
 
 /**
