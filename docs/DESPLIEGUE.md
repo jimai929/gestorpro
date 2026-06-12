@@ -102,8 +102,11 @@ Si una sede pierde internet, el kiosco no puede fichar. Dos etapas:
    exponer asistencia (gate de P2):
    - **Restringir el origen del kiosco**: allowlist de IPs de sede en Caddy
      para `/fichajes` y `/kioscos`, y/o un token de dispositivo de kiosco.
-   - **Rate limiting** (Caddy o `@fastify/rate-limit`) sobre `/fichajes` y
-     `/auth/*` — no existe hoy.
+   - **Rate limiting** — **HECHO** (commit `8836fc8`): `@fastify/rate-limit` en
+     modo `global:false` sobre `/auth/*` (login 10/min, refresh·logout 30/min) y
+     la superficie del kiosco (`/fichajes` 30/min, `/kioscos` 60/min). La clave
+     es la IP — defensa en profundidad, NO sustituye la restricción de red/token
+     (una sede comparte IP de salida).
    - **Decisión explícita sobre el verificador facial**: conectar un proveedor
      real, o declarar el simulador como riesgo aceptado con TODOS los fichajes
      marcados a revisión. P2 con simulador = fichaje sin verificación facial.
@@ -232,8 +235,8 @@ en Caddy hasta P2.
       `ADMIN_EMAIL`/`ADMIN_PASSWORD`, Sede inicial + 'Pago a empleado' incluidos
       — commit `4b2cb18`. (Pendiente: defaults de `ConfiguracionCobro` y alta de kioscos.)
 - [x] Refresh-on-401 implementado (excluye `/auth/*`) y probado — commit `2536b0c`.
-- [ ] Rate limiting en `/auth/*` y `/fichajes`; rutas de kiosco restringidas
-      por red/bloqueadas en Caddy hasta P2.
+- [x] Rate limiting en `/auth/*` y superficie del kiosco — commit `8836fc8`.
+      (Falta aún: restricción de red / bloqueo en Caddy de las rutas de kiosco hasta P2.)
 - [ ] Backups diarios (`pg_dump` + `pg_dumpall --roles-only`) + restauración
       (datos + roles) probada.
 - [ ] Monitoreo de `/health` con alerta.
