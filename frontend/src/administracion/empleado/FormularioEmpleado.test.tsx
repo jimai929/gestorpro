@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FormularioEmpleado } from './FormularioEmpleado';
 import * as servicioSedes from '../sedes/servicioSedes';
@@ -146,5 +146,36 @@ describe('FormularioEmpleado — edición con catálogo OK SÍ envía rolesOpera
     // Si una regresión omitiera el campo SIEMPRE (spread invertido o quitado), fallaría aquí.
     const [, body] = vi.mocked(servicioEmpleados.editarEmpleado).mock.calls[0]!;
     expect(body.rolesOperativos).toEqual(['rc']);
+  });
+});
+
+describe('FormularioEmpleado — edición no guarda durante la carga del catálogo (D2)', () => {
+  it('con los roles aún cargando, "Guardar cambios" está deshabilitado; al resolver se habilita', async () => {
+    // La carga del catálogo queda PENDIENTE para poder observar la ventana en vuelo.
+    let resolverRoles!: (roles: RolOperativo[]) => void;
+    vi.mocked(servicioEmpleados.obtenerRolesOperativos).mockImplementationOnce(
+      () => new Promise<RolOperativo[]>((res) => { resolverRoles = res; }),
+    );
+    const empleado: Empleado = {
+      id: 'e1',
+      numero: 'E001',
+      nombre: 'María Pérez',
+      sedeId: 'sa',
+      salarioFijo: 1000,
+      turnoId: null,
+      activo: true,
+      tieneFoto: false,
+      roles: [{ id: 'rc', clave: 'cajera', nombre: 'Cajera' }],
+    };
+    render(<FormularioEmpleado empleado={empleado} onGuardado={vi.fn()} onCancelar={vi.fn()} />);
+
+    await screen.findByText('Cargando roles…');
+    const guardar = screen.getByRole('button', { name: /guardar cambios/i }) as HTMLButtonElement;
+    // En vuelo errorRoles aún es null: sin esta guarda el body llevaría el snapshot a ciegas.
+    expect(guardar.disabled).toBe(true);
+
+    await act(async () => { resolverRoles([rolCajera]); });
+    await screen.findByText('Cajera'); // catálogo cargado: checkboxes renderizados
+    expect(guardar.disabled).toBe(false);
   });
 });

@@ -126,6 +126,9 @@ export function PantallaEmpleados() {
         // Recarga fallida tras el alta: decir que el alta SÍ se completó, para que
         // el admin no la dé por fallida y la repita. El QR queda en el botón "QR".
         setAvisoAlta('El empleado se creó correctamente. Su fila aparecerá al recargar la lista; el QR está en su botón "QR".');
+      } else if (!recargaOk) {
+        // Simetría para la EDICIÓN (H17): el PUT sí se aplicó aunque la recarga fallara.
+        setAvisoAlta('Los cambios se guardaron correctamente. La fila se actualizará al recargar la lista.');
       }
     });
   };

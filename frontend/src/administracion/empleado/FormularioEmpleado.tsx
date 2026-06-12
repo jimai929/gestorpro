@@ -122,7 +122,9 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
     }
   };
 
-  const completo = numero.trim() && nombre.trim() && sedeId && salario && (esEdicion || pin.length === 4) && (esEdicion || !errorRoles);
+  // En edición, guardar espera a que el catálogo de roles termine de cargar (D2):
+  // con la carga en vuelo errorRoles aún es null y el body llevaría el snapshot a ciegas.
+  const completo = numero.trim() && nombre.trim() && sedeId && salario && (esEdicion || pin.length === 4) && (esEdicion || !errorRoles) && !(esEdicion && cargandoRoles);
 
   return (
     <div className={styles.contenedor}>

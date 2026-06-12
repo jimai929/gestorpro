@@ -35,11 +35,26 @@ const empleadoCreado = vi.hoisted(() => ({
   roles: [],
   qrToken: 'tok-alta-e9',
 }));
-// Sustituye el formulario real por un disparador de onGuardado, para aislar el
-// comportamiento de manejarGuardado sin teclear todo el alta.
+// Resultado de la edición simulada (SIN qrToken: rama de Empleado en manejarGuardado).
+const empleadoEditado = vi.hoisted(() => ({
+  id: 'e1',
+  numero: 'E001',
+  nombre: 'María Editada',
+  sedeId: 'sa',
+  salarioFijo: 1100,
+  turnoId: null,
+  activo: true,
+  tieneFoto: false,
+  roles: [],
+}));
+// Sustituye el formulario real por disparadores de onGuardado, para aislar el
+// comportamiento de manejarGuardado sin teclear el alta ni la edición.
 vi.mock('./FormularioEmpleado', () => ({
-  FormularioEmpleado: ({ onGuardado }: { onGuardado: (r: EmpleadoCreado) => void }) => (
-    <button type="button" onClick={() => onGuardado(empleadoCreado)}>simular-alta</button>
+  FormularioEmpleado: ({ onGuardado }: { onGuardado: (r: Empleado | EmpleadoCreado) => void }) => (
+    <>
+      <button type="button" onClick={() => onGuardado(empleadoCreado)}>simular-alta</button>
+      <button type="button" onClick={() => onGuardado(empleadoEditado)}>simular-edicion</button>
+    </>
   ),
 }));
 
@@ -154,5 +169,31 @@ describe('PantallaEmpleados — alta con recarga fallida avisa del éxito sin ab
     await user.click(screen.getByRole('button', { name: /reintentar/i }));
     await screen.findByText('Nuevo Empleado');
     expect(screen.queryByText(/el empleado se creó correctamente/i)).toBeNull();
+  });
+});
+
+describe('PantallaEmpleados — edición con recarga fallida avisa del éxito (H17)', () => {
+  it('si la recarga tras la edición falla, el aviso convive con el error y no se abre modal; al reintentar desaparece', async () => {
+    // Cola de cargas: 1ª (montaje) ok con la fila → 2ª (tras la edición) falla → resto ok.
+    vi.mocked(servicioEmpleados.obtenerEmpleados)
+      .mockReset()
+      .mockResolvedValueOnce([empleadoMaria])
+      .mockRejectedValueOnce(new Error('fallo de red'))
+      .mockResolvedValue([empleadoMaria]);
+    const user = userEvent.setup();
+    montar();
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }));
+    await user.click(screen.getByRole('button', { name: 'simular-edicion' }));
+
+    // El PUT se aplicó: el aviso lo dice junto al error de recarga, sin abrir ningún modal.
+    await screen.findByText(/los cambios se guardaron correctamente/i);
+    expect(screen.getByText('fallo de red')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // Reintentar: la tabla vuelve y el aviso deja de hacer falta.
+    await user.click(screen.getByRole('button', { name: /reintentar/i }));
+    await screen.findByText('María Pérez');
+    expect(screen.queryByText(/los cambios se guardaron correctamente/i)).toBeNull();
   });
 });
