@@ -21,6 +21,32 @@ export function obtenerAccessToken(): string | null {
   return accessTokenEnMemoria;
 }
 
+/**
+ * Renueva el access token (lo fija en memoria) y devuelve el nuevo, o null si
+ * la sesión ya no es renovable. Lo inyecta la capa de auth (no este módulo de
+ * bajo nivel) vía `fijarManejadorRefresh`.
+ */
+type ManejadorRefresh = () => Promise<string | null>;
+
+let manejadorRefresh: ManejadorRefresh | null = null;
+/** Refresco en curso compartido: varias peticiones que reciben 401 a la vez renuevan UNA sola vez. */
+let refrescoEnCurso: Promise<string | null> | null = null;
+
+/** Registra (o limpia con null) el manejador de refresco del access token. */
+export function fijarManejadorRefresh(fn: ManejadorRefresh | null): void {
+  manejadorRefresh = fn;
+}
+
+/** Llama al manejador de refresco deduplicando llamadas concurrentes. */
+function refrescarUnaVez(): Promise<string | null> {
+  if (!refrescoEnCurso && manejadorRefresh) {
+    refrescoEnCurso = manejadorRefresh().finally(() => {
+      refrescoEnCurso = null;
+    });
+  }
+  return refrescoEnCurso ?? Promise.resolve(null);
+}
+
 /** Opciones extendidas para las peticiones del cliente. */
 export interface OpcionesPeticion extends RequestInit {
   omitirAuth?: boolean;
@@ -36,19 +62,35 @@ export async function peticion<T>(
 ): Promise<T> {
   const { omitirAuth = false, headers: cabecerasExtra, ...restoOpciones } = opciones;
 
-  const cabeceras: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(cabecerasExtra as Record<string, string>),
+  // Se reconstruye en cada intento para releer el access token (cambia tras un refresco).
+  const construirCabeceras = (): Record<string, string> => {
+    const cabeceras: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(cabecerasExtra as Record<string, string>),
+    };
+    if (!omitirAuth && accessTokenEnMemoria) {
+      cabeceras['Authorization'] = `Bearer ${accessTokenEnMemoria}`;
+    }
+    return cabeceras;
   };
 
-  if (!omitirAuth && accessTokenEnMemoria) {
-    cabeceras['Authorization'] = `Bearer ${accessTokenEnMemoria}`;
-  }
-
-  const respuesta = await fetch(`${URL_BASE}${ruta}`, {
+  let respuesta = await fetch(`${URL_BASE}${ruta}`, {
     ...restoOpciones,
-    headers: cabeceras,
+    headers: construirCabeceras(),
   });
+
+  // Refresh-on-401: si el access token expiró, renovarlo UNA vez y reintentar.
+  // Las rutas /auth/* usan `omitirAuth`, así que nunca entran aquí: eso evita
+  // el bucle (un 401 del propio refresh no dispara otro refresco).
+  if (respuesta.status === 401 && !omitirAuth && manejadorRefresh) {
+    const nuevoToken = await refrescarUnaVez();
+    if (nuevoToken) {
+      respuesta = await fetch(`${URL_BASE}${ruta}`, {
+        ...restoOpciones,
+        headers: construirCabeceras(),
+      });
+    }
+  }
 
   if (!respuesta.ok) {
     let mensajeError = `Error ${respuesta.status}`;

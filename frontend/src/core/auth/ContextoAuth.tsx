@@ -16,7 +16,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { api, fijarAccessToken } from '../api';
+import { api, fijarAccessToken, fijarManejadorRefresh } from '../api';
 import {
   eliminarRefreshToken,
   guardarRefreshToken,
@@ -51,6 +51,30 @@ const ContextoAuth = createContext<ValorContextoAuth | null>(null);
 export function ProveedorAuth({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [cargando, setCargando] = useState(true);
+
+  /**
+   * Registrar el manejador de refresco que el cliente HTTP invoca ante un 401:
+   * renueva el access token con el refresh guardado; si el refresh ya no vale,
+   * deja la sesión cerrada (estado local + UI). Devuelve el nuevo token o null.
+   */
+  useEffect(() => {
+    fijarManejadorRefresh(async () => {
+      const refreshToken = obtenerRefreshTokenGuardado();
+      if (!refreshToken) return null;
+      try {
+        const { accessToken } = await refrescarTokenApi(refreshToken);
+        fijarAccessToken(accessToken);
+        return accessToken;
+      } catch {
+        // El refresh token expiró o es inválido: sesión muerta.
+        fijarAccessToken(null);
+        eliminarRefreshToken();
+        setUsuario(null);
+        return null;
+      }
+    });
+    return () => fijarManejadorRefresh(null);
+  }, []);
 
   /** Rehidratar sesión al arrancar si existe un refresh token guardado. */
   useEffect(() => {
