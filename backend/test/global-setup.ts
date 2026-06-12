@@ -3,7 +3,8 @@ import {
   type StartedPostgreSqlContainer,
 } from '@testcontainers/postgresql';
 import { execSync } from 'node:child_process';
-import type { GlobalSetupContext } from 'vitest/node';
+// vitest 4 pasa el TestProject al global setup (GlobalSetupContext ya no existe).
+import type { TestProject } from 'vitest/node';
 
 let contenedor: StartedPostgreSqlContainer;
 
@@ -16,7 +17,7 @@ let contenedor: StartedPostgreSqlContainer;
  */
 export default async function ({
   provide,
-}: GlobalSetupContext): Promise<() => Promise<void>> {
+}: TestProject): Promise<() => Promise<void>> {
   contenedor = await new PostgreSqlContainer('postgres:17-alpine').start();
   const url = contenedor.getConnectionUri();
 

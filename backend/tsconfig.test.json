@@ -1,0 +1,13 @@
+{
+  // Typecheck de src + test (E2): el tsconfig base excluye test/ porque el build
+  // no debe emitirlo; este config no emite nada y cubre ambos. Lo usa
+  // `npm run typecheck` — vitest solo transpila (esbuild) sin chequear tipos.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "sourceMap": false
+  },
+  "include": ["src", "test"],
+  "exclude": ["node_modules", "dist"]
+}

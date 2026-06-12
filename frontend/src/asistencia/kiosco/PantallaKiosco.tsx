@@ -133,8 +133,6 @@ export function PantallaKiosco() {
     }, 1000);
 
     return () => clearInterval(intervalo);
-    // reiniciar es estable; no depende de estado cambiante
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paso]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
