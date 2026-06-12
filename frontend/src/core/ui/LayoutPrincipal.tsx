@@ -4,6 +4,7 @@
  */
 
 import { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { useAuth } from '../auth/ContextoAuth';
 import styles from './LayoutPrincipal.module.css';
 
@@ -28,10 +29,10 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
     <div className={styles.contenedor}>
       {/* Barra de navegación superior */}
       <header className={styles.barra}>
-        <div className={styles.marca}>
+        <Link to="/" className={styles.marca} aria-label="Ir al inicio">
           <span className={styles.logoMini}>GP</span>
           <span className={styles.nombreApp}>GestorPro</span>
-        </div>
+        </Link>
 
         <div className={styles.acciones}>
           {usuario && (

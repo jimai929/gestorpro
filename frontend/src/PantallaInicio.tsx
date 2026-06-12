@@ -61,7 +61,7 @@ export function PantallaInicio() {
             <div className={styles.iconoModulo}>🏢</div>
             <h2 className={styles.tituloModulo}>Administración</h2>
             <p className={styles.descripcionModulo}>
-              Sedes y empleados (con sus roles operativos).
+              Sedes, empleados (con sus roles operativos) y kioscos.
             </p>
             <div className={styles.enlacesModulo}>
               <Link to="/sedes" className={styles.enlaceModulo}>
@@ -69,6 +69,9 @@ export function PantallaInicio() {
               </Link>
               <Link to="/empleados" className={styles.enlaceModulo}>
                 Empleados →
+              </Link>
+              <Link to="/kioscos" className={styles.enlaceModulo}>
+                Kioscos →
               </Link>
             </div>
           </div>
