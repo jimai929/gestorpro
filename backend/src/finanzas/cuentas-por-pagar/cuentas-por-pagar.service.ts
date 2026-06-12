@@ -161,6 +161,13 @@ export interface DatosPago {
  * Registra un abono a una factura. En una transacción: bloquea la compra,
  * calcula el saldo vigente y rechaza el pago si excede el saldo (el bloqueo
  * evita sobrepagos por concurrencia). El pago es un movimiento `normal`.
+ *
+ * El aislamiento va EXPLÍCITO porque el guard depende de la semántica de
+ * READ COMMITTED: tras esperar el `FOR UPDATE`, el SUM debe ver el pago ya
+ * commiteado por la tx ganadora; bajo REPEATABLE READ (un
+ * `default_transaction_isolation` bastaría para activarlo) el snapshot stale
+ * dejaría entrar AMBOS pagos. El timeout holgado cubre la espera del lock
+ * bajo contención (el default de Prisma es 5 s e incluye esa espera).
  */
 export async function registrarPago(datos: DatosPago) {
   if (datos.monto <= 0) {
@@ -201,7 +208,7 @@ export async function registrarPago(datos: DatosPago) {
         usuarioId: datos.usuarioId,
       },
     });
-  });
+  }, { isolationLevel: 'ReadCommitted', timeout: 15000 });
 }
 
 // ─── Cuentas por pagar (vista derivada) ───────────────────────────────────--
