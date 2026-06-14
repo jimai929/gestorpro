@@ -8,13 +8,23 @@ import { verificarContrasena } from '../../core/auth/contrasena.js';
 import { identificarEmpleado } from './identificacion.service.js';
 import { recalcularJornadaPorSalida } from '../jornada/jornada.service.js';
 import {
-  verificadorFacialSimulado,
+  crearVerificadorFacial,
   facialExitosa,
   type VerificadorFacial,
 } from './verificador-facial.js';
 
 /** Excepciones recientes (7 días) que disparan la alerta a RRHH. */
 const UMBRAL_ALERTA_RRHH = 3;
+
+/**
+ * ¿Se marca para revisión TODO fichaje (incluido el facial exitoso)? Riesgo
+ * aceptado mientras el verificador facial sea el simulado: sin biometría real,
+ * el jefe debe poder revisar cualquier fichaje. Se activa con
+ * `FICHAJE_REVISION_TOTAL=true` (ver DESPLIEGUE.md §4.2).
+ */
+function revisionTotalPorDefecto(): boolean {
+  return (process.env.FICHAJE_REVISION_TOTAL ?? '').toLowerCase() === 'true';
+}
 
 type TipoFichaje = 'entrada' | 'salida_comida' | 'entrada_comida' | 'salida';
 
@@ -36,8 +46,10 @@ export interface SolicitudFichaje {
  * revisión del jefe. El verificador facial es enchufable (simulado por defecto).
  */
 export function crearServicioFichaje(
-  verificador: VerificadorFacial = verificadorFacialSimulado,
+  verificador: VerificadorFacial = crearVerificadorFacial(),
+  opciones: { revisionTotal?: boolean } = {},
 ) {
+  const revisionTotal = opciones.revisionTotal ?? revisionTotalPorDefecto();
   return {
     async fichar(solicitud: SolicitudFichaje) {
       const empleado = await identificarEmpleado({
@@ -57,7 +69,8 @@ export function crearServicioFichaje(
         fotoCaptura: solicitud.fotoCaptura,
       });
 
-      // Camino feliz: el facial coincide y hay vida → fichaje normal.
+      // Camino feliz: el facial coincide y hay vida → fichaje normal. Con
+      // `revisionTotal` se marca igualmente para revisión (verificador simulado).
       if (facialExitosa(facial)) {
         const fichaje = await prisma.fichaje.create({
           data: {
@@ -65,6 +78,7 @@ export function crearServicioFichaje(
             kioscoId: kiosco.id,
             tipo: solicitud.tipo,
             esExcepcion: false,
+            requiereRevision: revisionTotal,
             fotoCaptura: solicitud.fotoCaptura,
           },
         });
@@ -72,7 +86,12 @@ export function crearServicioFichaje(
         if (solicitud.tipo === 'salida') {
           await recalcularJornadaPorSalida(empleado.id, fichaje.momento);
         }
-        return { estado: 'registrado' as const, mecanismo: 'facial' as const, fichaje };
+        return {
+          estado: 'registrado' as const,
+          mecanismo: 'facial' as const,
+          fichaje,
+          requiereRevision: revisionTotal,
+        };
       }
 
       // El facial falló → fichaje de excepción según el modo de la sede.
@@ -151,11 +170,16 @@ export function crearServicioFichaje(
 
 // ─── Cola de revisión y decisión del jefe ───────────────────────────────────
 
-/** Fichajes de excepción aún sin revisar (cola del jefe). */
+/**
+ * Fichajes pendientes de revisión del jefe, sin revisar aún. Incluye los de
+ * excepción (facial fallido + PIN/supervisor) y, si `FICHAJE_REVISION_TOTAL`
+ * está activo, también los faciales marcados para revisión: ambos llevan
+ * `requiereRevision = true`.
+ */
 export function colaRevision(filtros: { sedeId?: string }) {
   return prisma.fichaje.findMany({
     where: {
-      esExcepcion: true,
+      requiereRevision: true,
       revision: null,
       ...(filtros.sedeId ? { empleado: { sedeId: filtros.sedeId } } : {}),
     },
@@ -175,8 +199,8 @@ export async function revisarFichaje(datos: {
     where: { id: datos.fichajeId },
     include: { revision: true },
   });
-  if (!fichaje || !fichaje.esExcepcion) {
-    throw new ErrorNoEncontrado('Fichaje de excepción no encontrado.');
+  if (!fichaje || (!fichaje.esExcepcion && !fichaje.requiereRevision)) {
+    throw new ErrorNoEncontrado('Fichaje pendiente de revisión no encontrado.');
   }
   if (fichaje.revision) {
     throw new ErrorValidacion('Este fichaje ya fue revisado.');

@@ -44,3 +44,23 @@ export const verificadorFacialSimulado: VerificadorFacial = {
 export function facialExitosa(resultado: ResultadoVerificacionFacial): boolean {
   return resultado.coincide && resultado.liveness;
 }
+
+/**
+ * Selecciona la implementación del verificador facial según la variable de
+ * entorno `VERIFICADOR_FACIAL` (por defecto 'simulado'). Hoy solo existe el
+ * simulado; un valor no soportado aborta de forma explícita en vez de degradar
+ * en silencio a una verificación falsa.
+ *
+ * ⚠️ El simulado NO hace biometría real (acepta cualquier captura). Mientras se
+ * use, el fichaje debe marcarse SIEMPRE para revisión del jefe — riesgo aceptado
+ * vía `FICHAJE_REVISION_TOTAL=true` (ver fichaje.service y DESPLIEGUE.md §4.2).
+ */
+export function crearVerificadorFacial(): VerificadorFacial {
+  const impl = process.env.VERIFICADOR_FACIAL ?? 'simulado';
+  if (impl === 'simulado') {
+    return verificadorFacialSimulado;
+  }
+  throw new Error(
+    `VERIFICADOR_FACIAL='${impl}' no está implementado. Valores válidos: 'simulado'.`,
+  );
+}

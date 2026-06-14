@@ -99,3 +99,39 @@ describe('fichaje', () => {
     expect(despues.some((f) => f.id === r.fichaje.id)).toBe(false);
   });
 });
+
+describe('fichaje — revisión total (verificador simulado, riesgo aceptado)', () => {
+  const servicioRT = crearServicioFichaje(undefined, { revisionTotal: true });
+
+  it('marca para revisión incluso un facial exitoso y lo lista en la cola', async () => {
+    const { sede, kiosco, empleado } = await escenario('pin');
+    const r = await servicioRT.fichar({
+      kioscoId: kiosco.id, tipo: 'entrada', numero: empleado.numero, fotoCaptura: 'sim:match',
+    });
+    expect(r.estado).toBe('registrado');
+    if (r.estado !== 'registrado') throw new Error('esperaba un fichaje registrado');
+    expect(r.mecanismo).toBe('facial');
+    expect(r.fichaje.esExcepcion).toBe(false);
+    expect(r.fichaje.requiereRevision).toBe(true);
+
+    const cola = await colaRevision({ sedeId: sede.id });
+    expect(cola.some((f) => f.id === r.fichaje.id)).toBe(true);
+
+    // El jefe puede revisar un fichaje NO-excepción marcado para revisión.
+    const jefe = await prisma.usuario.create({
+      data: { nombre: 'Jefe', email: `jefe-rt${n}-${Date.now()}@gestorpro.local`, rol: 'administrador', passwordHash: 'x' },
+    });
+    await revisarFichaje({ fichajeId: r.fichaje.id, jefeId: jefe.id, valido: true });
+    const despues = await colaRevision({ sedeId: sede.id });
+    expect(despues.some((f) => f.id === r.fichaje.id)).toBe(false);
+  });
+
+  it('por defecto (sin revisión total) un facial exitoso NO requiere revisión', async () => {
+    const { kiosco, empleado } = await escenario('pin');
+    const r = await servicio.fichar({
+      kioscoId: kiosco.id, tipo: 'entrada', numero: empleado.numero, fotoCaptura: 'sim:match',
+    });
+    if (r.estado !== 'registrado') throw new Error('esperaba un fichaje registrado');
+    expect(r.fichaje.requiereRevision).toBe(false);
+  });
+});
