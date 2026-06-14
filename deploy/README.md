@@ -80,10 +80,32 @@ default privileges del initdb; la excepción de `auditoria` se reimpone siempre)
   negocio; en `auditoria` solo SELECT/INSERT (append-only). Es el `DATABASE_URL`
   del servicio backend.
 
+## Backups y restauración
+
+- **Backup** (`backup.sh`): vuelca roles (`pg_dumpall --roles-only`) y datos
+  (`pg_dump -Fc`) a `deploy/backups/` con marca de tiempo y permisos 600;
+  retención configurable (`RETENCION_DIAS`, 30 días por defecto). `backups/` está
+  en `.gitignore` (los volcados contienen datos y hash de contraseñas). Programar
+  por cron diario, p. ej.:
+  ```cron
+  15 3 * * * cd /ruta/gestorpro/deploy && ./backup.sh >> /var/log/gestorpro-backup.log 2>&1
+  ```
+- **Prueba de restauración** (`restore.sh [TS]`): restaura el último backup (o el
+  TS indicado) en un contenedor Postgres EFÍMERO y verifica roles + datos +
+  append-only de `auditoria`, **sin tocar producción**. Correr al montar el
+  entorno y luego trimestralmente.
+- **Recuperación real** en un servidor nuevo (mismos pasos que verifica
+  `restore.sh`, contra el Postgres destino):
+  1. `psql -U postgres -f roles_<ts>.sql` (los roles, primero).
+  2. `createdb -O gestorpro_migrador gestorpro`.
+  3. `pg_restore -d gestorpro gestorpro_<ts>.dump`.
+  4. Verificar: un `UPDATE auditoria` como `gestorpro_app` debe dar `permission denied`.
+
 ## Pendiente fuera de este P0 (ver docs/DESPLIEGUE.md)
 
-- Backups: `pg_dump` diario **+ `pg_dumpall --roles-only`** (sin esto una
-  restauración pierde los roles y el append-only) y prueba de restauración.
+- Backups: scripts `backup.sh` / `restore.sh` listos (ver arriba). Falta el lado
+  operativo: programar el cron y la copia cifrada FUERA del VPS (el volumen
+  Docker no es backup).
 - Monitoreo de `https://api.<dominio>/health` con alerta.
 - Allowlist de IPs del kiosco en el `Caddyfile` (gate de P2; bloque ya listo,
   comentado): define `SEDE_IPS` en `.env` y descoméntalo.
