@@ -1,0 +1,33 @@
+# Caddyfile de GestorPro. Dos subdominios (no path-routing: las rutas del backend
+# colisionan con las del SPA). TLS automático vía Let's Encrypt. Las variables
+# {$DOMINIO}, {$ACME_EMAIL} y {$SEDE_IPS} las inyecta docker-compose desde .env.
+
+{
+	email {$ACME_EMAIL}
+}
+
+# SPA (frontend estático). Imagen construida con VITE_API_URL=https://api.<dominio>.
+app.{$DOMINIO} {
+	root * /srv/www
+	encode gzip
+	try_files {path} /index.html
+	file_server
+}
+
+# API (backend Fastify). El mismo binario sirve finanzas y asistencia.
+api.{$DOMINIO} {
+	reverse_proxy backend:3000
+
+	# --- Allowlist de IPs del kiosco (gate de P2) -----------------------------
+	# Restringe /fichajes y /kioscos a las IPs de salida de las sedes (defensa en
+	# profundidad SOBRE el token de dispositivo, que ya es obligatorio). Para
+	# activarlo: pon SEDE_IPS en deploy/.env (IPs separadas por espacio) y
+	# descomenta el bloque. Si una sede no tiene IP fija, déjalo comentado: el
+	# token de dispositivo sigue protegiendo el fichaje.
+	#
+	# @kiosco_no_autorizado {
+	# 	path /fichajes /kioscos
+	# 	not remote_ip {$SEDE_IPS}
+	# }
+	# respond @kiosco_no_autorizado "Forbidden" 403
+}

@@ -1,0 +1,89 @@
+# Stack de producción de GestorPro: caddy (TLS + SPA + reverse proxy) + backend
+# (Fastify) + postgres (con roles separados migrador/app). Los secretos y el
+# dominio vienen de deploy/.env (ver .env.example). Levantar con deploy.sh, que
+# orquesta migrate deploy, grants y verificación append-only antes de exponer.
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      # Superusuario solo para administración/initdb. La app NO usa este rol.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPER_PASSWORD}
+      POSTGRES_DB: postgres
+      # Consumidas por el script de initdb para crear los dos roles del negocio.
+      GESTORPRO_MIGRADOR_PASSWORD: ${GESTORPRO_MIGRADOR_PASSWORD}
+      GESTORPRO_APP_PASSWORD: ${GESTORPRO_APP_PASSWORD}
+      TZ: America/Panama
+      PGTZ: America/Panama
+    # Fija la zona horaria del clúster en CADA arranque (no depende del initdb).
+    command: ["postgres", "-c", "timezone=America/Panama", "-c", "log_timezone=America/Panama"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [interna]
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      TZ: America/Panama
+      PORT: "3000"
+      HOST: 0.0.0.0
+      # La app se conecta con el rol restringido gestorpro_app.
+      DATABASE_URL: postgresql://gestorpro_app:${GESTORPRO_APP_PASSWORD}@postgres:5432/gestorpro?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
+      REFRESH_TOKEN_TTL_DIAS: ${REFRESH_TOKEN_TTL_DIAS:-30}
+      CORS_ORIGEN: https://app.${DOMINIO}
+      VERIFICADOR_FACIAL: ${VERIFICADOR_FACIAL:-simulado}
+      # Riesgo aceptado con el verificador simulado: todo fichaje a revisión.
+      FICHAJE_REVISION_TOTAL: ${FICHAJE_REVISION_TOTAL:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    # Sin puertos publicados: solo accesible vía caddy en la red interna.
+    networks: [interna]
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/Caddy.Dockerfile
+      args:
+        VITE_API_URL: https://api.${DOMINIO}
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO}
+      ACME_EMAIL: ${ACME_EMAIL}
+      SEDE_IPS: ${SEDE_IPS:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [interna]
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  interna:

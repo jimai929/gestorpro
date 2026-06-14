@@ -1,0 +1,6 @@
+# Estos archivos se ejecutan dentro de contenedores Linux: forzar LF aunque se
+# editen/commiteen desde Windows (un CRLF rompería el shebang / Caddy / psql).
+*.sh text eol=lf
+*.sql text eol=lf
+Caddyfile text eol=lf
+Caddy.Dockerfile text eol=lf

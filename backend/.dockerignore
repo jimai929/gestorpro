@@ -1,0 +1,11 @@
+# No enviar al contexto de build lo que se regenera o no se necesita.
+node_modules
+dist
+src/generated
+test
+.env
+.env.*
+*.log
+npm-debug.log*
+.git
+.DS_Store
