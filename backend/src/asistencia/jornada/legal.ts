@@ -27,7 +27,12 @@ export const RECARGOS = {
   festivo: 1.5,
 } as const;
 
-/** Topes de horas extra, en minutos: 3h/día y 9h/semana. */
+/**
+ * Topes de horas extra, en minutos: 3h/día y 9h/semana. Ambos se aplican en
+ * `calculo.ts` (el semanal vía la extra pagable acumulada de la semana). El
+ * excedente no se paga sin revisión del jefe. ⚠️ Valores y tratamiento PENDIENTES
+ * de validación legal — ver docs/VALIDACION_LEGAL.md (puntos 10-11).
+ */
 export const TOPES_EXTRA_MIN = {
   dia: 3 * 60,
   semana: 9 * 60,

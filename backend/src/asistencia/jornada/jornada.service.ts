@@ -16,6 +16,35 @@ function soloFecha(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
+const UN_DIA_MS = 86_400_000;
+
+/** Lunes (UTC, medianoche) de la semana de una fecha-jornada ya normalizada. */
+function lunesDeLaSemana(fecha: Date): Date {
+  const dia = fecha.getUTCDay(); // 0=domingo … 6=sábado
+  const desdeLunes = (dia + 6) % 7; // días transcurridos desde el lunes
+  return new Date(fecha.getTime() - desdeLunes * UN_DIA_MS);
+}
+
+/**
+ * Suma los minutos extra PAGABLES ya registrados esta semana ANTES de `fecha`
+ * para un empleado (días lunes..fecha exclusive). Lee el detalle de cada jornada
+ * (`recargosDetalle.minutosExtraPagables`). Base del tope semanal de 9h.
+ */
+async function extraPagablesSemanaPrevios(
+  empleadoId: string,
+  fecha: Date,
+): Promise<number> {
+  const lunes = lunesDeLaSemana(fecha);
+  const jornadas = await prisma.jornada.findMany({
+    where: { empleadoId, fecha: { gte: lunes, lt: fecha } },
+    select: { recargosDetalle: true },
+  });
+  return jornadas.reduce((suma, j) => {
+    const detalle = j.recargosDetalle as { minutosExtraPagables?: number } | null;
+    return suma + (detalle?.minutosExtraPagables ?? 0);
+  }, 0);
+}
+
 async function esDiaFestivo(fecha: Date): Promise<boolean> {
   return (await prisma.diaFestivo.findUnique({ where: { fecha } })) !== null;
 }
@@ -43,6 +72,7 @@ async function guardarJornada(
       recargo: r.recargo,
       minutosExtraPagables: r.minutosExtraPagables,
       topeDiaExcedido: r.topeDiaExcedido,
+      topeSemanaExcedido: r.topeSemanaExcedido,
     },
     calculadaEn: new Date(),
   };
@@ -87,6 +117,7 @@ export async function recalcularJornadaPorSalida(
     pausaPorDefectoMin: empleado.turno?.pausaPorDefectoMin ?? 0,
     salarioMensual: Number(empleado.salarioFijo),
     esFestivo: await esDiaFestivo(fecha),
+    minutosExtraPagablesSemanaPrevios: await extraPagablesSemanaPrevios(empleadoId, fecha),
   });
 
   // El cierre de la jornada y la acreditación del saldo van en la MISMA

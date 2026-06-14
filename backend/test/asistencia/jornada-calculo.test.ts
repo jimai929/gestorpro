@@ -150,4 +150,38 @@ describe('cálculo de jornada', () => {
     expect(r.minutosExtraPagables).toBe(180);
     expect(r.montoExtra).toBe(18.75); // 3h × 5 × 1.25
   });
+
+  it('sin previos semanales no marca el tope semanal', () => {
+    const r = calcularJornada(jornadaCompleta(7, 11, 12, 18)); // 2h extra
+    expect(r.minutosExtra).toBe(120);
+    expect(r.topeSemanaExcedido).toBe(false);
+  });
+
+  it('aplica el tope semanal de 9h de extra pagable', () => {
+    // 06:00–18:00 = 12h → 4h extra, 3h pagables por el tope diario. Pero ya hay
+    // 8h (480 min) pagables esta semana → solo queda 1h (60 min) del tope semanal.
+    const r = calcularJornada(
+      [
+        { tipo: 'entrada', momento: h(6) },
+        { tipo: 'salida', momento: h(18) },
+      ],
+      { salarioMensual: 1200, minutosExtraPagablesSemanaPrevios: 480 },
+    );
+    expect(r.topeSemanaExcedido).toBe(true);
+    expect(r.minutosExtraPagables).toBe(60); // 540 semanal − 480 previos
+    expect(r.montoExtra).toBe(6.25); // 1h × 5 × 1.25
+  });
+
+  it('agotado el tope semanal, no se paga más extra (pagable 0)', () => {
+    const r = calcularJornada(
+      [
+        { tipo: 'entrada', momento: h(7) },
+        { tipo: 'salida', momento: h(18) }, // 2h extra
+      ],
+      { salarioMensual: 1200, minutosExtraPagablesSemanaPrevios: 540 },
+    );
+    expect(r.topeSemanaExcedido).toBe(true);
+    expect(r.minutosExtraPagables).toBe(0);
+    expect(r.montoExtra).toBe(0);
+  });
 });

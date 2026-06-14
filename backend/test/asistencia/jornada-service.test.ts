@@ -172,3 +172,45 @@ describe('alta manual de jornada (día sin fichajes)', () => {
     ).rejects.toBeInstanceOf(ErrorValidacion);
   });
 });
+
+describe('tope semanal de horas extra (acumulación entre días)', () => {
+  it('recorta la extra pagable del día por el tope semanal de 9h', async () => {
+    const { empleado, kiosco } = await crearEmpleadoConTurno();
+
+    // Día objetivo (no lunes, para que el día previo sea de la MISMA semana).
+    let base = new Date(Date.UTC(2026, 5, 17, 10, 0));
+    if (base.getUTCDay() === 1) base = new Date(base.getTime() + 86_400_000);
+    const fecha = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate()));
+    const diaPrevio = new Date(fecha.getTime() - 86_400_000);
+
+    // Jornada previa de la misma semana con 500 min de extra PAGABLE.
+    await prisma.jornada.create({
+      data: {
+        empleadoId: empleado.id, fecha: diaPrevio, minutosTrabajados: 480, minutosExtra: 500,
+        estado: 'calculada',
+        recargosDetalle: {
+          recargo: 0.25, minutosExtraPagables: 500, topeDiaExcedido: true, topeSemanaExcedido: false,
+        },
+      },
+    });
+
+    // Día objetivo con jornada larga (≫ tope diario) vía fichajes reales.
+    const at = (h: number) =>
+      new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate(), h, 0));
+    for (const [tipo, hora] of [['entrada', 10], ['salida', 22]] as const) {
+      await prisma.fichaje.create({
+        data: { empleadoId: empleado.id, kioscoId: kiosco.id, tipo, momento: at(hora) },
+      });
+    }
+
+    const jornada = await recalcularJornadaPorSalida(empleado.id, at(22));
+    expect(jornada).not.toBeNull();
+    const detalle = jornada?.recargosDetalle as {
+      minutosExtraPagables?: number;
+      topeSemanaExcedido?: boolean;
+    };
+    // Quedaban 540 − 500 = 40 min del tope semanal: solo eso es pagable hoy.
+    expect(detalle.topeSemanaExcedido).toBe(true);
+    expect(detalle.minutosExtraPagables).toBe(40);
+  });
+});

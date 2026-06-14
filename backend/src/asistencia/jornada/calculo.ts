@@ -24,6 +24,12 @@ export interface OpcionesCalculo {
   esFestivo?: boolean;
   /** Salario mensual del empleado; necesario para el monto en dinero de las extras. */
   salarioMensual?: number;
+  /**
+   * Minutos extra PAGABLES ya acumulados esta semana ANTES de este día (suma de
+   * los días previos de la misma semana). Sirve para aplicar el tope semanal de
+   * 9h. Por defecto 0 (día aislado).
+   */
+  minutosExtraPagablesSemanaPrevios?: number;
 }
 
 export interface ResultadoJornada {
@@ -41,6 +47,8 @@ export interface ResultadoJornada {
   montoExtra: number;
   /** true si la extra superó el tope diario de 3h (marca para revisión). */
   topeDiaExcedido: boolean;
+  /** true si la extra pagable acumulada en la semana superó el tope de 9h. */
+  topeSemanaExcedido: boolean;
   esFestivo: boolean;
   anomalia: boolean;
   detalleAnomalia: string | null;
@@ -57,6 +65,7 @@ const VACIO = {
   recargo: 0,
   montoExtra: 0,
   topeDiaExcedido: false,
+  topeSemanaExcedido: false,
 };
 
 function anomalia(detalle: string, esFestivo: boolean): ResultadoJornada {
@@ -155,7 +164,19 @@ export function calcularJornada(
   // se marca para que el jefe lo revise (no se paga por debajo del mínimo legal,
   // pero tampoco se reconoce extra por encima del tope sin revisión).
   const topeDiaExcedido = extra > TOPES_EXTRA_MIN.dia;
-  const extraPagable = Math.min(extra, TOPES_EXTRA_MIN.dia);
+  let extraPagable = Math.min(extra, TOPES_EXTRA_MIN.dia);
+
+  // Tope semanal de 9h: la extra pagable acumulada en la semana (días previos +
+  // hoy) no puede superar el tope. Si lo supera, se recorta lo pagable de hoy al
+  // saldo disponible y se marca para revisión del jefe (mismo criterio que el
+  // tope diario). NOTA: es un cálculo HACIA ADELANTE — recalcular un día anterior
+  // no reajusta retroactivamente los días posteriores ya cerrados de la semana.
+  const previosSemana = Math.max(0, opciones.minutosExtraPagablesSemanaPrevios ?? 0);
+  const disponibleSemana = Math.max(0, TOPES_EXTRA_MIN.semana - previosSemana);
+  const topeSemanaExcedido = extraPagable > disponibleSemana;
+  if (topeSemanaExcedido) {
+    extraPagable = disponibleSemana;
+  }
 
   // Recargo fijo según clasificación (o 150% si es festivo) y monto en dinero.
   const recargo = recargoExtra(clasificacion, esFestivo);
@@ -177,6 +198,7 @@ export function calcularJornada(
     recargo,
     montoExtra,
     topeDiaExcedido,
+    topeSemanaExcedido,
     esFestivo,
     anomalia: false,
     detalleAnomalia: null,

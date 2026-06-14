@@ -73,11 +73,20 @@
   (`calculo.ts:157-158`).
 - **A confirmar (diario):** ¿es correcto el tope de 3 h/día y este tratamiento
   del excedente (pagar hasta el tope + marcar para revisión)?
-- **A confirmar (semanal):** el tope de 9 h/semana **está definido pero el
-  cálculo diario actual no lo aplica** (no hay acumulación semanal en
-  `calculo.ts`; solo se usa el tope diario). Confirmar si el tope semanal debe
-  hacerse cumplir y, en ese caso, queda como trabajo de implementación pendiente
-  además de la validación.
+- **Cómo se aplica hoy el tope SEMANAL (ya implementado):** la extra PAGABLE
+  acumulada de la semana no puede superar 9 h. Al recalcular un día se suman los
+  `minutosExtraPagables` de los días previos de la misma semana (inicio de
+  semana = lunes, por la fecha-jornada en UTC); si hoy supera el saldo restante,
+  lo pagable se recorta a ese saldo y se marca `topeSemanaExcedido` para revisión
+  del jefe (`calculo.ts`, `jornada.service.ts`).
+- **Límite conocido de la implementación:** el cálculo es HACIA ADELANTE —
+  recalcular un día anterior no reajusta retroactivamente los días posteriores ya
+  cerrados de esa semana.
+- **A confirmar (semanal):** ¿son correctos el tope de 9 h/semana, el inicio de
+  semana (lunes) y este tratamiento del excedente (recortar lo pagable + marcar
+  para revisión)? ¿La semana debe contarse por hora local de Panamá en vez de
+  UTC? Si algún criterio cambia, es un ajuste en `calculo.ts` /
+  `jornada.service.ts` y un recálculo de las jornadas afectadas.
 
 ---
 
