@@ -98,16 +98,26 @@ Si una sede pierde internet, el kiosco no puede fichar. Dos etapas:
    un `numero` de empleado y hacer fuerza bruta de PINs y de contraseñas de
    supervisor/admin (el body de `/fichajes` las recibe). Mínimos antes de
    exponer asistencia (gate de P2):
-   - **Restringir el origen del kiosco**: allowlist de IPs de sede en Caddy
-     para `/fichajes` y `/kioscos`, y/o un token de dispositivo de kiosco.
+   - **Token de dispositivo del kiosco** — **HECHO** (migración
+     `20260613120000_kiosco_token`): `POST /fichajes` exige el header
+     `x-kiosco-token`. El token se genera al dar de alta el kiosco
+     (`POST /kioscos`) o al rotarlo (`POST /kioscos/:id/token`, solo admin) y se
+     guarda solo su hash (argon2); el dispositivo lo guarda en local. Un kiosco
+     sin token no puede fichar. **Complementar en despliegue** con allowlist de
+     IPs de sede en Caddy para `/fichajes` y `/kioscos` (§11) — defensa en
+     profundidad (una sede comparte IP de salida).
    - **Rate limiting** — **HECHO** (commit `8836fc8`): `@fastify/rate-limit` en
      modo `global:false` sobre `/auth/*` (login 10/min, refresh·logout 30/min) y
      la superficie del kiosco (`/fichajes` 30/min, `/kioscos` 60/min). La clave
      es la IP — defensa en profundidad, NO sustituye la restricción de red/token
      (una sede comparte IP de salida).
-   - **Decisión explícita sobre el verificador facial**: conectar un proveedor
-     real, o declarar el simulador como riesgo aceptado con TODOS los fichajes
-     marcados a revisión. P2 con simulador = fichaje sin verificación facial.
+   - **Verificador facial** — **DECIDIDO: riesgo aceptado** con el simulador. El
+     verificador es enchufable por env (`VERIFICADOR_FACIAL`, hoy solo
+     'simulado'; un valor no soportado aborta el arranque) y, con
+     `FICHAJE_REVISION_TOTAL=true`, TODO fichaje —incluido el facial "exitoso"—
+     queda marcado para revisión del jefe (cola de revisión). En producción con
+     el simulador, `FICHAJE_REVISION_TOTAL` DEBE ir en true. Conectar un
+     proveedor real es una mejora futura sin tocar el resto del código.
 3. **Refresh-on-401 en el frontend** — **HECHO** (commit `2536b0c`):
    `cliente.ts` intercepta un 401, renueva el access token UNA vez (vía el
    manejador que inyecta `ContextoAuth`) y reintenta; si el refresh ya no
@@ -131,6 +141,8 @@ Si una sede pierde internet, el kiosco no puede fichar. Dos etapas:
 | `PORT` / `HOST` | backend | `3000` / `0.0.0.0` (tras Caddy) |
 | `TZ` | backend + postgres | `America/Panama` |
 | `SEED_DEMO` | backend (seed) | ausente en prod (ver §6); `true` en dev |
+| `VERIFICADOR_FACIAL` | backend | `simulado` (único soportado hoy) |
+| `FICHAJE_REVISION_TOTAL` | backend | `true` en prod mientras el verificador sea el simulado (§4.2) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | backend (seed) | credencial inicial del admin (secreto; NO hardcodear ni imprimir) |
 | `VITE_API_URL` | frontend (build) | `https://api.<dominio>` |
 
@@ -197,7 +209,7 @@ simulado).
 |---|---|---|
 | P0 | VPS + dominio + Compose + TLS + roles de BD + backups + seed prod + refresh-on-401 | — |
 | P1 | **Piloto de FINANZAS** en producción (cuentas por pagar, gastos, dashboard) con datos reales | ninguno externo; Firestec solo afecta la comodidad de captura |
-| P2 | **Asistencia** (kioscos, jornada, cobros) | **(a) validación legal de `jornada/legal.ts` — pendiente; (b) protección del kiosco §4.2 (rate-limit hecho; falta restricción de red + decisión facial); (c) alta de kioscos — hecha; (d) jornada manual §3 — hecha (`ad90e78`)** |
+| P2 | **Asistencia** (kioscos, jornada, cobros) | **(a) validación legal de `jornada/legal.ts` — pendiente (el tope semanal de 9h ya está implementado, queda confirmar valores/criterios); (b) protección del kiosco §4.2 — token de dispositivo HECHO + rate-limit HECHO + verificador facial DECIDIDO (riesgo aceptado, `FICHAJE_REVISION_TOTAL`); falta solo la allowlist de IPs en Caddy (despliegue, §11); (c) alta de kioscos — hecha; (d) jornada manual §3 — hecha (`ad90e78`)** |
 
 Esto respeta el principio del plan ("finanzas en producción y en uso real
 antes de seguir") que el desarrollo ya dejó atrás pero el despliegue puede
@@ -241,8 +253,39 @@ en Caddy hasta P2.
 **P1 — finanzas en uso real** (sin gate externo).
 
 **P2 — asistencia, solo tras:**
-- [ ] Validación legal panameña de `jornada/legal.ts`.
-- [ ] Protección del kiosco aplicada (auth/red + rate-limit) y decisión sobre
-      el verificador facial (real o riesgo aceptado con todo a revisión).
+- [ ] Validación legal panameña de `jornada/legal.ts` (el tope semanal de 9h ya
+      está implementado; ver docs/VALIDACION_LEGAL.md).
+- [x] Token de dispositivo del kiosco + rate-limit (§4.2).
+- [x] Decisión sobre el verificador facial: riesgo aceptado con el simulador,
+      `FICHAJE_REVISION_TOTAL=true` en prod (§4.2).
+- [ ] Allowlist de IPs de sede en Caddy para `/fichajes` y `/kioscos` (§11).
 - [x] Provisión de kioscos: API (`POST /kioscos`, commit `74c2817`) + pantalla de gestión (commit `7c37819`).
 - [x] Alta manual de jornada para cortes de día completo (`POST /jornadas/manual`, commit `ad90e78`).
+
+## 11. Apéndice: allowlist de IPs del kiosco en Caddy
+
+El token de dispositivo (§4.2) autentica al kiosco; la allowlist de IPs lo
+complementa restringiendo desde DÓNDE se aceptan `/fichajes` y `/kioscos`
+(defensa en profundidad). Ejemplo para `api.<dominio>`, permitiendo solo las IPs
+públicas de salida de las sedes:
+
+```caddyfile
+api.midominio.com {
+	# IPs públicas de salida de cada sede (ajustar).
+	@kiosco_publico {
+		path /fichajes /kioscos
+		not remote_ip 203.0.113.10 203.0.113.20
+	}
+	respond @kiosco_publico 403
+
+	reverse_proxy backend:3000
+}
+```
+
+Notas:
+- Si una sede no tiene IP fija, usar solo el token de dispositivo (y, si hace
+  falta, una VPN/tunnel por sede). La allowlist es un refuerzo, no un requisito
+  para que el token funcione.
+- `remote_ip` debe ver la IP real del cliente: detrás de otro proxy/CDN, activar
+  `trusted_proxies` para que Caddy lea `X-Forwarded-For`.
+- El resto de rutas (API autenticada) no se filtran por IP; las protege el JWT.
