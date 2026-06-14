@@ -54,6 +54,7 @@ describe('PantallaKioscos — alta', () => {
       ...kioscoDemo,
       id: 'k2',
       nombre: 'Kiosco Salida',
+      token: 'token-demo-xyz',
     });
     const user = userEvent.setup();
     montar();

@@ -372,12 +372,16 @@ model EmpleadoRolOperativo {
 
 /// Kiosco (tablet/PC) de fichaje, pertenece a una sede.
 model Kiosco {
-  id       String   @id @default(uuid()) @db.Uuid
-  nombre   String
-  sedeId   String   @map("sede_id") @db.Uuid
-  sede     Sede     @relation(fields: [sedeId], references: [id])
-  activo   Boolean  @default(true)
-  creadoEn DateTime @default(now()) @map("creado_en")
+  id        String   @id @default(uuid()) @db.Uuid
+  nombre    String
+  sedeId    String   @map("sede_id") @db.Uuid
+  sede      Sede     @relation(fields: [sedeId], references: [id])
+  activo    Boolean  @default(true)
+  // Hash (argon2) del token de dispositivo. POST /fichajes lo exige en el header
+  // x-kiosco-token. Nullable: un kiosco sin token NO puede fichar hasta que un
+  // administrador le genere uno. El token en claro NUNCA se almacena.
+  tokenHash String?  @map("token_hash")
+  creadoEn  DateTime @default(now()) @map("creado_en")
 
   fichajes Fichaje[]
 

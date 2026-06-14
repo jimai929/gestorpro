@@ -11,11 +11,11 @@ import { Entrada } from '../../core/ui/Entrada';
 import { crearKiosco } from './servicioKioscos';
 import { obtenerSedes } from '../sedes/servicioSedes';
 import type { Sede } from '../sedes/tipos';
-import type { Kiosco } from './tipos';
+import type { KioscoConToken } from './tipos';
 import styles from './FormularioKiosco.module.css';
 
 interface PropiedadesFormulario {
-  onGuardado: (kiosco: Kiosco) => void;
+  onGuardado: (kiosco: KioscoConToken) => void;
   onCancelar: () => void;
 }
 

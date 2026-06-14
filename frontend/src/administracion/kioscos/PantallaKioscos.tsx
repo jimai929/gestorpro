@@ -13,8 +13,8 @@ import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { FormularioKiosco } from './FormularioKiosco';
-import { obtenerKioscos } from './servicioKioscos';
-import type { Kiosco } from './tipos';
+import { obtenerKioscos, regenerarTokenKiosco } from './servicioKioscos';
+import type { Kiosco, KioscoConToken } from './tipos';
 import styles from './PantallaKioscos.module.css';
 
 export function PantallaKioscos() {
@@ -22,6 +22,10 @@ export function PantallaKioscos() {
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [mostrarFormNuevo, setMostrarFormNuevo] = useState(false);
+  // Token revelado UNA vez tras el alta o la regeneración (no se puede recuperar).
+  const [tokenRevelado, setTokenRevelado] = useState<{ nombre: string; token: string } | null>(null);
+  const [regenerandoId, setRegenerandoId] = useState<string | null>(null);
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -39,9 +43,24 @@ export function PantallaKioscos() {
     void cargar();
   }, [cargar]);
 
-  const manejarGuardado = () => {
+  const manejarGuardado = (kiosco: KioscoConToken) => {
     setMostrarFormNuevo(false);
+    setErrorAccion(null);
+    setTokenRevelado({ nombre: kiosco.nombre, token: kiosco.token });
     void cargar();
+  };
+
+  const regenerar = async (kiosco: Kiosco) => {
+    setRegenerandoId(kiosco.id);
+    setErrorAccion(null);
+    try {
+      const { token } = await regenerarTokenKiosco(kiosco.id);
+      setTokenRevelado({ nombre: kiosco.nombre, token });
+    } catch (err) {
+      setErrorAccion(err instanceof Error ? err.message : 'Error al regenerar el token.');
+    } finally {
+      setRegenerandoId(null);
+    }
   };
 
   const claseNav = ({ isActive }: { isActive: boolean }) =>
@@ -70,6 +89,40 @@ export function PantallaKioscos() {
           <FormularioKiosco onGuardado={manejarGuardado} onCancelar={() => setMostrarFormNuevo(false)} />
         )}
 
+        {tokenRevelado && (
+          <div
+            className={styles.tarjeta}
+            style={{ border: '2px solid #2563eb', background: '#eff6ff' }}
+          >
+            <p style={{ fontWeight: 600, margin: 0 }}>
+              Token del kiosco «{tokenRevelado.nombre}»
+            </p>
+            <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
+              Cópielo y configúrelo en el dispositivo (pantalla del kiosco). Por
+              seguridad, <strong>solo se muestra una vez</strong>.
+            </p>
+            <code
+              style={{
+                display: 'block',
+                padding: '0.5rem',
+                background: '#fff',
+                borderRadius: 4,
+                wordBreak: 'break-all',
+                userSelect: 'all',
+              }}
+            >
+              {tokenRevelado.token}
+            </code>
+            <div style={{ marginTop: '0.5rem' }}>
+              <Boton variante="secundario" onClick={() => setTokenRevelado(null)}>
+                Cerrar
+              </Boton>
+            </div>
+          </div>
+        )}
+
+        {errorAccion && <div className={styles.errorCarga}><span>{errorAccion}</span></div>}
+
         <div className={styles.tarjeta}>
           {errorCarga && (
             <div className={styles.errorCarga}>
@@ -92,6 +145,7 @@ export function PantallaKioscos() {
                 <tr>
                   <th>Nombre</th>
                   <th>Sede</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,6 +153,15 @@ export function PantallaKioscos() {
                   <tr key={kiosco.id}>
                     <td>{kiosco.nombre}</td>
                     <td className={styles.contacto}>{kiosco.sede?.nombre ?? kiosco.sedeId}</td>
+                    <td>
+                      <Boton
+                        variante="secundario"
+                        cargando={regenerandoId === kiosco.id}
+                        onClick={() => { void regenerar(kiosco); }}
+                      >
+                        Regenerar token
+                      </Boton>
+                    </td>
                   </tr>
                 ))}
               </tbody>

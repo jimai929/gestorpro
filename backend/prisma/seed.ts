@@ -15,6 +15,14 @@ import { demoHabilitado, resolverPasswordAdmin } from './seed-opciones.js';
  * explícito — ver `seed-opciones.ts`. Idempotente: se puede correr varias veces
  * sin duplicar.
  */
+
+/**
+ * Token de dispositivo del kiosco DEMO (SOLO desarrollo). En producción el token
+ * se genera al dar de alta el kiosco y no se hardcodea. En dev, configúralo en la
+ * pantalla del kiosco (/kiosco) con este valor para poder fichar.
+ */
+const TOKEN_KIOSCO_DEMO = 'demo-kiosco-token';
+
 async function main(): Promise<void> {
   const demoOn = demoHabilitado(process.env);
 
@@ -276,10 +284,16 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
  * dos veces no duplica ni deja empleados sin sus roles.
  */
 async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
-  // Kiosco (idempotente por nombre + sede).
+  // Kiosco con token de dispositivo (idempotente por nombre + sede). Si ya existe
+  // sin token (datos previos a esta versión), se le asigna el token demo.
+  const tokenHashDemo = await hashearContrasena(TOKEN_KIOSCO_DEMO);
   const kiosco = await prisma.kiosco.findFirst({ where: { nombre: 'Kiosco Entrada', sedeId } });
   if (!kiosco) {
-    await prisma.kiosco.create({ data: { nombre: 'Kiosco Entrada', sedeId } });
+    await prisma.kiosco.create({
+      data: { nombre: 'Kiosco Entrada', sedeId, tokenHash: tokenHashDemo },
+    });
+  } else if (!kiosco.tokenHash) {
+    await prisma.kiosco.update({ where: { id: kiosco.id }, data: { tokenHash: tokenHashDemo } });
   }
 
   // Turno (idempotente por nombre).

@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { obtenerKioscos, registrarFichaje } from './servicioKiosco';
+import { obtenerKioscos, registrarFichaje, obtenerTokenKiosco, fijarTokenKiosco } from './servicioKiosco';
 import type {
   Kiosco,
   TipoFichaje,
@@ -62,6 +62,19 @@ const SEGUNDOS_REINICIO = 5;
 export function PantallaKiosco() {
   // ── Estado global del flujo ──
   const [paso, setPaso] = useState<PasoKiosco>('seleccion');
+
+  // ── Token de dispositivo (autoriza este kiosco ante el backend) ──
+  const [tokenDispositivo, setTokenDispositivo] = useState<string | null>(() => obtenerTokenKiosco());
+  const [editandoToken, setEditandoToken] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
+
+  const guardarToken = () => {
+    if (!tokenInput.trim()) return;
+    fijarTokenKiosco(tokenInput);
+    setTokenDispositivo(tokenInput.trim());
+    setTokenInput('');
+    setEditandoToken(false);
+  };
 
   // ── Datos de selección ──
   const [kioscos, setKioscos] = useState<Kiosco[]>([]);
@@ -220,10 +233,17 @@ export function PantallaKiosco() {
         return;
       }
 
-      // ── 401 en flujo de excepción — credencial inválida ──
+      // ── 401 — token de kiosco o credencial de excepción inválida ──
+      // Sin `extras` el 401 es del token de dispositivo (paso facial); con
+      // `extras` es la credencial de excepción (PIN/supervisor).
       if (respuesta.status === 401) {
         const body = respuesta.datos as { mensaje?: string };
-        setErrorExcepcion(body.mensaje ?? 'Credencial inválida. Intente nuevamente.');
+        const mensaje = body.mensaje ?? 'Credencial inválida. Intente nuevamente.';
+        if (extras) {
+          setErrorExcepcion(mensaje);
+        } else {
+          setErrorEnvio(mensaje);
+        }
         return;
       }
 
@@ -258,6 +278,16 @@ export function PantallaKiosco() {
         <span className={styles.logotipoKiosco}>GP</span>
         <h1 className={styles.tituloKiosco}>GestorPro — Kiosco de fichaje</h1>
       </div>
+
+      <PanelTokenDispositivo
+        configurado={tokenDispositivo !== null}
+        editando={editandoToken}
+        tokenInput={tokenInput}
+        onChangeToken={setTokenInput}
+        onEditar={() => { setEditandoToken(true); setTokenInput(''); }}
+        onCancelar={() => { setEditandoToken(false); setTokenInput(''); }}
+        onGuardar={guardarToken}
+      />
 
       {kioscoSeleccionado && paso !== 'seleccion' && (
         <p className={styles.infoKioscoActivo}>
@@ -339,6 +369,85 @@ export function PantallaKiosco() {
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Panel de configuración del token de dispositivo ────────────────────────
+
+interface PropsPanelToken {
+  configurado: boolean;
+  editando: boolean;
+  tokenInput: string;
+  onChangeToken: (v: string) => void;
+  onEditar: () => void;
+  onCancelar: () => void;
+  onGuardar: () => void;
+}
+
+function PanelTokenDispositivo({
+  configurado,
+  editando,
+  tokenInput,
+  onChangeToken,
+  onEditar,
+  onCancelar,
+  onGuardar,
+}: PropsPanelToken) {
+  const mostrarFormulario = !configurado || editando;
+
+  return (
+    <div
+      style={{
+        maxWidth: 480,
+        margin: '0 auto 1rem',
+        padding: '0.75rem 1rem',
+        borderRadius: 8,
+        background: configurado ? '#f0fdf4' : '#fef2f2',
+        border: `1px solid ${configurado ? '#86efac' : '#fca5a5'}`,
+        fontSize: '0.85rem',
+      }}
+    >
+      {!mostrarFormulario ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+          <span>✅ Dispositivo autorizado</span>
+          <button type="button" onClick={onEditar} style={{ cursor: 'pointer', padding: '0.25rem 0.5rem' }}>
+            Reconfigurar
+          </button>
+        </div>
+      ) : (
+        <div>
+          <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>
+            {configurado ? 'Reconfigurar token del dispositivo' : '⚠️ Dispositivo no configurado'}
+          </p>
+          <p style={{ margin: '0 0 0.5rem' }}>
+            Pegue el token de kiosco que le entregó el administrador. Sin él no se
+            puede fichar en este equipo.
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              type="password"
+              value={tokenInput}
+              onChange={(e) => onChangeToken(e.target.value)}
+              placeholder="Token del kiosco"
+              style={{ flex: 1, padding: '0.4rem' }}
+            />
+            <button
+              type="button"
+              onClick={onGuardar}
+              disabled={!tokenInput.trim()}
+              style={{ cursor: 'pointer', padding: '0.25rem 0.75rem' }}
+            >
+              Guardar
+            </button>
+            {configurado && (
+              <button type="button" onClick={onCancelar} style={{ cursor: 'pointer', padding: '0.25rem 0.75rem' }}>
+                Cancelar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

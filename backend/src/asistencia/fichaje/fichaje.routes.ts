@@ -2,7 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../core/prisma.js';
 import { responderError } from '../../core/http.js';
 import { crearServicioFichaje, colaRevision, revisarFichaje } from './fichaje.service.js';
-import { crearKiosco } from '../kiosco/kiosco.service.js';
+import {
+  crearKiosco,
+  regenerarTokenKiosco,
+  verificarTokenKiosco,
+} from '../kiosco/kiosco.service.js';
 
 const esquemaFichaje = {
   body: {
@@ -80,10 +84,18 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
   // kiosco no tiene sesión de usuario); expone nombre, sede y modo de excepción.
   app.get('/kioscos', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     try {
+      // `select` explícito: NUNCA exponer `tokenHash` en el listado público.
       const kioscos = await prisma.kiosco.findMany({
         where: { activo: true },
         orderBy: { nombre: 'asc' },
-        include: { sede: { select: { nombre: true, modoExcepcion: true } } },
+        select: {
+          id: true,
+          nombre: true,
+          sedeId: true,
+          activo: true,
+          creadoEn: true,
+          sede: { select: { nombre: true, modoExcepcion: true } },
+        },
       });
       return await reply.send(kioscos);
     } catch (error) {
@@ -98,7 +110,22 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
     { ...soloAdmin, schema: esquemaKiosco },
     async (request, reply) => {
       try {
+        // La respuesta incluye `token` en claro UNA sola vez (no se guarda así).
         return await reply.code(201).send(await crearKiosco(request.body));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Regenera el token de dispositivo de un kiosco (rotación, o provisión de un
+  // kiosco antiguo sin token). Solo admin. Devuelve el nuevo token una vez.
+  app.post<{ Params: { id: string } }>(
+    '/kioscos/:id/token',
+    soloAdmin,
+    async (request, reply) => {
+      try {
+        return await reply.code(201).send(await regenerarTokenKiosco(request.params.id));
       } catch (error) {
         return responderError(error, request, reply);
       }
@@ -110,6 +137,13 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
     { schema: esquemaFichaje, ...limiteKiosco },
     async (request, reply) => {
       try {
+        // Autorización del dispositivo: el kiosco se identifica con su token
+        // (header x-kiosco-token), no solo con el kioscoId del body.
+        const tokenKiosco = request.headers['x-kiosco-token'];
+        await verificarTokenKiosco(
+          request.body.kioscoId,
+          typeof tokenKiosco === 'string' ? tokenKiosco : undefined,
+        );
         const resultado = await servicio.fichar(request.body);
         if (resultado.estado === 'requiere_excepcion') {
           return await reply.code(409).send({
