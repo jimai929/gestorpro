@@ -19,15 +19,32 @@ api.{$DOMINIO} {
 	reverse_proxy backend:3000
 
 	# --- Allowlist de IPs del kiosco (gate de P2) -----------------------------
-	# Restringe /fichajes y /kioscos a las IPs de salida de las sedes (defensa en
-	# profundidad SOBRE el token de dispositivo, que ya es obligatorio). Para
-	# activarlo: pon SEDE_IPS en deploy/.env (IPs separadas por espacio) y
-	# descomenta el bloque. Si una sede no tiene IP fija, déjalo comentado: el
+	# Restringe la superficie PÚBLICA del kiosco a las IPs de salida de las sedes
+	# (defensa en profundidad SOBRE el token de dispositivo, que ya es obligatorio).
+	#
+	# OJO con Caddy v2: el matcher 'path' es EXACTO (no por prefijo) y las rutas del
+	# backend no llevan prefijo. La superficie pública del kiosco son SOLO
+	# POST /fichajes (fichaje del dispositivo) y GET /kioscos (catálogo de
+	# descubrimiento). Los endpoints de ADMIN — POST /kioscos y POST /kioscos/:id/token
+	# — van protegidos por JWT y NO deben filtrarse por IP (el admin trabaja desde
+	# cualquier sitio): por eso se filtra por MÉTODO además de por ruta. (GET
+	# /fichajes/cola-revision también es admin/JWT y, al ser otra ruta, no entra aquí.)
+	#
+	# Para activarlo: define SEDE_IPS en deploy/.env (IPs separadas por espacio) y
+	# descomenta los DOS bloques. Si una sede no tiene IP fija, déjalo comentado: el
 	# token de dispositivo sigue protegiendo el fichaje.
 	#
-	# @kiosco_no_autorizado {
-	# 	path /fichajes /kioscos
+	# @fichaje_fuera_de_sede {
+	# 	method POST
+	# 	path /fichajes
 	# 	not remote_ip {$SEDE_IPS}
 	# }
-	# respond @kiosco_no_autorizado "Forbidden" 403
+	# respond @fichaje_fuera_de_sede "Forbidden" 403
+	#
+	# @catalogo_fuera_de_sede {
+	# 	method GET
+	# 	path /kioscos
+	# 	not remote_ip {$SEDE_IPS}
+	# }
+	# respond @catalogo_fuera_de_sede "Forbidden" 403
 }

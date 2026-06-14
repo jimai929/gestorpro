@@ -62,19 +62,23 @@ if [[ "$estado" != "healthy" ]]; then
 fi
 
 echo "==> 3/7 migrate deploy (rol migrador)"
-docker compose run --rm -e DATABASE_URL="$MIGRATOR_DATABASE_URL" backend npx prisma migrate deploy
+# Secretos por ENTORNO, no por argv: el prefijo inline pone la variable en el
+# entorno del proceso docker y '-e VAR' (sin valor) la hereda; así la contraseña
+# no queda visible en 'ps aux' del host.
+DATABASE_URL="$MIGRATOR_DATABASE_URL" \
+  docker compose run --rm -e DATABASE_URL backend npx prisma migrate deploy
 
 echo "==> 4/7 Grants post-migración + append-only de auditoría (rol migrador)"
 docker compose exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U gestorpro_migrador -d gestorpro < postgres/post-migrate.sql
 
 echo "==> 5/7 Seed base de producción (idempotente, rol migrador)"
-docker compose run --rm \
-  -e DATABASE_URL="$MIGRATOR_DATABASE_URL" \
-  -e NODE_ENV=production \
-  -e ADMIN_EMAIL="${ADMIN_EMAIL:-admin@gestorpro.local}" \
-  -e ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-  backend npx prisma db seed
+# Igual que arriba: secretos por entorno (-e VAR sin valor), no por argv.
+DATABASE_URL="$MIGRATOR_DATABASE_URL" \
+NODE_ENV=production \
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@gestorpro.local}" \
+ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+  docker compose run --rm -e DATABASE_URL -e NODE_ENV -e ADMIN_EMAIL -e ADMIN_PASSWORD backend npx prisma db seed
 
 echo "==> 6/7 Verificando append-only de auditoria (rol app)"
 # (a) Aserción POSITIVA: el rol app conecta y la tabla existe. Un SELECT debe

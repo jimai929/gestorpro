@@ -44,6 +44,8 @@ append-only de `auditoria`) y verifica la integridad antes de exponer la app.
    **JWT_ACCESS_SECRET**: `openssl rand -base64 48` (no va en una URL, admite
    cualquier carácter). No existe `JWT_REFRESH_SECRET`: los refresh token se
    guardan en la BD, no se firman con un secreto aparte.
+   **ADMIN_EMAIL**: personalízalo a uno real y no adivinable (no dejes el de
+   ejemplo); reduce la superficie de fuerza bruta del login.
 3. Desplegar:
    ```bash
    chmod +x deploy.sh
@@ -79,6 +81,12 @@ default privileges del initdb; la excepción de `auditoria` se reimpone siempre)
 - `gestorpro_app`: login de la app. SELECT/INSERT/UPDATE/DELETE en las tablas de
   negocio; en `auditoria` solo SELECT/INSERT (append-only). Es el `DATABASE_URL`
   del servicio backend.
+- **Frontera de confianza**: dentro del contenedor de Postgres el acceso por
+  socket local es `trust` (imagen oficial). Quien tenga `docker exec` o acceso al
+  host entra como superusuario/migrador SIN contraseña; `deploy.sh` lo usa a
+  propósito. La separación de roles protege la conexión de RED del backend
+  (scram), NO el socket local: restringe en consecuencia el acceso SSH/Docker del
+  VPS (esa es la frontera de seguridad real).
 
 ## Backups y restauración
 
@@ -107,5 +115,7 @@ default privileges del initdb; la excepción de `auditoria` se reimpone siempre)
   operativo: programar el cron y la copia cifrada FUERA del VPS (el volumen
   Docker no es backup).
 - Monitoreo de `https://api.<dominio>/health` con alerta.
-- Allowlist de IPs del kiosco en el `Caddyfile` (gate de P2; bloque ya listo,
-  comentado): define `SEDE_IPS` en `.env` y descoméntalo.
+- Allowlist de IPs del kiosco en el `Caddyfile` (gate de P2; plantilla
+  método-consciente ya lista, comentada — restringe solo POST /fichajes y GET
+  /kioscos a las IPs de sede, sin bloquear los endpoints admin): define
+  `SEDE_IPS` en `.env` y descomenta los dos bloques.
