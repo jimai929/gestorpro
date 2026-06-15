@@ -17,7 +17,9 @@ services:
       GESTORPRO_APP_PASSWORD: ${GESTORPRO_APP_PASSWORD}
       TZ: America/Panama
       PGTZ: America/Panama
-    # Fija la zona horaria del clúster en CADA arranque (no depende del initdb).
+    # Fija el timezone de PRESENTACIÓN del servidor en cada arranque (NO es el del
+    # clúster/initdb): los datos son timestamptz y se guardan en UTC; el TZ solo
+    # afecta cómo se presenta/parsea la hora local, clave para el motor de jornada.
     command: ["postgres", "-c", "timezone=America/Panama", "-c", "log_timezone=America/Panama"]
     volumes:
       - pgdata:/var/lib/postgresql/data

@@ -61,6 +61,16 @@ if [[ "$estado" != "healthy" ]]; then
   echo "ERROR: Postgres no llegó a healthy (estado: ${estado:-desconocido})." >&2; exit 1
 fi
 
+# 'healthy' (pg_isready) solo prueba que el servidor responde, no que el initdb
+# haya creado la base de negocio. Confirmarlo explícitamente antes de migrar para
+# abortar con un mensaje claro si el initdb de roles falló.
+if ! docker compose exec -T postgres \
+     psql -tAX -U postgres -d postgres \
+     -c "SELECT 1 FROM pg_database WHERE datname='gestorpro';" 2>/dev/null | grep -q '^1$'; then
+  echo "ERROR: la base 'gestorpro' no existe (¿falló el initdb de roles?). Abortando." >&2
+  exit 1
+fi
+
 echo "==> 3/7 migrate deploy (rol migrador)"
 # Secretos por ENTORNO, no por argv: el prefijo inline pone la variable en el
 # entorno del proceso docker y '-e VAR' (sin valor) la hereda; así la contraseña
