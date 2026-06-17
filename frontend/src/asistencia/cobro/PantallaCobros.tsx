@@ -21,6 +21,7 @@ import { NavLink, Link } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import {
   obtenerEmpleados,
   obtenerSaldo,
@@ -40,13 +41,6 @@ import styles from './PantallaCobros.module.css';
 
 // ── Constantes de presentación ─────────────────────────────────────────────
 
-const ETIQUETA_ESTADO: Record<EstadoCobro, string> = {
-  pendiente: 'Pendiente',
-  aprobada: 'Aprobada',
-  rechazada: 'Rechazada',
-  pagada: 'Pagada',
-};
-
 const CLASE_ESTADO: Record<EstadoCobro, string> = {
   pendiente: styles.badgePendiente,
   aprobada: styles.badgeAprobada,
@@ -54,12 +48,12 @@ const CLASE_ESTADO: Record<EstadoCobro, string> = {
   pagada: styles.badgePagada,
 };
 
-const OPCIONES_ESTADO: Array<{ valor: EstadoCobro | ''; etiqueta: string }> = [
-  { valor: '', etiqueta: 'Todos los estados' },
-  { valor: 'pendiente', etiqueta: 'Pendientes' },
-  { valor: 'aprobada', etiqueta: 'Aprobadas' },
-  { valor: 'rechazada', etiqueta: 'Rechazadas' },
-  { valor: 'pagada', etiqueta: 'Pagadas' },
+const OPCIONES_ESTADO: Array<{ valor: EstadoCobro | ''; etiquetaKey: string }> = [
+  { valor: '', etiquetaKey: 'asi.cob.todosEstados' },
+  { valor: 'pendiente', etiquetaKey: 'asi.cob.pendientes' },
+  { valor: 'aprobada', etiquetaKey: 'asi.cob.aprobadas' },
+  { valor: 'rechazada', etiquetaKey: 'asi.cob.rechazadas' },
+  { valor: 'pagada', etiquetaKey: 'asi.cob.pagadas' },
 ];
 
 /** Formatea un número como moneda panameña con 2 decimales. */
@@ -88,6 +82,7 @@ interface PropiedadesModalRechazo {
 }
 
 function ModalRechazo({ cobro, alCerrar, alRechazar }: PropiedadesModalRechazo) {
+  const { t } = useTraduccion();
   const [motivo, setMotivo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +96,7 @@ function ModalRechazo({ cobro, alCerrar, alRechazar }: PropiedadesModalRechazo) 
       });
       alRechazar(actualizado);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al rechazar la solicitud.');
+      setError(err instanceof Error ? err.message : t('asi.cob.errRechazar'));
     } finally {
       setEnviando(false);
     }
@@ -110,20 +105,20 @@ function ModalRechazo({ cobro, alCerrar, alRechazar }: PropiedadesModalRechazo) 
   return (
     <div className={styles.fondoModal} role="dialog" aria-modal="true">
       <div className={styles.modal}>
-        <h2 className={styles.tituloModal}>Rechazar solicitud</h2>
+        <h2 className={styles.tituloModal}>{t('asi.cob.rechazarTitulo')}</h2>
         <p className={styles.subtituloModal}>
-          Empleado: <strong>{cobro.empleado.nombre}</strong> —{' '}
-          {formatearDinero(cobro.monto)}
+          {t('asi.cob.modalEmpleadoLabel')} <strong>{cobro.empleado.nombre}</strong>
+          {t('asi.cob.modalMonto', { monto: formatearDinero(cobro.monto) })}
         </p>
 
         <div>
           <label htmlFor="motivo-rechazo-cobro" className={styles.etiquetaModal}>
-            Motivo del rechazo (opcional):
+            {t('asi.cob.motivoLabel')}
           </label>
           <textarea
             id="motivo-rechazo-cobro"
             className={styles.textareaModal}
-            placeholder="Describa el motivo del rechazo…"
+            placeholder={t('asi.cob.motivoPlaceholder')}
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
             autoFocus
@@ -136,14 +131,14 @@ function ModalRechazo({ cobro, alCerrar, alRechazar }: PropiedadesModalRechazo) 
 
         <div className={styles.botonesModal}>
           <Boton variante="secundario" onClick={alCerrar} disabled={enviando}>
-            Cancelar
+            {t('comun.cancelar')}
           </Boton>
           <Boton
             variante="peligro"
             onClick={() => { void confirmar(); }}
             cargando={enviando}
           >
-            Confirmar rechazo
+            {t('asi.cob.confirmarRechazo')}
           </Boton>
         </div>
       </div>
@@ -155,6 +150,7 @@ function ModalRechazo({ cobro, alCerrar, alRechazar }: PropiedadesModalRechazo) 
 
 export function PantallaCobros() {
   const { usuario } = useAuth();
+  const { t } = useTraduccion();
   const esSupervisorOAdmin =
     usuario?.rol === 'supervisor' || usuario?.rol === 'administrador';
   const esAdmin = usuario?.rol === 'administrador';
@@ -223,7 +219,7 @@ export function PantallaCobros() {
       } catch (err) {
         if (!cancelado) {
           setErrorSaldo(
-            err instanceof Error ? err.message : 'Error al obtener el saldo.',
+            err instanceof Error ? err.message : t('asi.cob.errSaldo'),
           );
           setSaldo(null);
         }
@@ -236,7 +232,7 @@ export function PantallaCobros() {
     return () => {
       cancelado = true;
     };
-  }, [empleadoSeleccionado]);
+  }, [empleadoSeleccionado, t]);
 
   // ── Cargar lista de cobros ────────────────────────────────────────────────
 
@@ -248,12 +244,12 @@ export function PantallaCobros() {
       setCobros(lista);
     } catch (err) {
       setErrorCobros(
-        err instanceof Error ? err.message : 'Error al cargar las solicitudes.',
+        err instanceof Error ? err.message : t('asi.cob.errCargarLista'),
       );
     } finally {
       setCargandoCobros(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void cargarCobros(filtroEstado);
@@ -266,7 +262,7 @@ export function PantallaCobros() {
 
     const montoNum = parseFloat(monto);
     if (isNaN(montoNum) || montoNum <= 0) {
-      setErrorSolicitud('Ingrese un monto válido mayor a cero.');
+      setErrorSolicitud(t('asi.cob.errMontoValido'));
       return;
     }
 
@@ -276,7 +272,7 @@ export function PantallaCobros() {
 
     try {
       await crearSolicitudCobro({ empleadoId: empleadoSeleccionado, monto: montoNum });
-      setExitoSolicitud('Solicitud enviada correctamente.');
+      setExitoSolicitud(t('asi.cob.exitoSolicitud'));
       setMonto('');
 
       // Refrescar saldo y lista tras solicitar
@@ -287,7 +283,7 @@ export function PantallaCobros() {
       setSaldo(saldoActualizado);
     } catch (err) {
       setErrorSolicitud(
-        err instanceof Error ? err.message : 'Error al enviar la solicitud.',
+        err instanceof Error ? err.message : t('asi.cob.errEnviar'),
       );
     } finally {
       setEnviandoSolicitud(false);
@@ -303,7 +299,7 @@ export function PantallaCobros() {
       const actualizado = await aprobarCobro(cobro.id);
       setCobros((prev) => prev.map((c) => (c.id === actualizado.id ? actualizado : c)));
     } catch (err) {
-      setErrorAccion(err instanceof Error ? err.message : 'Error al aprobar la solicitud.');
+      setErrorAccion(err instanceof Error ? err.message : t('asi.cob.errAprobar'));
     } finally {
       setProcesando((prev) => {
         const sig = new Set(prev);
@@ -337,7 +333,7 @@ export function PantallaCobros() {
         setSaldo(saldoActualizado);
       }
     } catch (err) {
-      setErrorAccion(err instanceof Error ? err.message : 'Error al marcar la solicitud como pagada.');
+      setErrorAccion(err instanceof Error ? err.message : t('asi.cob.errPagar'));
     } finally {
       setProcesando((prev) => {
         const sig = new Set(prev);
@@ -353,7 +349,7 @@ export function PantallaCobros() {
     <LayoutPrincipal>
       <div className={styles.contenedor}>
         {/* Barra de navegación de asistencia */}
-        <nav className={styles.navAsistencia} aria-label="Módulos de asistencia">
+        <nav className={styles.navAsistencia} aria-label={t('asi.ariaNav')}>
           <NavLink
             to="/asistencia/revision"
             className={({ isActive }) =>
@@ -362,7 +358,7 @@ export function PantallaCobros() {
                 : styles.enlaceNav
             }
           >
-            Cola de revisión
+            {t('nav.colaRevision')}
           </NavLink>
           <NavLink
             to="/asistencia/jornadas"
@@ -372,7 +368,7 @@ export function PantallaCobros() {
                 : styles.enlaceNav
             }
           >
-            Jornadas
+            {t('nav.jornadas')}
           </NavLink>
           <NavLink
             to="/asistencia/cobros"
@@ -382,7 +378,7 @@ export function PantallaCobros() {
                 : styles.enlaceNav
             }
           >
-            Cobros
+            {t('nav.cobros')}
           </NavLink>
           <Link
             to="/kiosco"
@@ -390,16 +386,16 @@ export function PantallaCobros() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Abrir kiosco
+            {t('asi.abrirKiosco')}
           </Link>
         </nav>
 
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Cobro anticipado de horas extra</h1>
+            <h1 className={styles.tituloPagina}>{t('asi.cob.titulo')}</h1>
             <p className={styles.subtitulo}>
-              Solicita un adelanto o gestiona las solicitudes de tu equipo
+              {t('asi.cob.subtitulo')}
             </p>
           </div>
         </div>
@@ -409,13 +405,13 @@ export function PantallaCobros() {
           {/* ── Sección A: Solicitud del empleado ── */}
           <div className={styles.tarjeta}>
             <div className={styles.cabeceraTarjeta}>
-              <h2 className={styles.tituloTarjeta}>Nueva solicitud</h2>
+              <h2 className={styles.tituloTarjeta}>{t('asi.cob.nuevaSolicitud')}</h2>
             </div>
             <div className={styles.cuerpoTarjeta}>
               {/* Selector de empleado */}
               <div className={styles.grupoFormulario}>
                 <label htmlFor="selector-empleado" className={styles.etiqueta}>
-                  Empleado
+                  {t('asi.cob.empleado')}
                 </label>
                 <select
                   id="selector-empleado"
@@ -431,7 +427,7 @@ export function PantallaCobros() {
                   disabled={cargandoEmpleados}
                 >
                   <option value="">
-                    {cargandoEmpleados ? 'Cargando empleados…' : '— Seleccione un empleado —'}
+                    {cargandoEmpleados ? t('asi.cob.cargandoEmpleados') : t('asi.cob.selEmpleado')}
                   </option>
                   {empleados.map((emp) => (
                     <option key={emp.id} value={emp.id}>
@@ -445,7 +441,7 @@ export function PantallaCobros() {
               {empleadoSeleccionado && (
                 <>
                   {cargandoSaldo && (
-                    <p className={styles.saldoCargando}>Consultando saldo…</p>
+                    <p className={styles.saldoCargando}>{t('asi.cob.consultandoSaldo')}</p>
                   )}
                   {errorSaldo && (
                     <div className={styles.mensajeError}>{errorSaldo}</div>
@@ -453,17 +449,17 @@ export function PantallaCobros() {
                   {!cargandoSaldo && !errorSaldo && saldo && (
                     <div className={styles.bloqueSaldo}>
                       <div className={styles.saldoLinea}>
-                        Saldo acumulado:{' '}
+                        {t('asi.cob.saldoAcumulado')}{' '}
                         <span className={styles.saldoDestacado}>
                           {formatearDinero(saldo.saldo)}
                         </span>
                       </div>
                       <div className={styles.saldoLinea}>
-                        % cobrable:{' '}
+                        {t('asi.cob.porcentajeCobrable')}{' '}
                         <strong>{saldo.porcentajeCobrable}%</strong>
                       </div>
                       <div className={styles.saldoLinea}>
-                        Disponible para adelanto:{' '}
+                        {t('asi.cob.disponible')}{' '}
                         <span className={styles.disponibleDestacado}>
                           {formatearDinero(saldo.disponible)}
                         </span>
@@ -477,7 +473,7 @@ export function PantallaCobros() {
               {empleadoSeleccionado && saldo && !cargandoSaldo && (
                 <div className={styles.grupoFormulario}>
                   <label htmlFor="monto-solicitud" className={styles.etiqueta}>
-                    Monto a solicitar (B/.)
+                    {t('asi.cob.montoSolicitar')}
                   </label>
                   <input
                     id="monto-solicitud"
@@ -486,7 +482,7 @@ export function PantallaCobros() {
                     step="0.01"
                     max={saldo.disponible}
                     className={styles.inputMonto}
-                    placeholder={`Máx. ${formatearDinero(saldo.disponible)}`}
+                    placeholder={t('asi.cob.montoMax', { max: formatearDinero(saldo.disponible) })}
                     value={monto}
                     onChange={(e) => {
                       setMonto(e.target.value);
@@ -515,7 +511,7 @@ export function PantallaCobros() {
                   disabled={!monto || parseFloat(monto) <= 0}
                   completo
                 >
-                  Solicitar adelanto
+                  {t('asi.cob.solicitarAdelanto')}
                 </Boton>
               )}
             </div>
@@ -524,14 +520,14 @@ export function PantallaCobros() {
           {/* ── Sección B: Lista y gestión ── */}
           <div className={styles.tarjeta}>
             <div className={styles.cabeceraTarjeta}>
-              <h2 className={styles.tituloTarjeta}>Solicitudes de cobro</h2>
+              <h2 className={styles.tituloTarjeta}>{t('asi.cob.solicitudesTitulo')}</h2>
             </div>
 
             {/* Filtro por estado */}
             <div className={styles.filtroCobros}>
               <div className={styles.grupoFiltro}>
                 <label htmlFor="filtro-estado" className={styles.etiquetaFiltro}>
-                  Estado
+                  {t('asi.cob.estadoLabel')}
                 </label>
                 <select
                   id="filtro-estado"
@@ -541,7 +537,7 @@ export function PantallaCobros() {
                 >
                   {OPCIONES_ESTADO.map((op) => (
                     <option key={op.valor} value={op.valor}>
-                      {op.etiqueta}
+                      {t(op.etiquetaKey)}
                     </option>
                   ))}
                 </select>
@@ -551,7 +547,7 @@ export function PantallaCobros() {
                 onClick={() => { void cargarCobros(filtroEstado); }}
                 disabled={cargandoCobros}
               >
-                Actualizar
+                {t('comun.actualizar')}
               </Boton>
             </div>
 
@@ -570,18 +566,20 @@ export function PantallaCobros() {
                   variante="secundario"
                   onClick={() => { void cargarCobros(filtroEstado); }}
                 >
-                  Reintentar
+                  {t('asi.reintentar')}
                 </Boton>
               </div>
             )}
 
             {!errorCobros && cargandoCobros && (
-              <p className={styles.estadoCarga}>Cargando solicitudes…</p>
+              <p className={styles.estadoCarga}>{t('asi.cob.cargandoLista')}</p>
             )}
 
             {!errorCobros && !cargandoCobros && cobros.length === 0 && (
               <p className={styles.estadoVacio}>
-                No hay solicitudes{filtroEstado ? ` con estado "${ETIQUETA_ESTADO[filtroEstado]}"` : ''}.
+                {filtroEstado
+                  ? t('asi.cob.vacioFiltrado', { estado: t(`asi.estCobro.${filtroEstado}`) })
+                  : t('asi.cob.vacio')}
               </p>
             )}
 
@@ -606,16 +604,16 @@ export function PantallaCobros() {
                           <span
                             className={`${styles.badge} ${CLASE_ESTADO[cobro.estado]}`}
                           >
-                            {ETIQUETA_ESTADO[cobro.estado]}
+                            {t(`asi.estCobro.${cobro.estado}`)}
                           </span>
                         </div>
                         <div className={styles.detallesCobro}>
-                          <span>Creada: {formatearMomento(cobro.creadoEn)}</span>
+                          <span>{t('asi.cob.creada', { fecha: formatearMomento(cobro.creadoEn) })}</span>
                           {cobro.resueltoEn && (
-                            <span>Resuelta: {formatearMomento(cobro.resueltoEn)}</span>
+                            <span>{t('asi.cob.resuelta', { fecha: formatearMomento(cobro.resueltoEn) })}</span>
                           )}
                           {cobro.pagadoEn && (
-                            <span>Pagada: {formatearMomento(cobro.pagadoEn)}</span>
+                            <span>{t('asi.cob.pagada', { fecha: formatearMomento(cobro.pagadoEn) })}</span>
                           )}
                         </div>
                       </div>
@@ -634,7 +632,7 @@ export function PantallaCobros() {
                               {enProceso ? (
                                 <span className={styles.spinner} />
                               ) : (
-                                'Aprobar'
+                                t('asi.cob.aprobar')
                               )}
                             </button>
                             <button
@@ -643,7 +641,7 @@ export function PantallaCobros() {
                               onClick={() => setCobroARechazar(cobro)}
                               disabled={enProceso}
                             >
-                              Rechazar
+                              {t('asi.cob.rechazar')}
                             </button>
                           </>
                         )}
@@ -659,7 +657,7 @@ export function PantallaCobros() {
                             {enProceso ? (
                               <span className={styles.spinner} />
                             ) : (
-                              'Marcar pagado'
+                              t('asi.cob.marcarPagado')
                             )}
                           </button>
                         )}

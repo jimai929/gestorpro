@@ -13,6 +13,8 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
+import { SelectorIdioma } from '../../core/i18n/SelectorIdioma';
 import { obtenerKioscos, registrarFichaje, obtenerTokenKiosco, fijarTokenKiosco } from './servicioKiosco';
 import type {
   Kiosco,
@@ -26,13 +28,6 @@ import type {
 import styles from './PantallaKiosco.module.css';
 
 // ── Constantes de presentación ─────────────────────────────────────────────
-
-const ETIQUETA_TIPO: Record<TipoFichaje, string> = {
-  entrada: 'Entrada',
-  salida_comida: 'Salida comida',
-  entrada_comida: 'Vuelta de comida',
-  salida: 'Salida',
-};
 
 const ICONO_TIPO: Record<TipoFichaje, string> = {
   entrada: '🟢',
@@ -48,10 +43,13 @@ const TIPOS_FICHAJE: TipoFichaje[] = [
   'salida',
 ];
 
-const ETIQUETA_FACIAL: Record<ResultadoFacialSimulado, string> = {
-  'sim:match': '✅ Coincide — facial aprobado',
-  'sim:nomatch': '❌ No coincide — facial rechazado',
-  'sim:nolive': '⚠️ Sin vida — falla liveness',
+const OPCIONES_FACIAL: ResultadoFacialSimulado[] = ['sim:match', 'sim:nomatch', 'sim:nolive'];
+
+/** Clave i18n para cada resultado facial simulado. */
+const CLAVE_FACIAL: Record<ResultadoFacialSimulado, string> = {
+  'sim:match': 'asi.facial.match',
+  'sim:nomatch': 'asi.facial.nomatch',
+  'sim:nolive': 'asi.facial.nolive',
 };
 
 /** Segundos que espera en pantalla de resultado antes de reiniciar. */
@@ -60,6 +58,7 @@ const SEGUNDOS_REINICIO = 5;
 // ── Componente principal ───────────────────────────────────────────────────
 
 export function PantallaKiosco() {
+  const { t } = useTraduccion();
   // ── Estado global del flujo ──
   const [paso, setPaso] = useState<PasoKiosco>('seleccion');
 
@@ -117,12 +116,12 @@ export function PantallaKiosco() {
       setKioscos(lista.filter((k) => k.activo));
     } catch (err) {
       setErrorKioscos(
-        err instanceof Error ? err.message : 'Error al cargar los kioscos.',
+        err instanceof Error ? err.message : t('asi.kiosco.errCargar'),
       );
     } finally {
       setCargandoKioscos(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void cargarKioscos();
@@ -213,7 +212,7 @@ export function PantallaKiosco() {
         const datos = respuesta.datos;
         setResultado({
           estado: 'exito',
-          mensaje: `Fichaje de ${ETIQUETA_TIPO[datos.fichaje.tipo]} registrado correctamente.`,
+          mensaje: t('asi.kiosco.fichajeRegistrado', { tipo: t(`asi.tipo.${datos.fichaje.tipo}`) }),
           esExcepcion: datos.fichaje.esExcepcion,
           alertaRRHH: datos.alertaRRHH ?? false,
         });
@@ -238,7 +237,7 @@ export function PantallaKiosco() {
       // `extras` es la credencial de excepción (PIN/supervisor).
       if (respuesta.status === 401) {
         const body = respuesta.datos as { mensaje?: string };
-        const mensaje = body.mensaje ?? 'Credencial inválida. Intente nuevamente.';
+        const mensaje = body.mensaje ?? t('asi.kiosco.credInvalida');
         if (extras) {
           setErrorExcepcion(mensaje);
         } else {
@@ -249,10 +248,10 @@ export function PantallaKiosco() {
 
       // ── Otros errores (404 empleado/kiosco no encontrado, etc.) ──
       const body = respuesta.datos as { mensaje?: string };
-      setErrorEnvio(body.mensaje ?? `Error ${respuesta.status}.`);
+      setErrorEnvio(body.mensaje ?? t('asi.kiosco.errStatus', { status: respuesta.status }));
     } catch (err) {
       setErrorEnvio(
-        err instanceof Error ? err.message : 'Error de red. Intente nuevamente.',
+        err instanceof Error ? err.message : t('asi.kiosco.errRed'),
       );
     } finally {
       setEnviando(false);
@@ -276,7 +275,10 @@ export function PantallaKiosco() {
       {/* Encabezado del kiosco */}
       <div className={styles.encabezado}>
         <span className={styles.logotipoKiosco}>GP</span>
-        <h1 className={styles.tituloKiosco}>GestorPro — Kiosco de fichaje</h1>
+        <h1 className={styles.tituloKiosco}>{t('asi.kiosco.tituloKiosco')}</h1>
+        <div style={{ marginLeft: 'auto' }}>
+          <SelectorIdioma />
+        </div>
       </div>
 
       <PanelTokenDispositivo
@@ -291,11 +293,11 @@ export function PantallaKiosco() {
 
       {kioscoSeleccionado && paso !== 'seleccion' && (
         <p className={styles.infoKioscoActivo}>
-          Kiosco:{' '}
+          {t('asi.kiosco.kioscoPre')}
           <span className={styles.nombreKioscoActivo}>
             {kioscoSeleccionado.nombre}
-          </span>{' '}
-          · Sede: {kioscoSeleccionado.sede.nombre}
+          </span>
+          {t('asi.kiosco.sedeInfo', { sede: kioscoSeleccionado.sede.nombre })}
         </p>
       )}
 
@@ -394,6 +396,7 @@ function PanelTokenDispositivo({
   onCancelar,
   onGuardar,
 }: PropsPanelToken) {
+  const { t } = useTraduccion();
   const mostrarFormulario = !configurado || editando;
 
   return (
@@ -410,26 +413,25 @@ function PanelTokenDispositivo({
     >
       {!mostrarFormulario ? (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-          <span>✅ Dispositivo autorizado</span>
+          <span>{t('asi.kiosco.dispAutorizado')}</span>
           <button type="button" onClick={onEditar} style={{ cursor: 'pointer', padding: '0.25rem 0.5rem' }}>
-            Reconfigurar
+            {t('asi.kiosco.reconfigurar')}
           </button>
         </div>
       ) : (
         <div>
           <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>
-            {configurado ? 'Reconfigurar token del dispositivo' : '⚠️ Dispositivo no configurado'}
+            {configurado ? t('asi.kiosco.reconfigTitulo') : t('asi.kiosco.noConfigurado')}
           </p>
           <p style={{ margin: '0 0 0.5rem' }}>
-            Pegue el token de kiosco que le entregó el administrador. Sin él no se
-            puede fichar en este equipo.
+            {t('asi.kiosco.tokenInstruccion')}
           </p>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input
               type="password"
               value={tokenInput}
               onChange={(e) => onChangeToken(e.target.value)}
-              placeholder="Token del kiosco"
+              placeholder={t('asi.kiosco.tokenPlaceholder')}
               style={{ flex: 1, padding: '0.4rem' }}
             />
             <button
@@ -438,11 +440,11 @@ function PanelTokenDispositivo({
               disabled={!tokenInput.trim()}
               style={{ cursor: 'pointer', padding: '0.25rem 0.75rem' }}
             >
-              Guardar
+              {t('comun.guardar')}
             </button>
             {configurado && (
               <button type="button" onClick={onCancelar} style={{ cursor: 'pointer', padding: '0.25rem 0.75rem' }}>
-                Cancelar
+                {t('comun.cancelar')}
               </button>
             )}
           </div>
@@ -477,6 +479,7 @@ function PasoSeleccion({
   onAvanzar,
   onReintentar,
 }: PropsPasoSeleccion) {
+  const { t } = useTraduccion();
   const manejarCambioKiosco = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const kiosco = kioscos.find((k) => k.id === e.target.value) ?? null;
     if (kiosco) onSeleccionarKiosco(kiosco);
@@ -485,7 +488,7 @@ function PasoSeleccion({
   if (cargandoKioscos) {
     return (
       <div className={styles.encabezadoPaso}>
-        <p className={styles.subtituloPaso}>Cargando kioscos…</p>
+        <p className={styles.subtituloPaso}>{t('asi.kiosco.cargandoKioscos')}</p>
       </div>
     );
   }
@@ -495,7 +498,7 @@ function PasoSeleccion({
       <>
         <div className={styles.bannerError}>{errorKioscos}</div>
         <button className={styles.botonKiosco} onClick={onReintentar}>
-          Reintentar
+          {t('asi.reintentar')}
         </button>
       </>
     );
@@ -504,16 +507,16 @@ function PasoSeleccion({
   return (
     <>
       <div className={styles.encabezadoPaso}>
-        <h2 className={styles.tituloPaso}>Bienvenido</h2>
+        <h2 className={styles.tituloPaso}>{t('asi.kiosco.bienvenido')}</h2>
         <p className={styles.subtituloPaso}>
-          Seleccione el kiosco y el tipo de fichaje para comenzar.
+          {t('asi.kiosco.bienvenidoSub')}
         </p>
       </div>
 
       {/* Selector de kiosco */}
       <div className={styles.grupoSelector}>
         <label className={styles.etiqueta} htmlFor="selector-kiosco">
-          Kiosco
+          {t('asi.kiosco.kiosco')}
         </label>
         <select
           id="selector-kiosco"
@@ -522,7 +525,7 @@ function PasoSeleccion({
           onChange={manejarCambioKiosco}
         >
           <option value="" disabled>
-            — Seleccione un kiosco —
+            {t('asi.kiosco.selKiosco')}
           </option>
           {kioscos.map((k) => (
             <option key={k.id} value={k.id}>
@@ -534,22 +537,22 @@ function PasoSeleccion({
 
       {/* Cuadrícula de tipos */}
       <div className={styles.grupoSelector}>
-        <span className={styles.etiqueta}>Tipo de fichaje</span>
+        <span className={styles.etiqueta}>{t('asi.kiosco.tipoFichaje')}</span>
         <div className={styles.cuadriculaTipos}>
-          {TIPOS_FICHAJE.map((t) => (
+          {TIPOS_FICHAJE.map((tf) => (
             <button
-              key={t}
+              key={tf}
               className={[
                 styles.botonTipo,
-                tipo === t ? styles.botonTipoSeleccionado : '',
+                tipo === tf ? styles.botonTipoSeleccionado : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
-              onClick={() => onSeleccionarTipo(t)}
+              onClick={() => onSeleccionarTipo(tf)}
               type="button"
             >
-              <span className={styles.iconoTipo}>{ICONO_TIPO[t]}</span>
-              <span className={styles.nombreTipo}>{ETIQUETA_TIPO[t]}</span>
+              <span className={styles.iconoTipo}>{ICONO_TIPO[tf]}</span>
+              <span className={styles.nombreTipo}>{t(`asi.tipo.${tf}`)}</span>
             </button>
           ))}
         </div>
@@ -561,7 +564,7 @@ function PasoSeleccion({
         disabled={!kioscoSeleccionado || !tipo}
         type="button"
       >
-        Continuar
+        {t('comun.continuar')}
       </button>
     </>
   );
@@ -584,6 +587,7 @@ function PasoIdentificacion({
   onVolver,
   refEntrada,
 }: PropsPasoIdentificacion) {
+  const { t } = useTraduccion();
   const manejarTecla = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') onAvanzar();
   };
@@ -591,9 +595,9 @@ function PasoIdentificacion({
   return (
     <>
       <div className={styles.encabezadoPaso}>
-        <h2 className={styles.tituloPaso}>Identificación</h2>
+        <h2 className={styles.tituloPaso}>{t('asi.kiosco.identificacion')}</h2>
         <p className={styles.subtituloPaso}>
-          Teclee su número de empleado o pase su tarjeta QR.
+          {t('asi.kiosco.identificacionSub')}
         </p>
       </div>
 
@@ -601,7 +605,7 @@ function PasoIdentificacion({
         ref={refEntrada}
         className={styles.campoGrande}
         type="text"
-        placeholder="Número de empleado o QR"
+        placeholder={t('asi.kiosco.identPlaceholder')}
         value={identificacion}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={manejarTecla}
@@ -616,7 +620,7 @@ function PasoIdentificacion({
           type="button"
           style={{ flex: 1 }}
         >
-          Volver
+          {t('comun.volver')}
         </button>
         <button
           className={styles.botonKiosco}
@@ -625,7 +629,7 @@ function PasoIdentificacion({
           type="button"
           style={{ flex: 2 }}
         >
-          Continuar
+          {t('comun.continuar')}
         </button>
       </div>
     </>
@@ -651,29 +655,24 @@ function PasoFacial({
   onEnviar,
   onVolver,
 }: PropsPasoFacial) {
-  const opciones: ResultadoFacialSimulado[] = [
-    'sim:match',
-    'sim:nomatch',
-    'sim:nolive',
-  ];
+  const { t } = useTraduccion();
 
   return (
     <>
       <div className={styles.encabezadoPaso}>
-        <h2 className={styles.tituloPaso}>Verificación facial</h2>
+        <h2 className={styles.tituloPaso}>{t('asi.kiosco.facialTitulo')}</h2>
         <p className={styles.subtituloPaso}>
-          En producción se captura la foto automáticamente. Aquí puede
-          simular el resultado de la verificación.
+          {t('asi.kiosco.facialSub')}
         </p>
       </div>
 
       <div className={styles.panelFacial}>
         <span className={styles.notaSimulacion}>
-          Modo simulación — sin cámara real
+          {t('asi.kiosco.modoSimulacion')}
         </span>
-        <span className={styles.etiquetaFacial}>Resultado de la verificación:</span>
+        <span className={styles.etiquetaFacial}>{t('asi.kiosco.resultadoVerif')}</span>
         <div className={styles.botonesSimulacion}>
-          {opciones.map((op) => (
+          {OPCIONES_FACIAL.map((op) => (
             <button
               key={op}
               className={[
@@ -685,7 +684,7 @@ function PasoFacial({
               onClick={() => onChange(op)}
               type="button"
             >
-              {ETIQUETA_FACIAL[op]}
+              {t(CLAVE_FACIAL[op])}
             </button>
           ))}
         </div>
@@ -701,7 +700,7 @@ function PasoFacial({
           style={{ flex: 1 }}
           disabled={enviando}
         >
-          Volver
+          {t('comun.volver')}
         </button>
         <button
           className={styles.botonKiosco}
@@ -710,7 +709,7 @@ function PasoFacial({
           type="button"
           style={{ flex: 2 }}
         >
-          {enviando ? <span className={styles.spinner} /> : 'Registrar fichaje'}
+          {enviando ? <span className={styles.spinner} /> : t('asi.kiosco.registrarFichaje')}
         </button>
       </div>
     </>
@@ -750,6 +749,7 @@ function PasoExcepcion({
   onEnviar,
   onCancelar,
 }: PropsPasoExcepcion) {
+  const { t } = useTraduccion();
   const mostrarPestanas = modo === 'ambos';
   const mostrarPin = modo === 'pin' || (modo === 'ambos' && pestana === 'pin');
   const mostrarSupervisor =
@@ -764,16 +764,15 @@ function PasoExcepcion({
   return (
     <>
       <div className={styles.encabezadoPaso}>
-        <h2 className={styles.tituloPaso}>Verificación fallida</h2>
+        <h2 className={styles.tituloPaso}>{t('asi.kiosco.verifFallida')}</h2>
         <p className={styles.subtituloPaso}>
-          El reconocimiento facial no pudo confirmarse. Use el método
-          alternativo para completar el fichaje.
+          {t('asi.kiosco.verifFallidaSub')}
         </p>
       </div>
 
       <div className={styles.panelExcepcion}>
         <p className={styles.avisoExcepcion}>
-          Este fichaje quedará marcado para revisión del jefe.
+          {t('asi.kiosco.avisoRevision')}
         </p>
 
         {/* Pestañas (solo si modo === 'ambos') */}
@@ -789,7 +788,7 @@ function PasoExcepcion({
               onClick={() => onCambiarPestana('pin')}
               type="button"
             >
-              PIN personal
+              {t('asi.kiosco.pestPin')}
             </button>
             <button
               className={[
@@ -801,7 +800,7 @@ function PasoExcepcion({
               onClick={() => onCambiarPestana('supervisor')}
               type="button"
             >
-              Supervisor
+              {t('asi.kiosco.pestSupervisor')}
             </button>
           </div>
         )}
@@ -810,7 +809,7 @@ function PasoExcepcion({
         {mostrarPin && (
           <div>
             <label className={styles.etiqueta} htmlFor="campo-pin">
-              {modo === 'ambos' ? 'Su PIN personal:' : 'PIN personal del empleado:'}
+              {modo === 'ambos' ? t('asi.kiosco.pinLabelAmbos') : t('asi.kiosco.pinLabelSolo')}
             </label>
             <input
               id="campo-pin"
@@ -831,13 +830,13 @@ function PasoExcepcion({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <div>
               <label className={styles.etiqueta} htmlFor="campo-sv-email">
-                Correo del supervisor:
+                {t('asi.kiosco.svEmail')}
               </label>
               <input
                 id="campo-sv-email"
                 className={styles.campoTexto}
                 type="email"
-                placeholder="supervisor@empresa.com"
+                placeholder={t('asi.kiosco.svEmailPlaceholder')}
                 value={supervisorEmail}
                 onChange={(e) => onChangeSupervisorEmail(e.target.value)}
                 autoFocus={!mostrarPin}
@@ -845,13 +844,13 @@ function PasoExcepcion({
             </div>
             <div>
               <label className={styles.etiqueta} htmlFor="campo-sv-pass">
-                Contraseña del supervisor:
+                {t('asi.kiosco.svPass')}
               </label>
               <input
                 id="campo-sv-pass"
                 className={styles.campoTexto}
                 type="password"
-                placeholder="Contraseña"
+                placeholder={t('asi.kiosco.svPassPlaceholder')}
                 value={supervisorPassword}
                 onChange={(e) => onChangeSupervisorPassword(e.target.value)}
               />
@@ -870,7 +869,7 @@ function PasoExcepcion({
           style={{ flex: 1 }}
           disabled={enviando}
         >
-          Cancelar
+          {t('comun.cancelar')}
         </button>
         <button
           className={styles.botonKiosco}
@@ -879,7 +878,7 @@ function PasoExcepcion({
           type="button"
           style={{ flex: 2 }}
         >
-          {enviando ? <span className={styles.spinner} /> : 'Confirmar fichaje'}
+          {enviando ? <span className={styles.spinner} /> : t('asi.kiosco.confirmarFichaje')}
         </button>
       </div>
     </>
@@ -895,6 +894,7 @@ interface PropsPasoResultado {
 }
 
 function PasoResultado({ resultado, contador, onReiniciarAhora }: PropsPasoResultado) {
+  const { t } = useTraduccion();
   const esExito = resultado.estado === 'exito';
 
   return (
@@ -902,25 +902,25 @@ function PasoResultado({ resultado, contador, onReiniciarAhora }: PropsPasoResul
       <span className={styles.iconoResultado}>{esExito ? '✅' : '❌'}</span>
 
       <h2 className={styles.tituloResultado}>
-        {esExito ? 'Fichaje registrado' : 'No se pudo fichar'}
+        {esExito ? t('asi.kiosco.fichajeRegistradoTitulo') : t('asi.kiosco.noFichar')}
       </h2>
 
       <p className={styles.mensajeResultado}>{resultado.mensaje}</p>
 
       {esExito && resultado.esExcepcion && (
         <span className={styles.badgeExcepcion}>
-          Fichaje de excepción — pendiente de revisión
+          {t('asi.kiosco.badgeExcepcion')}
         </span>
       )}
 
       {esExito && resultado.alertaRRHH && (
         <span className={styles.badgeAlertaRRHH}>
-          Alerta a RRHH: verificar foto de referencia
+          {t('asi.kiosco.badgeAlertaRRHH')}
         </span>
       )}
 
       <p className={styles.subtituloPaso} style={{ marginTop: '0.5rem' }}>
-        Próximo empleado en {contador}s…
+        {t('asi.kiosco.proximoEmpleado', { n: contador })}
       </p>
 
       <button
@@ -929,7 +929,7 @@ function PasoResultado({ resultado, contador, onReiniciarAhora }: PropsPasoResul
         type="button"
         style={{ marginTop: '0.5rem' }}
       >
-        Siguiente empleado
+        {t('asi.kiosco.siguienteEmpleado')}
       </button>
     </div>
   );

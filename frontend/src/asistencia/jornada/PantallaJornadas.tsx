@@ -20,6 +20,7 @@ import { NavLink, Link } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { obtenerJornadas, corregirJornada, barrerHuerfanos } from './servicioJornada';
 import {
   minutosAHorasMinutos,
@@ -33,22 +34,10 @@ import styles from './PantallaJornadas.module.css';
 
 // ── Constantes de presentación ─────────────────────────────────────────────
 
-const ETIQUETA_CLASIFICACION: Record<NonNullable<ClasificacionJornada>, string> = {
-  diurna: 'Diurna',
-  nocturna: 'Nocturna',
-  mixta: 'Mixta',
-};
-
 const CLASE_CLASIFICACION: Record<NonNullable<ClasificacionJornada>, string> = {
   diurna: styles.clasificacionDiurna,
   nocturna: styles.clasificacionNocturna,
   mixta: styles.clasificacionMixta,
-};
-
-const ETIQUETA_ESTADO: Record<EstadoJornada, string> = {
-  calculada: 'Calculada',
-  anomalia: 'Anomalía',
-  corregida: 'Corregida',
 };
 
 const CLASE_ESTADO: Record<EstadoJornada, string> = {
@@ -66,6 +55,7 @@ interface PropiedadesModalCorreccion {
 }
 
 function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorreccion) {
+  const { t } = useTraduccion();
   const [motivo, setMotivo] = useState('');
   const [minutosTrabajados, setMinutosTrabajados] = useState('');
   const [minutosExtra, setMinutosExtra] = useState('');
@@ -91,7 +81,7 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
       });
       alCorregir(jornadaActualizada);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrar la corrección.');
+      setError(err instanceof Error ? err.message : t('asi.jor.errCorreccion'));
     } finally {
       setEnviando(false);
     }
@@ -101,14 +91,14 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
     <div className={styles.fondoModal} role="dialog" aria-modal="true" aria-labelledby="titulo-modal-correccion">
       <div className={styles.modal}>
         <h2 className={styles.tituloModal} id="titulo-modal-correccion">
-          Corregir jornada
+          {t('asi.jor.corregirTitulo')}
         </h2>
         <p className={styles.subtituloModal}>
-          Empleado:{' '}
+          {t('asi.jor.modalEmpleadoLabel')}{' '}
           <strong>
             {jornada.empleado.nombre} ({jornada.empleado.numero})
           </strong>{' '}
-          — Fecha: <strong>{formatearFecha(jornada.fecha)}</strong>
+          {t('asi.jor.modalFechaLabel')} <strong>{formatearFecha(jornada.fecha)}</strong>
         </p>
 
         <hr className={styles.separador} />
@@ -117,12 +107,12 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
           {/* Motivo — obligatorio */}
           <div className={styles.grupoModal}>
             <label htmlFor="correccion-motivo" className={styles.etiquetaModal}>
-              Motivo de la corrección
+              {t('asi.jor.motivo')}
             </label>
             <textarea
               id="correccion-motivo"
               className={styles.textareaModal}
-              placeholder="Describa el motivo de la corrección…"
+              placeholder={t('asi.jor.motivoPlaceholder')}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               autoFocus
@@ -132,14 +122,14 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
           {/* Minutos trabajados — opcional */}
           <div className={styles.grupoModal}>
             <label htmlFor="correccion-minutos-trabajados" className={styles.etiquetaModalOpcional}>
-              Minutos trabajados
+              {t('asi.jor.minutosTrabajados')}
             </label>
             <input
               id="correccion-minutos-trabajados"
               type="number"
               min="0"
               className={styles.inputModal}
-              placeholder={`Actual: ${minutosAHorasMinutos(jornada.minutosTrabajados)}`}
+              placeholder={t('asi.jor.actual', { valor: minutosAHorasMinutos(jornada.minutosTrabajados) })}
               value={minutosTrabajados}
               onChange={(e) => setMinutosTrabajados(e.target.value)}
             />
@@ -148,14 +138,14 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
           {/* Minutos extra — opcional */}
           <div className={styles.grupoModal}>
             <label htmlFor="correccion-minutos-extra" className={styles.etiquetaModalOpcional}>
-              Minutos extra
+              {t('asi.jor.minutosExtra')}
             </label>
             <input
               id="correccion-minutos-extra"
               type="number"
               min="0"
               className={styles.inputModal}
-              placeholder={`Actual: ${minutosAHorasMinutos(jornada.minutosExtra)}`}
+              placeholder={t('asi.jor.actual', { valor: minutosAHorasMinutos(jornada.minutosExtra) })}
               value={minutosExtra}
               onChange={(e) => setMinutosExtra(e.target.value)}
             />
@@ -164,7 +154,7 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
           {/* Monto extra — opcional */}
           <div className={styles.grupoModal}>
             <label htmlFor="correccion-monto-extra" className={styles.etiquetaModalOpcional}>
-              Monto extra (B/.)
+              {t('asi.jor.montoExtra')}
             </label>
             <input
               id="correccion-monto-extra"
@@ -172,7 +162,7 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
               min="0"
               step="0.01"
               className={styles.inputModal}
-              placeholder={`Actual: ${formatearDinero(jornada.montoExtra)}`}
+              placeholder={t('asi.jor.actual', { valor: formatearDinero(jornada.montoExtra) })}
               value={montoExtra}
               onChange={(e) => setMontoExtra(e.target.value)}
             />
@@ -186,7 +176,7 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
                 checked={resolverAnomalia}
                 onChange={(e) => setResolverAnomalia(e.target.checked)}
               />
-              Resolver anomalía (marcar como corregida)
+              {t('asi.jor.resolverAnomalia')}
             </label>
           )}
         </div>
@@ -195,7 +185,7 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
 
         <div className={styles.botonesModal}>
           <Boton variante="secundario" onClick={alCerrar} disabled={enviando}>
-            Cancelar
+            {t('comun.cancelar')}
           </Boton>
           <Boton
             variante="primario"
@@ -203,7 +193,7 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
             cargando={enviando}
             disabled={!puedeEnviar}
           >
-            Guardar corrección
+            {t('asi.jor.guardarCorreccion')}
           </Boton>
         </div>
       </div>
@@ -215,6 +205,7 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
 
 export function PantallaJornadas() {
   const { usuario } = useAuth();
+  const { t } = useTraduccion();
   const esAdmin = usuario?.rol === 'administrador';
 
   // Lista de jornadas
@@ -247,11 +238,11 @@ export function PantallaJornadas() {
       const lista = await obtenerJornadas({ desde, hasta });
       setJornadas(lista);
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'Error al cargar las jornadas.');
+      setErrorCarga(err instanceof Error ? err.message : t('asi.jor.errCargar'));
     } finally {
       setCargando(false);
     }
-  }, [desde, hasta]);
+  }, [desde, hasta, t]);
 
   useEffect(() => {
     void cargarJornadas();
@@ -291,14 +282,17 @@ export function PantallaJornadas() {
       const resultado = await barrerHuerfanos();
       setMensajeBarrido(
         resultado.marcadas === 0
-          ? 'No se encontraron fichajes huérfanos.'
-          : `Se marcaron ${resultado.marcadas} fichaje${resultado.marcadas !== 1 ? 's' : ''} huérfano${resultado.marcadas !== 1 ? 's' : ''}.`,
+          ? t('asi.jor.sinHuerfanos')
+          : t('asi.jor.marcadosHuerfanos', {
+              n: resultado.marcadas,
+              unidad: t(resultado.marcadas !== 1 ? 'asi.jor.huerfanosPlural' : 'asi.jor.huerfanoSingular'),
+            }),
       );
       // Recargar jornadas para reflejar los nuevos cambios
       void cargarJornadas();
     } catch (err) {
       setMensajeBarrido(
-        `Error: ${err instanceof Error ? err.message : 'No se pudo completar el barrido.'}`,
+        t('asi.jor.errBarrido', { msg: err instanceof Error ? err.message : t('asi.jor.errBarridoDefault') }),
       );
     } finally {
       setBarriendoHuerfanos(false);
@@ -311,7 +305,7 @@ export function PantallaJornadas() {
     <LayoutPrincipal>
       <div className={styles.contenedor}>
         {/* Barra de navegación de asistencia */}
-        <nav className={styles.navAsistencia} aria-label="Módulos de asistencia">
+        <nav className={styles.navAsistencia} aria-label={t('asi.ariaNav')}>
           <NavLink
             to="/asistencia/revision"
             className={({ isActive }) =>
@@ -320,7 +314,7 @@ export function PantallaJornadas() {
                 : styles.enlaceNav
             }
           >
-            Cola de revisión
+            {t('nav.colaRevision')}
           </NavLink>
           <NavLink
             to="/asistencia/jornadas"
@@ -330,7 +324,7 @@ export function PantallaJornadas() {
                 : styles.enlaceNav
             }
           >
-            Jornadas
+            {t('nav.jornadas')}
           </NavLink>
           <NavLink
             to="/asistencia/cobros"
@@ -340,7 +334,7 @@ export function PantallaJornadas() {
                 : styles.enlaceNav
             }
           >
-            Cobros
+            {t('nav.cobros')}
           </NavLink>
           <Link
             to="/kiosco"
@@ -348,16 +342,16 @@ export function PantallaJornadas() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Abrir kiosco
+            {t('asi.abrirKiosco')}
           </Link>
         </nav>
 
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Jornadas</h1>
+            <h1 className={styles.tituloPagina}>{t('nav.jornadas')}</h1>
             <p className={styles.subtitulo}>
-              Consulta y corrección de jornadas laborales
+              {t('asi.jor.subtitulo')}
             </p>
           </div>
           <div className={styles.barraAcciones}>
@@ -371,7 +365,7 @@ export function PantallaJornadas() {
                 disabled={barriendoHuerfanos || cargando}
                 cargando={barriendoHuerfanos}
               >
-                Barrer huérfanos
+                {t('asi.jor.barrerHuerfanos')}
               </Boton>
             )}
             <Boton
@@ -379,7 +373,7 @@ export function PantallaJornadas() {
               onClick={() => { void cargarJornadas(); }}
               disabled={cargando || barriendoHuerfanos}
             >
-              Actualizar
+              {t('comun.actualizar')}
             </Boton>
           </div>
         </div>
@@ -388,7 +382,7 @@ export function PantallaJornadas() {
         <div className={styles.filtros}>
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-desde">
-              Desde
+              {t('comun.desde')}
             </label>
             <input
               id="filtro-desde"
@@ -401,7 +395,7 @@ export function PantallaJornadas() {
 
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-hasta">
-              Hasta
+              {t('comun.hasta')}
             </label>
             <input
               id="filtro-hasta"
@@ -417,19 +411,19 @@ export function PantallaJornadas() {
             onClick={() => { void cargarJornadas(); }}
             disabled={!desde || !hasta || cargando}
           >
-            Filtrar
+            {t('comun.filtrar')}
           </Boton>
 
           {/* Separador visual */}
           <div className={styles.grupoFiltroTexto}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-busqueda">
-              Buscar empleado
+              {t('asi.jor.buscarEmpleado')}
             </label>
             <input
               id="filtro-busqueda"
               type="text"
               className={styles.inputFiltro}
-              placeholder="Número o nombre del empleado…"
+              placeholder={t('asi.jor.buscarPlaceholder')}
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
             />
@@ -449,7 +443,10 @@ export function PantallaJornadas() {
               fontWeight: 600,
             }}
           >
-            {cantidadAnomalias} jornada{cantidadAnomalias !== 1 ? 's' : ''} con anomalía en el período
+            {t('asi.jor.anomaliasResumen', {
+              n: cantidadAnomalias,
+              unidad: t(cantidadAnomalias !== 1 ? 'asi.jor.jornadasPlural' : 'asi.jor.jornadaSingular'),
+            })}
           </div>
         )}
 
@@ -459,20 +456,20 @@ export function PantallaJornadas() {
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
               <Boton variante="secundario" onClick={() => { void cargarJornadas(); }}>
-                Reintentar
+                {t('asi.reintentar')}
               </Boton>
             </div>
           )}
 
           {!errorCarga && cargando && (
-            <p className={styles.estadoCarga}>Cargando jornadas…</p>
+            <p className={styles.estadoCarga}>{t('asi.jor.cargandoLista')}</p>
           )}
 
           {!errorCarga && !cargando && jornadasFiltradas.length === 0 && (
             <p className={styles.estadoVacio}>
               {jornadas.length === 0
-                ? 'No hay jornadas registradas en el período seleccionado.'
-                : 'Ninguna jornada coincide con la búsqueda.'}
+                ? t('asi.jor.vacioSinJornadas')
+                : t('asi.jor.vacioSinCoincidencias')}
             </p>
           )}
 
@@ -481,14 +478,14 @@ export function PantallaJornadas() {
               <table className={styles.tabla}>
                 <thead>
                   <tr>
-                    <th>Empleado</th>
-                    <th>Fecha</th>
-                    <th>Trabajadas</th>
-                    <th>Clasificación</th>
-                    <th>Extra</th>
-                    <th>Monto extra</th>
-                    <th>Estado</th>
-                    <th>Festivo</th>
+                    <th>{t('asi.jor.thEmpleado')}</th>
+                    <th>{t('asi.jor.thFecha')}</th>
+                    <th>{t('asi.jor.thTrabajadas')}</th>
+                    <th>{t('asi.jor.thClasificacion')}</th>
+                    <th>{t('asi.jor.thExtra')}</th>
+                    <th>{t('asi.jor.thMontoExtra')}</th>
+                    <th>{t('asi.jor.thEstado')}</th>
+                    <th>{t('asi.jor.thFestivo')}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -527,7 +524,7 @@ export function PantallaJornadas() {
                           <span
                             className={`${styles.badgeClasificacion} ${CLASE_CLASIFICACION[jornada.clasificacion]}`}
                           >
-                            {ETIQUETA_CLASIFICACION[jornada.clasificacion]}
+                            {t(`asi.clasif.${jornada.clasificacion}`)}
                           </span>
                         ) : (
                           <span className={`${styles.badgeClasificacion} ${styles.clasificacionNula}`}>
@@ -553,14 +550,14 @@ export function PantallaJornadas() {
                       {/* Estado */}
                       <td>
                         <span className={`${styles.badgeEstado} ${CLASE_ESTADO[jornada.estado]}`}>
-                          {ETIQUETA_ESTADO[jornada.estado]}
+                          {t(`asi.estJornada.${jornada.estado}`)}
                         </span>
                       </td>
 
                       {/* Festivo */}
                       <td>
                         {jornada.esFestivo && (
-                          <span className={styles.badgeFestivo}>Festivo</span>
+                          <span className={styles.badgeFestivo}>{t('asi.jor.festivo')}</span>
                         )}
                       </td>
 
@@ -571,7 +568,7 @@ export function PantallaJornadas() {
                           className={styles.botonCorregir}
                           onClick={() => setJornadaACorregir(jornada)}
                         >
-                          Corregir
+                          {t('asi.jor.corregir')}
                         </button>
                       </td>
                     </tr>

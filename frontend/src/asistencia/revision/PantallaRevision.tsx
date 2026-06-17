@@ -14,29 +14,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Link } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { obtenerColaRevision, revisarFichaje } from './servicioRevision';
-import type { FichajeEnCola, TipoFichaje, MecanismoExcepcion } from './tipos';
+import type { FichajeEnCola, TipoFichaje } from './tipos';
 import styles from './PantallaRevision.module.css';
 
 // ── Constantes de presentación ─────────────────────────────────────────────
-
-const ETIQUETA_TIPO: Record<TipoFichaje, string> = {
-  entrada: 'Entrada',
-  salida_comida: 'Salida comida',
-  entrada_comida: 'Vuelta de comida',
-  salida: 'Salida',
-};
 
 const CLASE_TIPO: Record<TipoFichaje, string> = {
   entrada: styles.tipoEntrada,
   salida_comida: styles.tipoSalidaComida,
   entrada_comida: styles.tipoEntradaComida,
   salida: styles.tipoSalida,
-};
-
-const ETIQUETA_MECANISMO: Record<MecanismoExcepcion, string> = {
-  pin: 'Excepción por PIN',
-  supervisor: 'Excepción por supervisor',
 };
 
 /** Formatea un ISO 8601 a "DD/MM/AAAA HH:mm" en zona local. */
@@ -54,6 +43,7 @@ function formatearMomento(iso: string): string {
 // ── Componente principal ───────────────────────────────────────────────────
 
 export function PantallaRevision() {
+  const { t } = useTraduccion();
   const [cola, setCola] = useState<FichajeEnCola[]>([]);
   const [cargando, setCargando] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -77,12 +67,12 @@ export function PantallaRevision() {
       setCola(lista);
     } catch (err) {
       setErrorCarga(
-        err instanceof Error ? err.message : 'Error al cargar la cola de revisión.',
+        err instanceof Error ? err.message : t('asi.rev.errCargar'),
       );
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void cargarCola();
@@ -99,7 +89,7 @@ export function PantallaRevision() {
       setCola((prev) => prev.filter((f) => f.id !== fichaje.id));
     } catch (err) {
       setErrorRevision(
-        err instanceof Error ? err.message : 'Error al validar el fichaje.',
+        err instanceof Error ? err.message : t('asi.rev.errValidar'),
       );
     } finally {
       setProcesando((prev) => {
@@ -141,7 +131,7 @@ export function PantallaRevision() {
       cerrarModalRechazo();
     } catch (err) {
       setErrorRevision(
-        err instanceof Error ? err.message : 'Error al rechazar el fichaje.',
+        err instanceof Error ? err.message : t('asi.rev.errRechazar'),
       );
     } finally {
       setEnviandoRevision(false);
@@ -154,7 +144,7 @@ export function PantallaRevision() {
     <LayoutPrincipal>
       <div className={styles.contenedor}>
         {/* Barra de navegación de asistencia */}
-        <nav className={styles.navAsistencia} aria-label="Módulos de asistencia">
+        <nav className={styles.navAsistencia} aria-label={t('asi.ariaNav')}>
           <NavLink
             to="/asistencia/revision"
             className={({ isActive }) =>
@@ -163,7 +153,7 @@ export function PantallaRevision() {
                 : styles.enlaceNav
             }
           >
-            Cola de revisión
+            {t('nav.colaRevision')}
           </NavLink>
           <NavLink
             to="/asistencia/jornadas"
@@ -173,7 +163,7 @@ export function PantallaRevision() {
                 : styles.enlaceNav
             }
           >
-            Jornadas
+            {t('nav.jornadas')}
           </NavLink>
           <NavLink
             to="/asistencia/cobros"
@@ -183,25 +173,25 @@ export function PantallaRevision() {
                 : styles.enlaceNav
             }
           >
-            Cobros
+            {t('nav.cobros')}
           </NavLink>
           <Link to="/kiosco" className={styles.enlaceExterno} target="_blank" rel="noopener noreferrer">
-            Abrir kiosco
+            {t('asi.abrirKiosco')}
           </Link>
         </nav>
 
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Cola de revisión</h1>
+            <h1 className={styles.tituloPagina}>{t('nav.colaRevision')}</h1>
             <p className={styles.subtitulo}>
-              Fichajes de excepción pendientes de aprobación
+              {t('asi.rev.subtitulo')}
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {cola.length > 0 && (
               <span className={styles.badgePendientes}>
-                {cola.length} pendiente{cola.length !== 1 ? 's' : ''}
+                {t(cola.length !== 1 ? 'asi.rev.pendientes' : 'asi.rev.pendiente', { n: cola.length })}
               </span>
             )}
             <Boton
@@ -209,7 +199,7 @@ export function PantallaRevision() {
               onClick={() => { void cargarCola(); }}
               disabled={cargando}
             >
-              Actualizar
+              {t('comun.actualizar')}
             </Boton>
           </div>
         </div>
@@ -227,19 +217,19 @@ export function PantallaRevision() {
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
               <Boton variante="secundario" onClick={() => { void cargarCola(); }}>
-                Reintentar
+                {t('asi.reintentar')}
               </Boton>
             </div>
           )}
 
           {!errorCarga && cargando && (
-            <p className={styles.estadoCarga}>Cargando cola de revisión…</p>
+            <p className={styles.estadoCarga}>{t('asi.rev.cargandoLista')}</p>
           )}
 
           {!errorCarga && !cargando && cola.length === 0 && (
             <div className={styles.estadoVacio}>
               <span className={styles.iconoVacio}>✅</span>
-              <p>No hay fichajes de excepción pendientes de revisión.</p>
+              <p>{t('asi.rev.vacio')}</p>
             </div>
           )}
 
@@ -264,19 +254,19 @@ export function PantallaRevision() {
                             CLASE_TIPO[fichaje.tipo],
                           ].join(' ')}
                         >
-                          {ETIQUETA_TIPO[fichaje.tipo]}
+                          {t(`asi.tipo.${fichaje.tipo}`)}
                         </span>
                       </div>
 
                       <div className={styles.detallesFichaje}>
                         <span className={styles.detalleItem}>
-                          Kiosco: {fichaje.kiosco.nombre}
+                          {t('asi.rev.kiosco', { nombre: fichaje.kiosco.nombre })}
                         </span>
                         <span className={styles.detalleItem}>
                           {formatearMomento(fichaje.momento)}
                         </span>
                         <span className={styles.badgeMecanismo}>
-                          {ETIQUETA_MECANISMO[fichaje.mecanismoExcepcion]}
+                          {t(`asi.mecanismo.${fichaje.mecanismoExcepcion}`)}
                         </span>
                       </div>
                     </div>
@@ -289,7 +279,7 @@ export function PantallaRevision() {
                         disabled={enProceso}
                         type="button"
                       >
-                        {enProceso ? <span className={styles.spinner} /> : 'Validar'}
+                        {enProceso ? <span className={styles.spinner} /> : t('asi.rev.validar')}
                       </button>
                       <button
                         className={styles.botonRechazar}
@@ -297,7 +287,7 @@ export function PantallaRevision() {
                         disabled={enProceso}
                         type="button"
                       >
-                        Rechazar
+                        {t('asi.rev.rechazar')}
                       </button>
                     </div>
                   </div>
@@ -312,21 +302,23 @@ export function PantallaRevision() {
       {fichajeARechazar && (
         <div className={styles.fondoModal} role="dialog" aria-modal="true">
           <div className={styles.modal}>
-            <h2 className={styles.tituloModal}>Rechazar fichaje</h2>
+            <h2 className={styles.tituloModal}>{t('asi.rev.modalTitulo')}</h2>
             <p className={styles.subtituloModal}>
-              Empleado: <strong>{fichajeARechazar.empleado.nombre}</strong> —{' '}
-              {ETIQUETA_TIPO[fichajeARechazar.tipo]} el{' '}
-              {formatearMomento(fichajeARechazar.momento)}
+              {t('asi.rev.modalEmpleadoLabel')} <strong>{fichajeARechazar.empleado.nombre}</strong>
+              {t('asi.rev.modalDetalle', {
+                tipo: t(`asi.tipo.${fichajeARechazar.tipo}`),
+                momento: formatearMomento(fichajeARechazar.momento),
+              })}
             </p>
 
             <div>
               <label htmlFor="motivo-rechazo" className={styles.etiquetaModal}>
-                Motivo del rechazo (opcional):
+                {t('asi.rev.motivoLabel')}
               </label>
               <textarea
                 id="motivo-rechazo"
                 className={styles.textareaModal}
-                placeholder="Describa el motivo del rechazo…"
+                placeholder={t('asi.rev.motivoPlaceholder')}
                 value={motivoRechazo}
                 onChange={(e) => setMotivoRechazo(e.target.value)}
                 autoFocus
@@ -345,14 +337,14 @@ export function PantallaRevision() {
                 onClick={cerrarModalRechazo}
                 disabled={enviandoRevision}
               >
-                Cancelar
+                {t('comun.cancelar')}
               </Boton>
               <Boton
                 variante="peligro"
                 onClick={() => { void confirmarRechazo(); }}
                 cargando={enviandoRevision}
               >
-                Confirmar rechazo
+                {t('asi.rev.confirmarRechazo')}
               </Boton>
             </div>
           </div>
