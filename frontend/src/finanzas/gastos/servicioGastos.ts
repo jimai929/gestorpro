@@ -26,6 +26,20 @@ export function obtenerSedes(): Promise<Sede[]> {
   return api.get<Sede[]>('/sedes');
 }
 
+// ── Empleados (para resolver el nombre del empleado de un gasto) ───────────
+
+/** Subconjunto del empleado que basta para mostrar "número - nombre". */
+export interface EmpleadoResumen {
+  id: string;
+  numero: string;
+  nombre: string;
+}
+
+/** Lista empleados (incluye inactivos: un gasto puede referenciar a uno dado de baja). */
+export function obtenerEmpleados(): Promise<EmpleadoResumen[]> {
+  return api.get<EmpleadoResumen[]>('/empleados?incluirInactivos=true');
+}
+
 // ── Gastos ────────────────────────────────────────────────────────────────
 
 /**

@@ -19,7 +19,7 @@ import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioGasto } from './FormularioGasto';
-import { obtenerGastos } from './servicioGastos';
+import { obtenerGastos, obtenerEmpleados } from './servicioGastos';
 import { formatearDinero, formatearFecha, primerDiaDelMes, fechaHoy } from './utilidades';
 import type { Gasto } from './tipos';
 import styles from './PantallaGastos.module.css';
@@ -37,6 +37,29 @@ export function PantallaGastos() {
 
   // Estado de UI
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+
+  // Mapa empleadoId → "número - nombre" para mostrar el empleado del gasto
+  // (el backend solo devuelve empleadoId). Carga no crítica: si falla, se
+  // muestra el id crudo como respaldo.
+  const [empleadosPorId, setEmpleadosPorId] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let activo = true;
+    void obtenerEmpleados()
+      .then((lista) => {
+        if (activo) {
+          setEmpleadosPorId(
+            Object.fromEntries(lista.map((e) => [e.id, `${e.numero} - ${e.nombre}`])),
+          );
+        }
+      })
+      .catch(() => {
+        /* no crítico: la celda cae al empleadoId crudo */
+      });
+    return () => {
+      activo = false;
+    };
+  }, []);
 
   /** Carga (o recarga) la lista de gastos del período. */
   const cargarGastos = useCallback(async () => {
@@ -215,7 +238,7 @@ export function PantallaGastos() {
                       <td className={styles.celdaEmpleado}>
                         {gasto.categoria.esPagoEmpleado && gasto.empleadoId ? (
                           <span className={styles.badgeEmpleado}>
-                            {gasto.empleadoId}
+                            {empleadosPorId[gasto.empleadoId] ?? gasto.empleadoId}
                           </span>
                         ) : (
                           '—'
