@@ -20,6 +20,30 @@ cada archivo). Lo de aquí aplica siempre, sin tener que recordarlo en cada tare
   y la UI no se cierra. (Origen: `rotarQr` que tragaba el error y el alta inline
   de proveedor que se "perdía" en un fallo, 2026-05-30.)
 
+## Internacionalización (i18n)
+
+La UI soporta **español / inglés / chino** (es/en/zh), por defecto **español**.
+Solución ligera propia, **sin dependencias** (no react-i18next), en
+`frontend/src/core/i18n/`.
+
+- **Solo se traduce texto de UI.** Los mensajes del backend (`{ mensaje }`) y los
+  DATOS (categorías, roles operativos, nombres de empleado/sede, montos `B/.`)
+  quedan en español. No traducir datos del dominio.
+- **Cómo se usa:** `const { t } = useTraduccion();` y `t('clave', { var })` con
+  interpolación `{var}`. Para enums/etiquetas: `t(\`asi.tipo.${valor}\`)`.
+- **Diccionarios:** claves base (`comun.*`, `rol.*`, `nav.*`, `login.*`,
+  `inicio.*`) en `idiomas.ts`; por módulo en `modulos/{finanzas,administracion,
+  asistencia}.ts` con prefijos `fin.` / `adm.` / `asi.`. Reutilizar `comun.*`
+  para palabras genéricas (Cancelar, Guardar, Cerrar…) en vez de duplicar.
+- **REGLA al añadir claves (no romper tests):** el valor `es` de cada clave debe
+  ser **idéntico** al texto original (acentos, `…`, puntuación). Los tests montan
+  componentes SIN proveedor y el contexto cae a `es` por defecto, así afirman las
+  cadenas en español. Las tres lenguas deben tener el MISMO conjunto de claves.
+  Nunca modificar los `*.test.tsx` para acomodar i18n.
+- **`t` es estable** (deps `[]`, lee el idioma de un ref): se puede incluir en las
+  dependencias de `useEffect`/`useCallback` sin re-ejecutar al cambiar de idioma.
+- En `.map`, no nombrar el item `t` (sombrea el hook): usar otro nombre.
+
 ## Verificación
 
 - **El verificable de cada parte se ejecuta DESDE LA UI del navegador, no solo
