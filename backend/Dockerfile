@@ -12,6 +12,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
+# El postinstall de package.json (prisma generate) se ejecuta DENTRO de npm ci y
+# necesita el schema y la config de Prisma presentes ya: copiarlos antes.
+COPY prisma.config.ts ./
+COPY prisma ./prisma
 RUN npm ci
 COPY . .
 # El cliente Prisma se genera ANTES de tsc (sale en src/generated y se compila).
