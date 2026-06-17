@@ -12,6 +12,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { obtenerCategoriasGasto, obtenerSedes, registrarGasto } from './servicioGastos';
 import { fechaHoy } from './utilidades';
 import type { CategoriaGasto, Sede } from './tipos';
@@ -22,16 +23,17 @@ interface PropiedadesFormulario {
 }
 
 const OPCIONES_TIPO_PAGO = [
-  { valor: '', etiqueta: 'Sin especificar' },
-  { valor: 'quincenal', etiqueta: 'Quincenal' },
-  { valor: 'mensual', etiqueta: 'Mensual' },
-  { valor: 'semanal', etiqueta: 'Semanal' },
-  { valor: 'adelanto', etiqueta: 'Adelanto' },
-  { valor: 'liquidacion', etiqueta: 'Liquidación' },
-  { valor: 'otro', etiqueta: 'Otro' },
+  { valor: '', etiquetaKey: 'fin.gasto.tipoPago.sinEspecificar' },
+  { valor: 'quincenal', etiquetaKey: 'fin.gasto.tipoPago.quincenal' },
+  { valor: 'mensual', etiquetaKey: 'fin.gasto.tipoPago.mensual' },
+  { valor: 'semanal', etiquetaKey: 'fin.gasto.tipoPago.semanal' },
+  { valor: 'adelanto', etiquetaKey: 'fin.gasto.tipoPago.adelanto' },
+  { valor: 'liquidacion', etiquetaKey: 'fin.gasto.tipoPago.liquidacion' },
+  { valor: 'otro', etiquetaKey: 'fin.gasto.tipoPago.otro' },
 ];
 
 export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
+  const { t } = useTraduccion();
   // Datos de selects
   const [categorias, setCategorias] = useState<CategoriaGasto[]>([]);
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -66,13 +68,13 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
         setCategorias(listaCategorias);
         setSedes(listaSedes);
       } catch {
-        setError('No se pudieron cargar los datos. Recarga la página.');
+        setError(t('fin.factura.errCargarDatos'));
       } finally {
         setCargandoSelects(false);
       }
     };
     void cargar();
-  }, []);
+  }, [t]);
 
   // Limpiar campos de empleado al cambiar de categoría
   useEffect(() => {
@@ -97,7 +99,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
 
     const montoNum = parseFloat(monto);
     if (isNaN(montoNum) || montoNum <= 0) {
-      setError('El monto debe ser un número positivo.');
+      setError(t('fin.gasto.errMontoPositivo'));
       return;
     }
 
@@ -124,7 +126,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
       setExito(true);
       onRegistrado();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrar el gasto.');
+      setError(err instanceof Error ? err.message : t('fin.gasto.errRegistrar'));
     } finally {
       setGuardando(false);
     }
@@ -141,14 +143,14 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
   return (
     <div className={styles.tarjeta}>
       <div className={styles.encabezado}>
-        <h2 className={styles.titulo}>Registrar gasto</h2>
+        <h2 className={styles.titulo}>{t('fin.gasto.registrar')}</h2>
       </div>
 
       <form onSubmit={(e) => { void manejarEnvio(e); }}>
         <div className={styles.cuadricula}>
           {/* Categoría */}
           <div className={styles.grupoSelect}>
-            <label className={styles.etiqueta}>Categoría *</label>
+            <label className={styles.etiqueta}>{t('fin.gasto.categoria')}</label>
             <select
               className={styles.select}
               value={categoriaId}
@@ -157,7 +159,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
               disabled={cargandoSelects || guardando}
             >
               <option value="">
-                {cargandoSelects ? 'Cargando…' : 'Seleccionar categoría'}
+                {cargandoSelects ? t('comun.cargando') : t('fin.gasto.selCategoria')}
               </option>
               {categorias.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -169,7 +171,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
 
           {/* Sede */}
           <div className={styles.grupoSelect}>
-            <label className={styles.etiqueta}>Sede *</label>
+            <label className={styles.etiqueta}>{t('fin.factura.sede')}</label>
             <select
               className={styles.select}
               value={sedeId}
@@ -178,7 +180,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
               disabled={cargandoSelects || guardando}
             >
               <option value="">
-                {cargandoSelects ? 'Cargando…' : 'Seleccionar sede'}
+                {cargandoSelects ? t('comun.cargando') : t('fin.factura.selSede')}
               </option>
               {sedes.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -190,7 +192,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
 
           {/* Monto */}
           <Entrada
-            etiqueta="Monto (B/.) *"
+            etiqueta={t('fin.gasto.monto')}
             type="number"
             value={monto}
             onChange={(e) => setMonto(e.target.value)}
@@ -203,7 +205,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
 
           {/* Fecha de operación */}
           <Entrada
-            etiqueta="Fecha de operación *"
+            etiqueta={t('fin.gasto.fechaOperacion')}
             type="date"
             value={fechaOperacion}
             onChange={(e) => setFechaOperacion(e.target.value)}
@@ -214,10 +216,10 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
           {/* Descripción (opcional, ancho completo) */}
           <div className={styles.campoCompleto}>
             <Entrada
-              etiqueta="Descripción (opcional)"
+              etiqueta={t('fin.gasto.descripcion')}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Detalle del gasto…"
+              placeholder={t('fin.gasto.descripcionPlaceholder')}
               disabled={guardando}
             />
           </div>
@@ -225,19 +227,19 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
           {/* ── Bloque de empleado: solo visible cuando esPagoEmpleado === true ── */}
           {esCategoriaPagoEmpleado && (
             <div className={styles.bloqueEmpleado}>
-              <p className={styles.etiquetaBloque}>Datos del empleado</p>
+              <p className={styles.etiquetaBloque}>{t('fin.gasto.datosEmpleado')}</p>
 
               <Entrada
-                etiqueta="ID del empleado *"
+                etiqueta={t('fin.gasto.idEmpleado')}
                 value={empleadoId}
                 onChange={(e) => setEmpleadoId(e.target.value)}
-                placeholder="UUID o identificador del empleado"
+                placeholder={t('fin.gasto.idEmpleadoPlaceholder')}
                 required
                 disabled={guardando}
               />
 
               <div className={styles.grupoSelect}>
-                <label className={styles.etiqueta}>Tipo de pago</label>
+                <label className={styles.etiqueta}>{t('fin.gasto.tipoPagoLabel')}</label>
                 <select
                   className={styles.select}
                   value={tipoPago}
@@ -246,7 +248,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
                 >
                   {OPCIONES_TIPO_PAGO.map((op) => (
                     <option key={op.valor} value={op.valor}>
-                      {op.etiqueta}
+                      {t(op.etiquetaKey)}
                     </option>
                   ))}
                 </select>
@@ -256,7 +258,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
         </div>
 
         {error && <p className={styles.error}>{error}</p>}
-        {exito && <p className={styles.exito}>Gasto registrado correctamente.</p>}
+        {exito && <p className={styles.exito}>{t('fin.gasto.exito')}</p>}
 
         <div className={styles.acciones}>
           <Boton
@@ -264,7 +266,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
             cargando={guardando}
             disabled={!formularioCompleto}
           >
-            Registrar gasto
+            {t('fin.gasto.registrar')}
           </Boton>
         </div>
       </form>

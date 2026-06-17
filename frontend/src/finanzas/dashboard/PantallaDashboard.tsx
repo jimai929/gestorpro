@@ -23,6 +23,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioVenta } from './FormularioVenta';
 import {
   obtenerSedes,
@@ -32,19 +33,12 @@ import {
   obtenerCajeras,
 } from './servicioDashboard';
 import { formatearDinero, formatearFecha, primerDiaDelMes, fechaHoy } from './utilidades';
-import { TURNOS, TIPOS_ARQUEO } from './tipos';
+import { TURNOS } from './tipos';
 import type { Sede, ResumenGanancia, GastoPorCategoria, VentaDiaria, TurnoVenta } from './tipos';
 import styles from './PantallaDashboard.module.css';
 
-// Etiquetas legibles para turnos y tipos de arqueo.
-const ETIQUETA_TURNO: Record<string, string> = Object.fromEntries(
-  TURNOS.map((t) => [t.turno, t.etiqueta]),
-);
-const ETIQUETA_ARQUEO: Record<string, string> = Object.fromEntries(
-  TIPOS_ARQUEO.map((a) => [a.tipo, a.etiqueta]),
-);
-
 export function PantallaDashboard() {
+  const { t } = useTraduccion();
   // Filtros
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [cajeras, setCajeras] = useState<string[]>([]);
@@ -92,9 +86,9 @@ export function PantallaDashboard() {
     setErrorCajeras(null);
     void obtenerCajeras()
       .then(setCajeras)
-      .catch(() => setErrorCajeras('No se pudo cargar la lista de cajeras.'))
+      .catch(() => setErrorCajeras(t('fin.dash.errCajeras')))
       .finally(() => setCargandoCajeras(false));
-  }, []);
+  }, [t]);
 
   /**
    * Carga las sedes para el filtro. No se traga el error (dejaría el filtro
@@ -106,9 +100,9 @@ export function PantallaDashboard() {
     setErrorSedes(null);
     void obtenerSedes()
       .then(setSedes)
-      .catch(() => setErrorSedes('No se pudo cargar la lista de sedes.'))
+      .catch(() => setErrorSedes(t('fin.dash.errSedes')))
       .finally(() => setCargandoSedes(false));
-  }, []);
+  }, [t]);
 
   // Cargar sedes y valores de cajera (para los filtros) al montar.
   useEffect(() => {
@@ -137,12 +131,12 @@ export function PantallaDashboard() {
       setCategorias(categoriasData);
     } catch (err) {
       setErrorDashboard(
-        err instanceof Error ? err.message : 'Error al cargar el dashboard.',
+        err instanceof Error ? err.message : t('fin.dash.errDashboard'),
       );
     } finally {
       setCargandoDashboard(false);
     }
-  }, [desde, hasta, sedeId, cajera, turno]);
+  }, [desde, hasta, sedeId, cajera, turno, t]);
 
   /** Carga la lista de ventas diarias del período. */
   const cargarVentas = useCallback(async () => {
@@ -161,12 +155,12 @@ export function PantallaDashboard() {
       setVentas(lista);
     } catch (err) {
       setErrorVentas(
-        err instanceof Error ? err.message : 'Error al cargar las ventas.',
+        err instanceof Error ? err.message : t('fin.dash.errVentas'),
       );
     } finally {
       setCargandoVentas(false);
     }
-  }, [desde, hasta, sedeId, cajera, turno]);
+  }, [desde, hasta, sedeId, cajera, turno, t]);
 
   // Cargar al montar y cuando cambian los filtros
   useEffect(() => {
@@ -192,7 +186,10 @@ export function PantallaDashboard() {
   const manejarVentaRegistrada = (venta: VentaDiaria) => {
     setMostrarFormulario(false);
     setAvisoExito(
-      `Cierre del ${formatearFecha(venta.fechaOperacion)} registrado por ${formatearDinero(venta.monto)}.`,
+      t('fin.dash.avisoExito', {
+        fecha: formatearFecha(venta.fechaOperacion),
+        monto: formatearDinero(venta.monto),
+      }),
     );
     setIdResaltado(venta.id);
     void cargarDashboard();
@@ -207,7 +204,7 @@ export function PantallaDashboard() {
     <LayoutPrincipal>
       <div className={styles.contenedor}>
         {/* Barra de navegación de finanzas */}
-        <nav className={styles.navFinanzas} aria-label="Módulos de finanzas">
+        <nav className={styles.navFinanzas} aria-label={t('fin.ariaNavFinanzas')}>
           <NavLink
             to="/cuentas-por-pagar"
             className={({ isActive }) =>
@@ -216,7 +213,7 @@ export function PantallaDashboard() {
                 : styles.enlaceNav
             }
           >
-            Cuentas por pagar
+            {t('nav.cuentasPorPagar')}
           </NavLink>
           <NavLink
             to="/proveedores"
@@ -226,7 +223,7 @@ export function PantallaDashboard() {
                 : styles.enlaceNav
             }
           >
-            Proveedores
+            {t('fin.navProveedores')}
           </NavLink>
           <NavLink
             to="/gastos"
@@ -236,7 +233,7 @@ export function PantallaDashboard() {
                 : styles.enlaceNav
             }
           >
-            Gastos
+            {t('nav.gastos')}
           </NavLink>
           <NavLink
             to="/dashboard"
@@ -246,20 +243,20 @@ export function PantallaDashboard() {
                 : styles.enlaceNav
             }
           >
-            Dashboard
+            {t('nav.dashboard')}
           </NavLink>
         </nav>
 
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Dashboard de ganancias</h1>
+            <h1 className={styles.tituloPagina}>{t('fin.dash.titulo')}</h1>
             <p className={styles.subtitulo}>
-              Resumen financiero del período seleccionado
+              {t('fin.dash.subtitulo')}
             </p>
           </div>
           <Boton onClick={() => setMostrarFormulario((prev) => !prev)}>
-            {mostrarFormulario ? 'Cerrar formulario' : '+ Registrar cierre del día'}
+            {mostrarFormulario ? t('fin.cerrarFormulario') : t('fin.dash.btnRegistrar')}
           </Boton>
         </div>
 
@@ -274,7 +271,7 @@ export function PantallaDashboard() {
               type="button"
               className={styles.cerrarAviso}
               onClick={() => { setAvisoExito(null); setIdResaltado(null); }}
-              aria-label="Cerrar aviso"
+              aria-label={t('fin.dash.cerrarAviso')}
             >
               ✕
             </button>
@@ -290,7 +287,7 @@ export function PantallaDashboard() {
         <div className={styles.filtros}>
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-desde">
-              Desde
+              {t('comun.desde')}
             </label>
             <input
               id="filtro-desde"
@@ -303,7 +300,7 @@ export function PantallaDashboard() {
 
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-hasta">
-              Hasta
+              {t('comun.hasta')}
             </label>
             <input
               id="filtro-hasta"
@@ -316,7 +313,7 @@ export function PantallaDashboard() {
 
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-sede">
-              Sede
+              {t('fin.dash.sede')}
             </label>
             <select
               id="filtro-sede"
@@ -327,10 +324,10 @@ export function PantallaDashboard() {
             >
               <option value="">
                 {cargandoSedes
-                  ? 'Cargando sedes…'
+                  ? t('fin.dash.cargandoSedes')
                   : errorSedes
-                    ? 'No disponible'
-                    : 'Todas las sedes'}
+                    ? t('fin.noDisponible')
+                    : t('fin.dash.todasSedes')}
               </option>
               {sedes.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -348,7 +345,7 @@ export function PantallaDashboard() {
                   className={styles.enlaceReintentar}
                   onClick={cargarSedes}
                 >
-                  Reintentar
+                  {t('fin.reintentar')}
                 </button>
               </span>
             )}
@@ -356,14 +353,14 @@ export function PantallaDashboard() {
                 simétrico con el del filtro de cajeras (no se oculta el grupo). */}
             {!cargandoSedes && !errorSedes && sedes.length === 0 && (
               <span className={styles.ayudaFiltro}>
-                Aún no hay sedes registradas.
+                {t('fin.dash.sinSedes')}
               </span>
             )}
           </div>
 
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-turno">
-              Turno
+              {t('fin.dash.turno')}
             </label>
             <select
               id="filtro-turno"
@@ -371,10 +368,10 @@ export function PantallaDashboard() {
               value={turno}
               onChange={(e) => setTurno(e.target.value as TurnoVenta | '')}
             >
-              <option value="">Todos los turnos</option>
-              {TURNOS.map((t) => (
-                <option key={t.turno} value={t.turno}>
-                  {t.etiqueta}
+              <option value="">{t('fin.dash.todosTurnos')}</option>
+              {TURNOS.map((opcionTurno) => (
+                <option key={opcionTurno.turno} value={opcionTurno.turno}>
+                  {t(`fin.turno.${opcionTurno.turno}`)}
                 </option>
               ))}
             </select>
@@ -382,7 +379,7 @@ export function PantallaDashboard() {
 
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-cajera">
-              Cajera
+              {t('fin.dash.cajera')}
             </label>
             <select
               id="filtro-cajera"
@@ -393,10 +390,10 @@ export function PantallaDashboard() {
             >
               <option value="">
                 {cargandoCajeras
-                  ? 'Cargando cajeras…'
+                  ? t('fin.dash.cargandoCajeras')
                   : errorCajeras
-                    ? 'No disponible'
-                    : 'Todas las cajeras'}
+                    ? t('fin.noDisponible')
+                    : t('fin.dash.todasCajeras')}
               </option>
               {cajeras.map((c) => (
                 <option key={c} value={c}>
@@ -413,14 +410,14 @@ export function PantallaDashboard() {
                   className={styles.enlaceReintentar}
                   onClick={cargarCajeras}
                 >
-                  Reintentar
+                  {t('fin.reintentar')}
                 </button>
               </span>
             )}
             {/* Cargó bien pero no hay ninguna cajera en los cierres todavía. */}
             {!cargandoCajeras && !errorCajeras && cajeras.length === 0 && (
               <span className={styles.ayudaFiltro}>
-                Aún no hay cierres con cajeras registradas.
+                {t('fin.dash.sinCajeras')}
               </span>
             )}
           </div>
@@ -433,7 +430,7 @@ export function PantallaDashboard() {
             }}
             disabled={!desde || !hasta || cargandoDashboard}
           >
-            Filtrar
+            {t('comun.filtrar')}
           </Boton>
         </div>
 
@@ -442,49 +439,48 @@ export function PantallaDashboard() {
           <div className={styles.errorCarga}>
             <span>{errorDashboard}</span>
             <Boton variante="secundario" onClick={() => { void cargarDashboard(); }}>
-              Reintentar
+              {t('fin.reintentar')}
             </Boton>
           </div>
         )}
 
         {!errorDashboard && cargandoDashboard && (
-          <p className={styles.estadoCarga}>Calculando ganancias…</p>
+          <p className={styles.estadoCarga}>{t('fin.dash.calculando')}</p>
         )}
 
         {!errorDashboard && !cargandoDashboard && resumen && (
           <>
             {(cajera || turno) && (
               <p className={styles.notaFiltroVentas}>
-                El filtro de cajera/turno acota solo las <strong>Ventas</strong>; las compras y los
-                gastos no tienen cajera y se muestran de toda la sede del período.
+                {t('fin.dash.notaFiltroA')}<strong>{t('fin.dash.cardVentas')}</strong>{t('fin.dash.notaFiltroB')}
               </p>
             )}
             <div className={styles.cuadriculaTarjetas}>
               {/* Ventas */}
               <div className={styles.tarjetaMetrica}>
-                <span className={styles.etiquetaMetrica}>Ventas</span>
+                <span className={styles.etiquetaMetrica}>{t('fin.dash.cardVentas')}</span>
                 <span className={styles.valorMetrica}>
                   {formatearDinero(resumen.ventas)}
                 </span>
-                <span className={styles.descripcionMetrica}>Total de cierres del período</span>
+                <span className={styles.descripcionMetrica}>{t('fin.dash.descVentas')}</span>
               </div>
 
               {/* Compras */}
               <div className={styles.tarjetaMetrica}>
-                <span className={styles.etiquetaMetrica}>Compras</span>
+                <span className={styles.etiquetaMetrica}>{t('fin.dash.cardCompras')}</span>
                 <span className={styles.valorMetrica}>
                   {formatearDinero(resumen.compras)}
                 </span>
-                <span className={styles.descripcionMetrica}>Devengado (fecha de factura)</span>
+                <span className={styles.descripcionMetrica}>{t('fin.dash.descCompras')}</span>
               </div>
 
               {/* Gastos */}
               <div className={styles.tarjetaMetrica}>
-                <span className={styles.etiquetaMetrica}>Gastos</span>
+                <span className={styles.etiquetaMetrica}>{t('fin.dash.cardGastos')}</span>
                 <span className={styles.valorMetrica}>
                   {formatearDinero(resumen.gastos)}
                 </span>
-                <span className={styles.descripcionMetrica}>Gastos operativos del período</span>
+                <span className={styles.descripcionMetrica}>{t('fin.dash.descGastos')}</span>
               </div>
 
               {/* Ganancia — destacada, verde/roja según signo */}
@@ -495,12 +491,12 @@ export function PantallaDashboard() {
                   resumen.ganancia >= 0 ? styles.gananciaPositiva : styles.gananciaNegativa,
                 ].join(' ')}
               >
-                <span className={styles.etiquetaMetricaGanancia}>Ganancia</span>
+                <span className={styles.etiquetaMetricaGanancia}>{t('fin.dash.cardGanancia')}</span>
                 <span className={styles.valorMetricaGanancia}>
                   {formatearDinero(resumen.ganancia)}
                 </span>
                 <span className={styles.descripcionMetrica}>
-                  Ventas − compras − gastos
+                  {t('fin.dash.descGanancia')}
                 </span>
               </div>
             </div>
@@ -508,7 +504,7 @@ export function PantallaDashboard() {
             {/* ── Gastos por categoría ── */}
             {categorias.length > 0 && (
               <div className={styles.tarjeta}>
-                <h2 className={styles.tituloSeccion}>Gastos por categoría</h2>
+                <h2 className={styles.tituloSeccion}>{t('fin.dash.gastosPorCategoria')}</h2>
                 <div className={styles.listaCategorias}>
                   {categorias.map((cat) => {
                     const porcentaje =
@@ -527,7 +523,7 @@ export function PantallaDashboard() {
                           <div
                             className={styles.barraRelleno}
                             style={{ width: `${porcentaje.toFixed(1)}%` }}
-                            aria-label={`${porcentaje.toFixed(1)}% del total de gastos`}
+                            aria-label={t('fin.dash.ariaPorcentaje', { p: porcentaje.toFixed(1) })}
                           />
                         </div>
                         <span className={styles.porcentajeCat}>
@@ -543,7 +539,7 @@ export function PantallaDashboard() {
             {categorias.length === 0 && !cargandoDashboard && (
               <div className={styles.tarjeta}>
                 <p className={styles.estadoVacio}>
-                  No hay gastos registrados en el período seleccionado.
+                  {t('fin.gasto.vacio')}
                 </p>
               </div>
             )}
@@ -553,25 +549,25 @@ export function PantallaDashboard() {
         {/* ── Lista de ventas del período ── */}
         <div className={styles.tarjeta}>
           <div className={styles.encabezadoSeccion}>
-            <h2 className={styles.tituloSeccion}>Cierres de ventas del período</h2>
+            <h2 className={styles.tituloSeccion}>{t('fin.dash.cierresPeriodo')}</h2>
           </div>
 
           {errorVentas && (
             <div className={styles.errorCarga}>
               <span>{errorVentas}</span>
               <Boton variante="secundario" onClick={() => { void cargarVentas(); }}>
-                Reintentar
+                {t('fin.reintentar')}
               </Boton>
             </div>
           )}
 
           {!errorVentas && cargandoVentas && (
-            <p className={styles.estadoCarga}>Cargando ventas…</p>
+            <p className={styles.estadoCarga}>{t('fin.dash.cargandoVentas')}</p>
           )}
 
           {!errorVentas && !cargandoVentas && ventas.length === 0 && (
             <p className={styles.estadoVacio}>
-              No hay cierres registrados en el período seleccionado.
+              {t('fin.dash.sinCierres')}
             </p>
           )}
 
@@ -579,13 +575,13 @@ export function PantallaDashboard() {
             <table className={styles.tabla}>
               <thead>
                 <tr>
-                  <th>Fecha</th>
-                  <th>Sede</th>
-                  <th>Turno</th>
-                  <th>Cajera</th>
-                  <th>Cerrado por</th>
-                  <th>Total / arqueo</th>
-                  <th>Tipo</th>
+                  <th>{t('fin.dash.thFecha')}</th>
+                  <th>{t('fin.dash.thSede')}</th>
+                  <th>{t('fin.dash.thTurno')}</th>
+                  <th>{t('fin.dash.thCajera')}</th>
+                  <th>{t('fin.dash.thCerradoPor')}</th>
+                  <th>{t('fin.dash.thTotalArqueo')}</th>
+                  <th>{t('fin.dash.thTipo')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -596,9 +592,9 @@ export function PantallaDashboard() {
                   >
                     <td>{formatearFecha(venta.fechaOperacion)}</td>
                     <td>
-                      {sedes.find((s) => s.id === venta.sedeId)?.nombre ?? 'Sede no disponible'}
+                      {sedes.find((s) => s.id === venta.sedeId)?.nombre ?? t('fin.dash.sedeNoDisponible')}
                     </td>
-                    <td>{ETIQUETA_TURNO[venta.turno] ?? venta.turno}</td>
+                    <td>{t(`fin.turno.${venta.turno}`)}</td>
                     <td>{venta.cajera}</td>
                     <td>{venta.cerradoPor}</td>
                     <td>
@@ -609,7 +605,7 @@ export function PantallaDashboard() {
                             {venta.detalles
                               .map(
                                 (d) =>
-                                  `${ETIQUETA_ARQUEO[d.tipoArqueo] ?? d.tipoArqueo}: ${formatearDinero(d.monto)}`,
+                                  `${t(`fin.arqueo.${d.tipoArqueo}`)}: ${formatearDinero(d.monto)}`,
                               )
                               .join(' · ')}
                           </span>
@@ -624,7 +620,7 @@ export function PantallaDashboard() {
                             : styles.badgeCorreccion
                         }
                       >
-                        {venta.tipo === 'normal' ? 'Normal' : 'Corrección'}
+                        {venta.tipo === 'normal' ? t('fin.dash.tipoNormal') : t('fin.dash.tipoCorreccion')}
                       </span>
                     </td>
                   </tr>

@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioGasto } from './FormularioGasto';
 import { obtenerGastos } from './servicioGastos';
 import { formatearDinero, formatearFecha, primerDiaDelMes, fechaHoy } from './utilidades';
@@ -24,6 +25,7 @@ import type { Gasto } from './tipos';
 import styles from './PantallaGastos.module.css';
 
 export function PantallaGastos() {
+  const { t } = useTraduccion();
   // Lista de gastos
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -46,12 +48,12 @@ export function PantallaGastos() {
       setGastos(lista);
     } catch (err) {
       setErrorCarga(
-        err instanceof Error ? err.message : 'Error al cargar los gastos.',
+        err instanceof Error ? err.message : t('fin.gasto.errCargar'),
       );
     } finally {
       setCargando(false);
     }
-  }, [desde, hasta]);
+  }, [desde, hasta, t]);
 
   // Cargar al montar
   useEffect(() => {
@@ -71,7 +73,7 @@ export function PantallaGastos() {
     <LayoutPrincipal>
       <div className={styles.contenedor}>
         {/* Barra de navegación de finanzas */}
-        <nav className={styles.navFinanzas} aria-label="Módulos de finanzas">
+        <nav className={styles.navFinanzas} aria-label={t('fin.ariaNavFinanzas')}>
           <NavLink
             to="/cuentas-por-pagar"
             className={({ isActive }) =>
@@ -80,7 +82,7 @@ export function PantallaGastos() {
                 : styles.enlaceNav
             }
           >
-            Cuentas por pagar
+            {t('nav.cuentasPorPagar')}
           </NavLink>
           <NavLink
             to="/proveedores"
@@ -90,7 +92,7 @@ export function PantallaGastos() {
                 : styles.enlaceNav
             }
           >
-            Proveedores
+            {t('fin.navProveedores')}
           </NavLink>
           <NavLink
             to="/gastos"
@@ -100,7 +102,7 @@ export function PantallaGastos() {
                 : styles.enlaceNav
             }
           >
-            Gastos
+            {t('nav.gastos')}
           </NavLink>
           <NavLink
             to="/dashboard"
@@ -110,18 +112,18 @@ export function PantallaGastos() {
                 : styles.enlaceNav
             }
           >
-            Dashboard
+            {t('nav.dashboard')}
           </NavLink>
         </nav>
 
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Gastos</h1>
-            <p className={styles.subtitulo}>Registro y consulta de gastos operativos</p>
+            <h1 className={styles.tituloPagina}>{t('nav.gastos')}</h1>
+            <p className={styles.subtitulo}>{t('fin.gasto.subtitulo')}</p>
           </div>
           <Boton onClick={() => setMostrarFormulario((prev) => !prev)}>
-            {mostrarFormulario ? 'Cerrar formulario' : '+ Registrar gasto'}
+            {mostrarFormulario ? t('fin.cerrarFormulario') : t('fin.gasto.btnRegistrar')}
           </Boton>
         </div>
 
@@ -134,7 +136,7 @@ export function PantallaGastos() {
         <div className={styles.filtros}>
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-desde">
-              Desde
+              {t('comun.desde')}
             </label>
             <input
               id="filtro-desde"
@@ -147,7 +149,7 @@ export function PantallaGastos() {
 
           <div className={styles.grupoFiltro}>
             <label className={styles.etiquetaFiltro} htmlFor="filtro-hasta">
-              Hasta
+              {t('comun.hasta')}
             </label>
             <input
               id="filtro-hasta"
@@ -163,7 +165,7 @@ export function PantallaGastos() {
             onClick={() => { void cargarGastos(); }}
             disabled={!desde || !hasta || cargando}
           >
-            Filtrar
+            {t('comun.filtrar')}
           </Boton>
         </div>
 
@@ -173,18 +175,18 @@ export function PantallaGastos() {
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
               <Boton variante="secundario" onClick={() => { void cargarGastos(); }}>
-                Reintentar
+                {t('fin.reintentar')}
               </Boton>
             </div>
           )}
 
           {!errorCarga && cargando && (
-            <p className={styles.estadoCarga}>Cargando gastos…</p>
+            <p className={styles.estadoCarga}>{t('fin.gasto.cargandoLista')}</p>
           )}
 
           {!errorCarga && !cargando && gastos.length === 0 && (
             <p className={styles.estadoVacio}>
-              No hay gastos registrados en el período seleccionado.
+              {t('fin.gasto.vacio')}
             </p>
           )}
 
@@ -193,12 +195,12 @@ export function PantallaGastos() {
               <table className={styles.tabla}>
                 <thead>
                   <tr>
-                    <th>Categoría</th>
-                    <th>Descripción</th>
-                    <th>Monto</th>
-                    <th>Fecha</th>
-                    <th>Empleado</th>
-                    <th>Tipo de pago</th>
+                    <th>{t('fin.gasto.thCategoria')}</th>
+                    <th>{t('fin.gasto.thDescripcion')}</th>
+                    <th>{t('fin.gasto.thMonto')}</th>
+                    <th>{t('fin.gasto.thFecha')}</th>
+                    <th>{t('fin.gasto.thEmpleado')}</th>
+                    <th>{t('fin.gasto.thTipoPago')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -230,8 +232,10 @@ export function PantallaGastos() {
               {/* Resumen total del período */}
               <div className={styles.resumen}>
                 <span className={styles.resumenEtiqueta}>
-                  Total del período ({gastos.length}{' '}
-                  {gastos.length === 1 ? 'gasto' : 'gastos'}):
+                  {t('fin.gasto.totalPeriodo', {
+                    n: gastos.length,
+                    unidad: t(gastos.length === 1 ? 'fin.gasto.unidadSingular' : 'fin.gasto.unidadPlural'),
+                  })}
                 </span>
                 <span className={styles.resumenMonto}>
                   {formatearDinero(totalPeriodo)}

@@ -14,6 +14,7 @@
 import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import {
   obtenerSedes,
   obtenerEmpleadosPorRol,
@@ -66,6 +67,7 @@ const ARQUEO_VACIO: Record<TipoArqueo, string> = {
 };
 
 export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
+  const { t } = useTraduccion();
   // Datos del select de sedes
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [cargandoSedes, setCargandoSedes] = useState(true);
@@ -104,9 +106,9 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
     setErrorSedes(null);
     void obtenerSedes()
       .then(setSedes)
-      .catch(() => setErrorSedes('No se pudieron cargar las sedes.'))
+      .catch(() => setErrorSedes(t('fin.venta.errSedes')))
       .finally(() => setCargandoSedes(false));
-  }, []);
+  }, [t]);
 
   // Carga cajeras y verificadores juntas; si falla, se AVISA y se ofrece
   // reintentar (no se traga el error, que dejaría los selects vacíos pareciendo
@@ -122,9 +124,9 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
         setCajeras(listaCajeras);
         setVerificadores(listaVerificadores);
       })
-      .catch(() => setErrorEmpleados('No se pudieron cargar las cajeras/verificadores.'))
+      .catch(() => setErrorEmpleados(t('fin.venta.errEmpleados')))
       .finally(() => setCargandoEmpleados(false));
-  }, []);
+  }, [t]);
 
   // Cargar sedes y empleados (cajeras / verificadores) al montar.
   useEffect(() => {
@@ -177,24 +179,24 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
     setAvisoConflicto(null);
 
     if (!turno) {
-      setError('Seleccione el turno del cierre.');
+      setError(t('fin.venta.errTurno'));
       return;
     }
 
     // Construir el arqueo: solo los tipos con un monto tecleado.
     const detalles: LineaArqueo[] = [];
-    for (const { tipo, etiqueta } of TIPOS_ARQUEO) {
+    for (const { tipo } of TIPOS_ARQUEO) {
       const crudo = montos[tipo].trim();
       if (crudo === '') continue;
       const n = parseFloat(crudo);
       if (isNaN(n) || n < 0) {
-        setError(`El monto de ${etiqueta} debe ser un número igual o mayor a cero.`);
+        setError(t('fin.venta.errMontoTipo', { tipo: t(`fin.arqueo.${tipo}`) }));
         return;
       }
       detalles.push({ tipoArqueo: tipo, monto: n });
     }
     if (detalles.length === 0) {
-      setError('Ingrese al menos un monto del arqueo de la caja.');
+      setError(t('fin.venta.errSinArqueo'));
       return;
     }
 
@@ -217,7 +219,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
         // 409: el backend ya tiene un cierre normal para esa (sede, fecha, turno, cajera)
         setAvisoConflicto(err.message);
       } else {
-        setError(err instanceof Error ? err.message : 'Error al registrar el cierre.');
+        setError(err instanceof Error ? err.message : t('fin.venta.errRegistrar'));
       }
     } finally {
       setGuardando(false);
@@ -231,10 +233,9 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
     <div className={styles.tarjeta}>
       <div className={styles.encabezado}>
         <div>
-          <h2 className={styles.titulo}>Registrar cierre de caja</h2>
+          <h2 className={styles.titulo}>{t('fin.venta.titulo')}</h2>
           <p className={styles.nota}>
-            Ingrese el arqueo de la caja al cerrar según Firestec. El total debe
-            cuadrar con el total que reporta Firestec.
+            {t('fin.venta.nota')}
           </p>
         </div>
       </div>
@@ -243,7 +244,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
         <div className={styles.cuadricula}>
           {/* Sede */}
           <div className={styles.grupoSelect}>
-            <label className={styles.etiqueta}>Sede *</label>
+            <label className={styles.etiqueta}>{t('fin.factura.sede')}</label>
             <select
               className={styles.select}
               value={sedeId}
@@ -252,7 +253,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
               disabled={cargandoSedes || errorSedes !== null || guardando}
             >
               <option value="">
-                {cargandoSedes ? 'Cargando…' : errorSedes ? 'No disponible' : 'Seleccionar sede'}
+                {cargandoSedes ? t('comun.cargando') : errorSedes ? t('fin.noDisponible') : t('fin.venta.selSede')}
               </option>
               {sedes.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -264,7 +265,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
               <span className={styles.ayudaError}>
                 {errorSedes}{' '}
                 <button type="button" className={styles.enlaceReintentar} onClick={cargarSedes}>
-                  Reintentar
+                  {t('fin.reintentar')}
                 </button>
               </span>
             )}
@@ -272,7 +273,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
 
           {/* Turno */}
           <div className={styles.grupoSelect}>
-            <label className={styles.etiqueta}>Turno *</label>
+            <label className={styles.etiqueta}>{t('fin.venta.turno')}</label>
             <select
               className={styles.select}
               value={turno}
@@ -280,10 +281,10 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
               required
               disabled={guardando}
             >
-              <option value="">Seleccionar turno</option>
-              {TURNOS.map((t) => (
-                <option key={t.turno} value={t.turno}>
-                  {t.etiqueta}
+              <option value="">{t('fin.venta.selTurno')}</option>
+              {TURNOS.map((opcionTurno) => (
+                <option key={opcionTurno.turno} value={opcionTurno.turno}>
+                  {t(`fin.turno.${opcionTurno.turno}`)}
                 </option>
               ))}
             </select>
@@ -291,7 +292,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
 
           {/* Cajera (empleado con rol operativo Cajera) */}
           <div className={styles.grupoSelect}>
-            <label className={styles.etiqueta}>Cajera *</label>
+            <label className={styles.etiqueta}>{t('fin.venta.cajera')}</label>
             <select
               className={styles.select}
               value={cajera}
@@ -301,17 +302,17 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
             >
               <option value="">
                 {!sedeId
-                  ? 'Elija una sede primero'
+                  ? t('fin.venta.elijaSede')
                   : cargandoEmpleados
-                    ? 'Cargando…'
+                    ? t('comun.cargando')
                     : errorEmpleados
-                      ? 'No disponible'
-                      : 'Seleccionar cajera'}
+                      ? t('fin.noDisponible')
+                      : t('fin.venta.selCajera')}
               </option>
               {cajerasOrdenadas.map((e) => (
                 <option key={e.id} value={snapshotEmpleado(e)}>
                   {snapshotEmpleado(e)}
-                  {e.sedeId !== sedeId ? ' (otra sede)' : ''}
+                  {e.sedeId !== sedeId ? t('fin.venta.otraSede') : ''}
                 </option>
               ))}
             </select>
@@ -319,20 +320,20 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
               <span className={styles.ayudaError}>
                 {errorEmpleados}{' '}
                 <button type="button" className={styles.enlaceReintentar} onClick={cargarEmpleados}>
-                  Reintentar
+                  {t('fin.reintentar')}
                 </button>
               </span>
             )}
             {sedeId && !cargandoEmpleados && !errorEmpleados && cajeras.length === 0 && (
               <span className={styles.ayudaCampo}>
-                No hay empleados con rol Cajera. Asígnalo en Empleados.
+                {t('fin.venta.sinCajeras')}
               </span>
             )}
           </div>
 
           {/* Fecha del cierre */}
           <Entrada
-            etiqueta="Fecha del cierre *"
+            etiqueta={t('fin.venta.fechaCierre')}
             type="date"
             value={fechaOperacion}
             onChange={(e) => setFechaOperacion(e.target.value)}
@@ -342,7 +343,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
 
           {/* Cerrado por (empleado con rol operativo Verificador) */}
           <div className={styles.grupoSelect}>
-            <label className={styles.etiqueta}>Cerrado por *</label>
+            <label className={styles.etiqueta}>{t('fin.venta.cerradoPor')}</label>
             <select
               className={styles.select}
               value={cerradoPor}
@@ -352,37 +353,37 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
             >
               <option value="">
                 {!sedeId
-                  ? 'Elija una sede primero'
+                  ? t('fin.venta.elijaSede')
                   : cargandoEmpleados
-                    ? 'Cargando…'
+                    ? t('comun.cargando')
                     : errorEmpleados
-                      ? 'No disponible'
-                      : 'Seleccionar verificador'}
+                      ? t('fin.noDisponible')
+                      : t('fin.venta.selVerificador')}
               </option>
               {verificadoresOrdenados.map((e) => (
                 <option key={e.id} value={snapshotEmpleado(e)}>
                   {snapshotEmpleado(e)}
-                  {e.sedeId !== sedeId ? ' (otra sede)' : ''}
+                  {e.sedeId !== sedeId ? t('fin.venta.otraSede') : ''}
                 </option>
               ))}
             </select>
             {sedeId && !cargandoEmpleados && !errorEmpleados && verificadores.length === 0 && (
               <span className={styles.ayudaCampo}>
-                No hay empleados con rol Verificador. Asígnalo en Empleados.
+                {t('fin.venta.sinVerificadores')}
               </span>
             )}
           </div>
 
           {/* Horas descriptivas (opcionales) */}
           <Entrada
-            etiqueta="Hora de apertura"
+            etiqueta={t('fin.venta.horaApertura')}
             type="time"
             value={horaApertura}
             onChange={(e) => setHoraApertura(e.target.value)}
             disabled={guardando}
           />
           <Entrada
-            etiqueta="Hora de cierre"
+            etiqueta={t('fin.venta.horaCierre')}
             type="time"
             value={horaCierre}
             onChange={(e) => setHoraCierre(e.target.value)}
@@ -393,14 +394,14 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
         {/* ── Arqueo de la caja ── */}
         <div className={styles.arqueo}>
           <div className={styles.arqueoEncabezado}>
-            <span className={styles.arqueoTitulo}>Arqueo de la caja</span>
-            <span className={styles.arqueoNota}>La lotería son premios pagados que están en el cajón.</span>
+            <span className={styles.arqueoTitulo}>{t('fin.venta.arqueoTitulo')}</span>
+            <span className={styles.arqueoNota}>{t('fin.venta.arqueoNota')}</span>
           </div>
           <div className={styles.cuadriculaArqueo}>
-            {TIPOS_ARQUEO.map(({ tipo, etiqueta }) => (
+            {TIPOS_ARQUEO.map(({ tipo }) => (
               <Entrada
                 key={tipo}
-                etiqueta={`${etiqueta} (B/.)`}
+                etiqueta={t('fin.venta.arqueoCampo', { etiqueta: t(`fin.arqueo.${tipo}`) })}
                 type="number"
                 value={montos[tipo]}
                 onChange={(e) => actualizarMonto(tipo, e.target.value)}
@@ -412,7 +413,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
             ))}
           </div>
           <div className={styles.totalArqueo}>
-            <span>Total del cierre</span>
+            <span>{t('fin.venta.totalCierre')}</span>
             <span className={styles.totalArqueoValor}>B/. {totalArqueo.toFixed(2)}</span>
           </div>
         </div>
@@ -430,8 +431,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
           <div className={styles.avisoAdvertencia}>
             <span className={styles.iconoAviso}>⚠</span>
             <span>
-              La cajera y quien verifica son la misma persona ({cajera}). Está permitido,
-              pero revisa el control interno.
+              {t('fin.venta.mismaPersona', { nombre: cajera })}
             </span>
           </div>
         )}
@@ -444,7 +444,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
             cargando={guardando}
             disabled={!formularioCompleto}
           >
-            Registrar cierre
+            {t('fin.venta.btnRegistrar')}
           </Boton>
         </div>
       </form>
