@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { crearProveedor, editarProveedor } from './servicioCuentas';
 import type { Proveedor } from './tipos';
 import styles from './FormularioProveedor.module.css';
@@ -30,6 +31,7 @@ function aNullable(valor: string): string | null {
 }
 
 export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: PropiedadesFormulario) {
+  const { t } = useTraduccion();
   const esEdicion = proveedor !== undefined;
 
   const [nombre, setNombre] = useState(proveedor?.nombre ?? '');
@@ -64,7 +66,7 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
           });
       onGuardado(resultado);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar el proveedor.');
+      setError(err instanceof Error ? err.message : t('fin.prov.errGuardar'));
     } finally {
       setGuardando(false);
     }
@@ -72,38 +74,38 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
 
   return (
     <div className={styles.contenedor}>
-      <p className={styles.titulo}>{esEdicion ? 'Editar proveedor' : 'Nuevo proveedor'}</p>
+      <p className={styles.titulo}>{esEdicion ? t('fin.prov.editar') : t('fin.prov.nuevo')}</p>
 
       {error && <p className={styles.error}>{error}</p>}
 
       <div className={styles.fila}>
         <Entrada
-          etiqueta="Nombre *"
+          etiqueta={t('fin.prov.nombre')}
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nombre del proveedor"
+          placeholder={t('fin.prov.nombrePlaceholder')}
           required
           disabled={guardando}
         />
         <Entrada
-          etiqueta="Identificación fiscal"
+          etiqueta={t('fin.prov.idFiscal')}
           value={identificacionFiscal}
           onChange={(e) => setIdentificacionFiscal(e.target.value)}
-          placeholder="RUC / NIT (opcional)"
+          placeholder={t('fin.prov.idFiscalPlaceholder')}
           disabled={guardando}
         />
         <Entrada
-          etiqueta="Teléfono"
+          etiqueta={t('fin.prov.telefono')}
           value={telefono}
           onChange={(e) => setTelefono(e.target.value)}
-          placeholder="Ej. 6000-0000 (opcional)"
+          placeholder={t('fin.prov.telefonoPlaceholder')}
           disabled={guardando}
         />
         <Entrada
-          etiqueta="Persona de contacto"
+          etiqueta={t('fin.prov.contacto')}
           value={personaContacto}
           onChange={(e) => setPersonaContacto(e.target.value)}
-          placeholder="Nombre del contacto (opcional)"
+          placeholder={t('fin.prov.contactoPlaceholder')}
           disabled={guardando}
         />
       </div>
@@ -115,7 +117,7 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
           onClick={onCancelar}
           disabled={guardando}
         >
-          Cancelar
+          {t('comun.cancelar')}
         </Boton>
         <Boton
           type="button"
@@ -123,7 +125,7 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
           disabled={!nombre.trim()}
           onClick={() => { void guardar(); }}
         >
-          {esEdicion ? 'Guardar cambios' : 'Crear proveedor'}
+          {esEdicion ? t('fin.prov.guardarCambios') : t('fin.prov.crear')}
         </Boton>
       </div>
     </div>

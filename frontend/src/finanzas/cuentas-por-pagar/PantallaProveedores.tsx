@@ -17,12 +17,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioProveedor } from './FormularioProveedor';
 import { obtenerProveedores, editarProveedor } from './servicioCuentas';
 import type { Proveedor } from './tipos';
 import styles from './PantallaProveedores.module.css';
 
 export function PantallaProveedores() {
+  const { t } = useTraduccion();
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -38,11 +40,11 @@ export function PantallaProveedores() {
     try {
       setProveedores(await obtenerProveedores());
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'Error al cargar los proveedores.');
+      setErrorCarga(err instanceof Error ? err.message : t('fin.prov.errCargar'));
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void cargar();
@@ -68,7 +70,7 @@ export function PantallaProveedores() {
       await editarProveedor(proveedor.id, { activo: !proveedor.activo });
       await cargar();
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'No se pudo actualizar el proveedor.');
+      setErrorCarga(err instanceof Error ? err.message : t('fin.prov.errActualizar'));
     } finally {
       setActualizandoId(null);
     }
@@ -81,26 +83,26 @@ export function PantallaProveedores() {
     <LayoutPrincipal>
       <div className={styles.contenedor}>
         {/* Barra de navegación de finanzas */}
-        <nav className={styles.navFinanzas} aria-label="Módulos de finanzas">
+        <nav className={styles.navFinanzas} aria-label={t('fin.ariaNavFinanzas')}>
           <NavLink to="/cuentas-por-pagar" className={claseNav}>
-            Cuentas por pagar
+            {t('nav.cuentasPorPagar')}
           </NavLink>
           <NavLink to="/proveedores" className={claseNav}>
-            Proveedores
+            {t('fin.navProveedores')}
           </NavLink>
           <NavLink to="/gastos" className={claseNav}>
-            Gastos
+            {t('nav.gastos')}
           </NavLink>
           <NavLink to="/dashboard" className={claseNav}>
-            Dashboard
+            {t('nav.dashboard')}
           </NavLink>
         </nav>
 
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Proveedores</h1>
-            <p className={styles.subtitulo}>Alta, edición y baja de proveedores</p>
+            <h1 className={styles.tituloPagina}>{t('fin.navProveedores')}</h1>
+            <p className={styles.subtitulo}>{t('fin.prov.subtitulo')}</p>
           </div>
           <Boton
             onClick={() => {
@@ -108,7 +110,7 @@ export function PantallaProveedores() {
               setMostrarFormNuevo((prev) => !prev);
             }}
           >
-            {mostrarFormNuevo ? 'Cerrar formulario' : '+ Registrar proveedor'}
+            {mostrarFormNuevo ? t('fin.cerrarFormulario') : t('fin.prov.btnRegistrar')}
           </Boton>
         </div>
 
@@ -135,28 +137,28 @@ export function PantallaProveedores() {
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
               <Boton variante="secundario" onClick={() => { void cargar(); }}>
-                Reintentar
+                {t('fin.reintentar')}
               </Boton>
             </div>
           )}
 
           {!errorCarga && cargando && (
-            <p className={styles.estadoCarga}>Cargando proveedores…</p>
+            <p className={styles.estadoCarga}>{t('fin.prov.cargandoLista')}</p>
           )}
 
           {!errorCarga && !cargando && proveedores.length === 0 && (
-            <p className={styles.estadoVacio}>No hay proveedores registrados todavía.</p>
+            <p className={styles.estadoVacio}>{t('fin.prov.vacio')}</p>
           )}
 
           {!errorCarga && !cargando && proveedores.length > 0 && (
             <table className={styles.tabla}>
               <thead>
                 <tr>
-                  <th>Nombre</th>
-                  <th>RUC / Identificación</th>
-                  <th>Teléfono</th>
-                  <th>Persona de contacto</th>
-                  <th>Estado</th>
+                  <th>{t('fin.prov.thNombre')}</th>
+                  <th>{t('fin.prov.thRuc')}</th>
+                  <th>{t('fin.prov.telefono')}</th>
+                  <th>{t('fin.prov.contacto')}</th>
+                  <th>{t('fin.estado')}</th>
                   <th className={styles.colAccion}></th>
                 </tr>
               </thead>
@@ -175,7 +177,7 @@ export function PantallaProveedores() {
                     </td>
                     <td>
                       <span className={p.activo ? styles.badgeActivo : styles.badgeInactivo}>
-                        {p.activo ? 'Activo' : 'Inactivo'}
+                        {p.activo ? t('fin.activo') : t('fin.inactivo')}
                       </span>
                     </td>
                     <td className={styles.colAccion}>
@@ -184,7 +186,7 @@ export function PantallaProveedores() {
                         className={styles.botonAccion}
                         onClick={() => abrirEdicion(p)}
                       >
-                        Editar
+                        {t('comun.editar')}
                       </button>
                       <button
                         type="button"
@@ -192,7 +194,7 @@ export function PantallaProveedores() {
                         onClick={() => { void alternarActivo(p); }}
                         disabled={actualizandoId === p.id}
                       >
-                        {p.activo ? 'Desactivar' : 'Activar'}
+                        {p.activo ? t('fin.prov.desactivar') : t('fin.prov.activar')}
                       </button>
                     </td>
                   </tr>

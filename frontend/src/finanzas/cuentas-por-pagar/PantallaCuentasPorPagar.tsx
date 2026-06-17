@@ -19,6 +19,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { BadgeEstado } from './BadgeEstado';
 import { FormularioFactura } from './FormularioFactura';
 import { DialogoPago } from './DialogoPago';
@@ -27,15 +28,16 @@ import { formatearDinero, formatearFecha } from './utilidades';
 import type { CuentaPorPagar } from './tipos';
 import styles from './PantallaCuentasPorPagar.module.css';
 
-const OPCIONES_ESTADO: { valor: string; etiqueta: string }[] = [
-  { valor: '', etiqueta: 'Todos los estados' },
-  { valor: 'debido', etiqueta: 'Por pagar' },
-  { valor: 'vencida', etiqueta: 'Vencidas' },
-  { valor: 'parcial', etiqueta: 'Parciales' },
-  { valor: 'pagado', etiqueta: 'Pagadas' },
+const OPCIONES_ESTADO: { valor: string; etiquetaKey: string }[] = [
+  { valor: '', etiquetaKey: 'fin.cxp.todosEstados' },
+  { valor: 'debido', etiquetaKey: 'fin.estadoCuenta.debido' },
+  { valor: 'vencida', etiquetaKey: 'fin.cxp.vencidas' },
+  { valor: 'parcial', etiquetaKey: 'fin.cxp.parciales' },
+  { valor: 'pagado', etiquetaKey: 'fin.cxp.pagadas' },
 ];
 
 export function PantallaCuentasPorPagar() {
+  const { t } = useTraduccion();
   // Lista de cuentas
   const [cuentas, setCuentas] = useState<CuentaPorPagar[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -59,12 +61,12 @@ export function PantallaCuentasPorPagar() {
       setCuentas(lista);
     } catch (err) {
       setErrorCarga(
-        err instanceof Error ? err.message : 'Error al cargar las cuentas por pagar.',
+        err instanceof Error ? err.message : t('fin.cxp.errCargar'),
       );
     } finally {
       setCargando(false);
     }
-  }, [filtroEstado]);
+  }, [filtroEstado, t]);
 
   // Cargar al montar y al cambiar filtros
   useEffect(() => {
@@ -87,7 +89,7 @@ export function PantallaCuentasPorPagar() {
     <LayoutPrincipal>
       <div className={styles.contenedor}>
         {/* Barra de navegación de finanzas */}
-        <nav className={styles.navFinanzas} aria-label="Módulos de finanzas">
+        <nav className={styles.navFinanzas} aria-label={t('fin.ariaNavFinanzas')}>
           <NavLink
             to="/cuentas-por-pagar"
             className={({ isActive }) =>
@@ -96,7 +98,7 @@ export function PantallaCuentasPorPagar() {
                 : styles.enlaceNav
             }
           >
-            Cuentas por pagar
+            {t('nav.cuentasPorPagar')}
           </NavLink>
           <NavLink
             to="/proveedores"
@@ -106,7 +108,7 @@ export function PantallaCuentasPorPagar() {
                 : styles.enlaceNav
             }
           >
-            Proveedores
+            {t('fin.navProveedores')}
           </NavLink>
           <NavLink
             to="/gastos"
@@ -116,7 +118,7 @@ export function PantallaCuentasPorPagar() {
                 : styles.enlaceNav
             }
           >
-            Gastos
+            {t('nav.gastos')}
           </NavLink>
           <NavLink
             to="/dashboard"
@@ -126,22 +128,22 @@ export function PantallaCuentasPorPagar() {
                 : styles.enlaceNav
             }
           >
-            Dashboard
+            {t('nav.dashboard')}
           </NavLink>
         </nav>
 
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Cuentas por pagar</h1>
+            <h1 className={styles.tituloPagina}>{t('nav.cuentasPorPagar')}</h1>
             <p className={styles.subtitulo}>
-              Gestión de facturas y abonos a proveedores
+              {t('fin.cxp.subtitulo')}
             </p>
           </div>
           <Boton
             onClick={() => setMostrarFormFactura((prev) => !prev)}
           >
-            {mostrarFormFactura ? 'Cerrar formulario' : '+ Registrar factura'}
+            {mostrarFormFactura ? t('fin.cerrarFormulario') : t('fin.cxp.btnRegistrar')}
           </Boton>
         </div>
 
@@ -152,7 +154,7 @@ export function PantallaCuentasPorPagar() {
 
         {/* Filtros */}
         <div className={styles.filtros}>
-          <span className={styles.etiquetaFiltro}>Filtrar por estado:</span>
+          <span className={styles.etiquetaFiltro}>{t('fin.cxp.filtrarPorEstado')}</span>
           {OPCIONES_ESTADO.map((op) => (
             <button
               key={op.valor}
@@ -165,7 +167,7 @@ export function PantallaCuentasPorPagar() {
               }
               onClick={() => setFiltroEstado(op.valor)}
             >
-              {op.etiqueta}
+              {t(op.etiquetaKey)}
             </button>
           ))}
         </div>
@@ -176,19 +178,20 @@ export function PantallaCuentasPorPagar() {
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
               <Boton variante="secundario" onClick={() => { void cargarCuentas(); }}>
-                Reintentar
+                {t('fin.reintentar')}
               </Boton>
             </div>
           )}
 
           {!errorCarga && cargando && (
-            <p className={styles.estadoCarga}>Cargando cuentas…</p>
+            <p className={styles.estadoCarga}>{t('fin.cxp.cargandoLista')}</p>
           )}
 
           {!errorCarga && !cargando && cuentas.length === 0 && (
             <p className={styles.estadoVacio}>
-              No hay cuentas por pagar
-              {filtroEstado ? ` con estado "${filtroEstado}"` : ''}.
+              {filtroEstado
+                ? t('fin.cxp.vacioFiltrado', { estado: filtroEstado })
+                : t('fin.cxp.vacio')}
             </p>
           )}
 
@@ -196,13 +199,13 @@ export function PantallaCuentasPorPagar() {
             <table className={styles.tabla}>
               <thead>
                 <tr>
-                  <th>Proveedor</th>
-                  <th>Factura</th>
-                  <th>Total</th>
-                  <th>Pagado</th>
-                  <th>Saldo</th>
-                  <th>Vencimiento</th>
-                  <th>Estado</th>
+                  <th>{t('fin.cxp.thProveedor')}</th>
+                  <th>{t('fin.cxp.thFactura')}</th>
+                  <th>{t('fin.cxp.thTotal')}</th>
+                  <th>{t('fin.cxp.thPagado')}</th>
+                  <th>{t('fin.cxp.thSaldo')}</th>
+                  <th>{t('fin.cxp.thVencimiento')}</th>
+                  <th>{t('fin.estado')}</th>
                   <th className={styles.colAccion}></th>
                 </tr>
               </thead>
@@ -227,7 +230,7 @@ export function PantallaCuentasPorPagar() {
                           className={styles.botonAbonar}
                           onClick={() => setCuentaParaPago(cuenta)}
                         >
-                          Abonar
+                          {t('fin.cxp.abonar')}
                         </button>
                       )}
                     </td>

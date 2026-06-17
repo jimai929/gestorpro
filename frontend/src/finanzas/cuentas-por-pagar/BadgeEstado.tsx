@@ -4,7 +4,7 @@
  */
 
 import type { EstadoCuenta } from './tipos';
-import { ETIQUETA_ESTADO } from './utilidades';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import styles from './BadgeEstado.module.css';
 
 interface PropiedadesBadge {
@@ -12,9 +12,10 @@ interface PropiedadesBadge {
 }
 
 export function BadgeEstado({ estado }: PropiedadesBadge) {
+  const { t } = useTraduccion();
   return (
     <span className={`${styles.badge} ${styles[estado]}`}>
-      {ETIQUETA_ESTADO[estado]}
+      {t(`fin.estadoCuenta.${estado}`)}
     </span>
   );
 }

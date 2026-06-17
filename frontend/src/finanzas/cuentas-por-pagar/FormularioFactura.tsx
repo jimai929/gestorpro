@@ -8,6 +8,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioProveedor } from './FormularioProveedor';
 import { obtenerProveedores, obtenerSedes, crearCompra } from './servicioCuentas';
 import type { Proveedor, Sede, TipoCompra } from './tipos';
@@ -18,6 +19,7 @@ interface PropiedadesFormulario {
 }
 
 export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
+  const { t } = useTraduccion();
   // Datos de selects
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -49,13 +51,13 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
         setProveedores(listaProv);
         setSedes(listaSedes);
       } catch {
-        setError('No se pudieron cargar los datos. Recarga la página.');
+        setError(t('fin.factura.errCargarDatos'));
       } finally {
         setCargandoSelects(false);
       }
     };
     void cargar();
-  }, []);
+  }, [t]);
 
   /** Cuando se crea un proveedor nuevo, lo agrega a la lista y lo selecciona. */
   const manejarProveedorCreado = (proveedor: Proveedor) => {
@@ -71,12 +73,12 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
 
     const monto = parseFloat(montoTotal);
     if (isNaN(monto) || monto <= 0) {
-      setError('El monto total debe ser un número positivo.');
+      setError(t('fin.factura.errMontoPositivo'));
       return;
     }
 
     if (tipo === 'credito' && !fechaVencimiento) {
-      setError('Una compra a crédito requiere fecha de vencimiento.');
+      setError(t('fin.factura.errVencimiento'));
       return;
     }
 
@@ -103,7 +105,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
       setExito(true);
       onRegistrada();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrar la factura.');
+      setError(err instanceof Error ? err.message : t('fin.factura.errRegistrar'));
     } finally {
       setGuardando(false);
     }
@@ -120,14 +122,14 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
   return (
     <div className={styles.tarjeta}>
       <div className={styles.encabezado}>
-        <h2 className={styles.titulo}>Registrar factura</h2>
+        <h2 className={styles.titulo}>{t('fin.factura.registrar')}</h2>
       </div>
 
       <form onSubmit={(e) => { void manejarEnvio(e); }}>
         <div className={styles.cuadricula}>
           {/* Proveedor */}
           <div className={`${styles.grupoProveedor} ${styles.campoCompleto}`}>
-            <label className={styles.etiqueta}>Proveedor *</label>
+            <label className={styles.etiqueta}>{t('fin.factura.proveedor')}</label>
             <div className={styles.filaProveedor}>
               <select
                 className={styles.selectProveedor}
@@ -137,7 +139,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
                 disabled={cargandoSelects || guardando}
               >
                 <option value="">
-                  {cargandoSelects ? 'Cargando…' : 'Seleccionar proveedor'}
+                  {cargandoSelects ? t('comun.cargando') : t('fin.factura.selProveedor')}
                 </option>
                 {proveedores.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -153,7 +155,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
                   onClick={() => setMostrarFormProveedor(true)}
                   disabled={guardando}
                 >
-                  + Nuevo
+                  {t('fin.factura.btnNuevo')}
                 </Boton>
               )}
             </div>
@@ -171,7 +173,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
 
           {/* Sede */}
           <div className={styles.grupoProveedor}>
-            <label className={styles.etiqueta}>Sede *</label>
+            <label className={styles.etiqueta}>{t('fin.factura.sede')}</label>
             <select
               className={styles.select}
               value={sedeId}
@@ -180,7 +182,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
               disabled={cargandoSelects || guardando}
             >
               <option value="">
-                {cargandoSelects ? 'Cargando…' : 'Seleccionar sede'}
+                {cargandoSelects ? t('comun.cargando') : t('fin.factura.selSede')}
               </option>
               {sedes.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -192,17 +194,17 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
 
           {/* Número de factura */}
           <Entrada
-            etiqueta="Número de factura *"
+            etiqueta={t('fin.factura.numero')}
             value={numeroFactura}
             onChange={(e) => setNumeroFactura(e.target.value)}
-            placeholder="Ej. F-2024-001"
+            placeholder={t('fin.factura.numeroPlaceholder')}
             required
             disabled={guardando}
           />
 
           {/* Monto total */}
           <Entrada
-            etiqueta="Monto total (B/.) *"
+            etiqueta={t('fin.factura.montoTotal')}
             type="number"
             value={montoTotal}
             onChange={(e) => setMontoTotal(e.target.value)}
@@ -215,7 +217,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
 
           {/* Tipo de compra: contado (pagada en el acto) o crédito (deuda) */}
           <div className={styles.grupoProveedor}>
-            <label className={styles.etiqueta}>Tipo de compra *</label>
+            <label className={styles.etiqueta}>{t('fin.factura.tipoCompra')}</label>
             <select
               className={styles.select}
               value={tipo}
@@ -223,14 +225,14 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
               required
               disabled={guardando}
             >
-              <option value="credito">Crédito (cuenta por pagar)</option>
-              <option value="contado">Contado (pagada en el acto)</option>
+              <option value="credito">{t('fin.factura.tipoCredito')}</option>
+              <option value="contado">{t('fin.factura.tipoContado')}</option>
             </select>
           </div>
 
           {/* Fecha de emisión */}
           <Entrada
-            etiqueta="Fecha de emisión *"
+            etiqueta={t('fin.factura.fechaEmision')}
             type="date"
             value={fechaEmision}
             onChange={(e) => setFechaEmision(e.target.value)}
@@ -241,7 +243,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
           {/* Fecha de vencimiento: solo para crédito (el contado no vence) */}
           {tipo === 'credito' && (
             <Entrada
-              etiqueta="Fecha de vencimiento *"
+              etiqueta={t('fin.factura.fechaVencimiento')}
               type="date"
               value={fechaVencimiento}
               onChange={(e) => setFechaVencimiento(e.target.value)}
@@ -252,7 +254,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
         </div>
 
         {error && <p className={styles.error}>{error}</p>}
-        {exito && <p className={styles.exito}>Factura registrada correctamente.</p>}
+        {exito && <p className={styles.exito}>{t('fin.factura.exito')}</p>}
 
         <div className={styles.acciones}>
           <Boton
@@ -260,7 +262,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
             cargando={guardando}
             disabled={!formularioCompleto}
           >
-            Registrar factura
+            {t('fin.factura.registrar')}
           </Boton>
         </div>
       </form>

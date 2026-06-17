@@ -15,6 +15,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -82,10 +83,16 @@ export function ProveedorIdioma({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // `t` se mantiene ESTABLE (deps []) leyendo el idioma actual de un ref: así los
+  // componentes pueden ponerlo en sus dependencias (useEffect/useCallback) sin
+  // re-ejecutar al cambiar de idioma. El re-render al cambiar idioma lo provoca
+  // el cambio del valor del contexto (idioma en el estado), no la identidad de t.
+  const idiomaRef = useRef(idioma);
+  idiomaRef.current = idioma;
   const t = useCallback(
     (clave: string, params?: Record<string, string | number>) =>
-      traducir(idioma, clave, params),
-    [idioma],
+      traducir(idiomaRef.current, clave, params),
+    [],
   );
 
   return (
