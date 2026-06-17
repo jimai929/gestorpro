@@ -263,3 +263,55 @@ describe('cobro: guardas de configuración y categoría (B12, B13)', () => {
     }
   });
 });
+
+describe('cobro: las acciones devuelven la relación empleado (regresión front)', () => {
+  // El front reemplaza la fila de la lista con la respuesta de aprobar/pagar/
+  // rechazar y luego renderiza `cobro.empleado.nombre`. Si la respuesta no trae
+  // `empleado` (como GET /cobros), la pantalla rompe. Anclamos que las tres
+  // acciones incluyen empleado { numero, nombre }.
+  beforeAll(async () => {
+    const existe = await prisma.configuracionCobro.findFirst();
+    if (existe) {
+      await prisma.configuracionCobro.update({
+        where: { id: existe.id },
+        data: { porcentajeCobrable: 80, umbralAprobacion: 100 },
+      });
+    } else {
+      await prisma.configuracionCobro.create({ data: { porcentajeCobrable: 80, umbralAprobacion: 100 } });
+    }
+    const cat = await prisma.categoriaGasto.findFirst({ where: { esPagoEmpleado: true, activo: true } });
+    if (!cat) {
+      await prisma.categoriaGasto.create({ data: { nombre: 'Pago a empleado', esPagoEmpleado: true } });
+    }
+  });
+
+  it('aprobarCobro devuelve empleado { numero, nombre }', async () => {
+    const emp = await crearEmpleadoConSaldo(200);
+    const jefe = await nuevoUsuarioJefe();
+    const cobro = await solicitarCobro({ empleadoId: emp.id, monto: 120 }); // pendiente
+    const aprobado = await aprobarCobro(cobro.id, jefe.id);
+    expect(aprobado.empleado).toBeDefined();
+    expect(aprobado.empleado?.numero).toBe(emp.numero);
+    expect(aprobado.empleado?.nombre).toBe(emp.nombre);
+  });
+
+  it('rechazarCobro devuelve empleado { numero, nombre }', async () => {
+    const emp = await crearEmpleadoConSaldo(200);
+    const jefe = await nuevoUsuarioJefe();
+    const cobro = await solicitarCobro({ empleadoId: emp.id, monto: 120 }); // pendiente
+    const rechazado = await rechazarCobro(cobro.id, jefe.id, 'sin presupuesto');
+    expect(rechazado.empleado).toBeDefined();
+    expect(rechazado.empleado?.numero).toBe(emp.numero);
+    expect(rechazado.empleado?.nombre).toBe(emp.nombre);
+  });
+
+  it('pagarCobro devuelve empleado { numero, nombre }', async () => {
+    const emp = await crearEmpleadoConSaldo(200);
+    const admin = await nuevoUsuarioJefe();
+    const cobro = await solicitarCobro({ empleadoId: emp.id, monto: 50 }); // ≤ umbral → aprobada
+    const pagado = await pagarCobro(cobro.id, admin.id);
+    expect(pagado.empleado).toBeDefined();
+    expect(pagado.empleado?.numero).toBe(emp.numero);
+    expect(pagado.empleado?.nombre).toBe(emp.nombre);
+  });
+});

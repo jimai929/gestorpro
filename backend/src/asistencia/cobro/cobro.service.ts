@@ -126,6 +126,9 @@ export async function aprobarCobro(solicitudId: string, jefeId: string) {
     return tx.solicitudCobro.update({
       where: { id: solicitudId },
       data: { estado: 'aprobada', aprobadoPorId: jefeId, resueltoEn: new Date() },
+      // Misma forma que GET /cobros (incluye empleado) para que el frontend
+      // pueda reemplazar la fila con la respuesta sin romperse.
+      include: { empleado: { select: { numero: true, nombre: true } } },
     });
   });
 }
@@ -174,6 +177,9 @@ export async function pagarCobro(solicitudId: string, adminId: string) {
     return tx.solicitudCobro.update({
       where: { id: solicitudId },
       data: { estado: 'pagada', pagadoEn: new Date() },
+      // Misma forma que GET /cobros (incluye empleado) para que el frontend
+      // pueda reemplazar la fila con la respuesta sin romperse.
+      include: { empleado: { select: { numero: true, nombre: true } } },
     });
   });
 }
@@ -195,6 +201,9 @@ export async function rechazarCobro(solicitudId: string, jefeId: string, motivo?
       motivoRechazo: motivo ?? null,
       resueltoEn: new Date(),
     },
+    // Misma forma que GET /cobros (incluye empleado) para que el frontend
+    // pueda reemplazar la fila con la respuesta sin romperse.
+    include: { empleado: { select: { numero: true, nombre: true } } },
   });
 }
 
