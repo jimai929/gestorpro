@@ -1,9 +1,11 @@
 /**
  * Capa LEGAL FIJA — Código de Trabajo de Panamá.
  *
- * ⚠️ AVISO: estos valores son una INTERPRETACIÓN GENERAL, NO asesoría legal.
- * Antes de producción, un asesor laboral panameño debe validar el divisor
- * horario, los recargos, la franja nocturna y el manejo de festivos.
+ * ✅ VALIDADO (2026-06-17): un asesor laboral panameño confirmó estos valores
+ * (divisor horario, recargos, franja nocturna, jornadas, topes y el manejo de
+ * festivos) SIN cambios. Detalle del veredicto en docs/VALIDACION_LEGAL.md.
+ * Si el asesor corrigiera algún valor, cambiar SOLO la constante de aquí y
+ * recalcular las jornadas afectadas.
  *
  * Regla de diseño innegociable: los recargos NO son configurables. No debe
  * existir ninguna opción que permita pagar por debajo de estos mínimos.

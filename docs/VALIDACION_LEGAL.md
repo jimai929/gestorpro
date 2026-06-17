@@ -1,5 +1,11 @@
 # Validación legal de la jornada — checklist para el asesor laboral panameño
 
+> **✅ ESTADO (2026-06-17): VALIDADO.** Un asesor laboral panameño firmó la
+> validación; **los 11 parámetros se confirmaron SIN cambios** (valores tal como
+> están en `legal.ts`). El gate bloqueante de P2 queda **resuelto**. La firma del
+> asesor está en poder de Jim. (Si más adelante el asesor corrige algún valor,
+> es editar UNA constante en `legal.ts` y recalcular las jornadas afectadas.)
+
 > **Para qué es esto.** El motor de jornada de GestorPro implementa las reglas
 > laborales como una **interpretación general, NO asesoría legal**. Antes de
 > poner la asistencia en producción, un asesor laboral panameño debe validar (o
@@ -117,11 +123,29 @@ validar explícitamente:
 
 ## Cierre del gate
 
-Cuando el asesor confirme o corrija cada punto:
+**Veredicto del asesor (2026-06-17): TODOS los parámetros OK, sin cambios.**
 
-1. Anotar aquí su veredicto por parámetro (OK / nuevo valor) y su nombre/fecha.
-2. Aplicar los cambios de valor en `legal.ts` (una constante cada uno) y, si
-   procede, implementar el tope semanal.
-3. Recalcular las jornadas ya cerradas afectadas (corrección o recálculo).
-4. Marcar resuelto el gate de validación legal en `DESPLIEGUE.md` (§8, P2) y en
-   `DECISIONES.md` (sección de pre-producción).
+| # | Parámetro | Veredicto |
+|---|-----------|-----------|
+| 1 | Divisor del valor-hora (240) | OK |
+| 2 | Recargo extra diurna (25 %) | OK |
+| 3 | Recargo extra nocturna (50 %) | OK |
+| 4 | Recargo extra mixta (75 %) | OK |
+| 5 | Recargo extra festivo (150 %, sustituye, no suma) | OK |
+| 6 | Franja nocturna (18:00–06:00) | OK |
+| 7 | Jornada legal diurna (8 h) | OK |
+| 8 | Jornada legal nocturna (7 h) | OK |
+| 9 | Jornada legal mixta (7.5 h) | OK |
+| 10 | Tope extra diario (3 h/día) | OK |
+| 11 | Tope extra semanal (9 h/semana, inicio lunes) | OK |
+
+Observaciones de implementación (valor-hora completo con recargo; festivo
+sustituye; segundo efecto del festivo; zona horaria local): confirmadas OK.
+
+Como no hubo cambios de valor: no hace falta editar `legal.ts` (solo se actualizó
+el aviso de cabecera a "validado") ni recalcular jornadas. Gate marcado resuelto
+en `DESPLIEGUE.md` (§8, P2) y `DECISIONES.md` (pre-producción).
+
+> Nota: la firma física del asesor está en poder de Jim. Cuando se quiera dejar
+> el nombre del asesor por escrito en el repo, sustituir aquí "el asesor" por su
+> nombre y matrícula.

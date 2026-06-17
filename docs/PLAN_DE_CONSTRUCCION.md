@@ -179,6 +179,8 @@ Salida de fase: **app COMPLETA.** Las dos áreas funcionando e integradas.
 
 ## Pendientes abiertos a resolver en su fase
 
-- **Firestec** (Fase 3): confirmar si imprime el total de ventas diario.
-- **Validación legal** (antes de producción de Fase 5): un asesor laboral
-  panameño valida divisor horario, recargos y reglas de festivos.
+- **Firestec** (Fase 3): ✅ RESUELTO (2026-06-17) — captura de ventas **100 %
+  manual**; Firestec no tiene API y no se integra. Ver `DECISIONES.md`.
+- **Validación legal** (antes de producción de Fase 5): ✅ VALIDADO (2026-06-17)
+  — asesor laboral panameño confirmó los 11 parámetros sin cambios. Ver
+  `docs/VALIDACION_LEGAL.md`.

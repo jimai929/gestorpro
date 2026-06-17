@@ -197,11 +197,13 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
 > abajo NO bloquean el desarrollo pero **deben resolverse ANTES de poner la app
 > en producción**. Son validaciones externas, no código pendiente.
 
-### Pre-producción — VALIDACIÓN LEGAL PANAMEÑA (bloquea la asistencia en prod)
+### Pre-producción — VALIDACIÓN LEGAL PANAMEÑA ✅ VALIDADO (2026-06-17)
 
-Las reglas laborales están implementadas como **interpretación general, NO
-asesoría legal**. Un asesor laboral panameño debe validar lo siguiente (todo
-vive en `backend/src/asistencia/jornada/legal.ts`, FIJO/no configurable):
+**Resuelto:** un asesor laboral panameño firmó la validación y confirmó los 11
+parámetros SIN cambios (veredicto detallado en `docs/VALIDACION_LEGAL.md`). El
+gate bloqueante de la asistencia en producción queda **levantado**. Lo de abajo
+queda como referencia de qué se validó (todo vive en
+`backend/src/asistencia/jornada/legal.ts`, FIJO/no configurable):
 
 - **Divisor horario del valor‑hora:** hoy `valorHora = salario mensual / 240`
   (240 = 30 días × 8 h). Es el supuesto que más necesita validación; cambiarlo
@@ -216,11 +218,13 @@ vive en `backend/src/asistencia/jornada/legal.ts`, FIJO/no configurable):
 Además: el motor clasifica diurna/nocturna por la hora **local del servidor** —
 fijar zona horaria **America/Panamá** en el despliegue.
 
-### Pre-producción — Firestec (captura de ventas, Fase 3)
+### Pre-producción — Firestec (captura de ventas, Fase 3) ✅ DECIDIDO (2026-06-17)
 
-Confirmar si Firestec imprime/muestra el total de ventas diario. Hoy la captura
-del cierre diario es **100 % manual** (pantalla de dashboard). Si Firestec lo
-imprime, se puede hacer semi‑asistida; no requiere cambios de modelo.
+**Resuelto: la captura del cierre diario es 100 % MANUAL** y así se queda.
+Firestec no tiene API y no se integra; el operador teclea el arqueo de caja
+(efectivo, tarjeta, Yappy, lotería) según lo que reporta Firestec, y el total
+debe cuadrar con él. Ya implementado en `FormularioVenta.tsx` — sin cambios de
+código ni de modelo pendientes.
 
 ### Endurecimiento de despliegue (no bloqueante, recomendado)
 

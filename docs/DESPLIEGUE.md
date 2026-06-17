@@ -208,8 +208,8 @@ simulado).
 | Fase | Contenido | Gate |
 |---|---|---|
 | P0 | VPS + dominio + Compose + TLS + roles de BD + backups + seed prod + refresh-on-401 | — |
-| P1 | **Piloto de FINANZAS** en producción (cuentas por pagar, gastos, dashboard) con datos reales | ninguno externo; Firestec solo afecta la comodidad de captura |
-| P2 | **Asistencia** (kioscos, jornada, cobros) | **(a) validación legal de `jornada/legal.ts` — pendiente (el tope semanal de 9h ya está implementado, queda confirmar valores/criterios); (b) protección del kiosco §4.2 — token de dispositivo HECHO + rate-limit HECHO + verificador facial DECIDIDO (riesgo aceptado, `FICHAJE_REVISION_TOTAL`); falta solo la allowlist de IPs en Caddy (despliegue, §11); (c) alta de kioscos — hecha; (d) jornada manual §3 — hecha (`ad90e78`)** |
+| P1 | **Piloto de FINANZAS** en producción (cuentas por pagar, gastos, dashboard) con datos reales | ninguno externo; Firestec DECIDIDO: captura 100 % manual (sin API, no se integra) |
+| P2 | **Asistencia** (kioscos, jornada, cobros) | **(a) validación legal de `jornada/legal.ts` — ✅ VALIDADO 2026-06-17 (11 parámetros confirmados sin cambios; ver docs/VALIDACION_LEGAL.md); (b) protección del kiosco §4.2 — token de dispositivo HECHO + rate-limit HECHO + verificador facial DECIDIDO (riesgo aceptado, `FICHAJE_REVISION_TOTAL`); falta solo la allowlist de IPs en Caddy (despliegue, §11); (c) alta de kioscos — hecha; (d) jornada manual §3 — hecha (`ad90e78`)** |
 
 Esto respeta el principio del plan ("finanzas en producción y en uso real
 antes de seguir") que el desarrollo ya dejó atrás pero el despliegue puede
@@ -253,8 +253,8 @@ en Caddy hasta P2.
 **P1 — finanzas en uso real** (sin gate externo).
 
 **P2 — asistencia, solo tras:**
-- [ ] Validación legal panameña de `jornada/legal.ts` (el tope semanal de 9h ya
-      está implementado; ver docs/VALIDACION_LEGAL.md).
+- [x] Validación legal panameña de `jornada/legal.ts` — ✅ 2026-06-17, 11
+      parámetros confirmados sin cambios (ver docs/VALIDACION_LEGAL.md).
 - [x] Token de dispositivo del kiosco + rate-limit (§4.2).
 - [x] Decisión sobre el verificador facial: riesgo aceptado con el simulador,
       `FICHAJE_REVISION_TOTAL=true` en prod (§4.2).

@@ -74,11 +74,11 @@ antes de empezar la de asistencia (Fases 4–6).
 
 - **Verificar `gestorpro.com`** en un registrador, y evaluar el registro de
   la marca en Panamá.
-- **Firestec:** confirmar si imprime el total de ventas diario (afecta la
-  Fase 3).
-- **Validación legal:** un asesor laboral panameño debe validar las reglas
-  de jornada y festivos antes de poner la Fase 5 en producción. Lo
-  implementado es interpretación general, no asesoría legal.
+- **Firestec:** ✅ RESUELTO (2026-06-17) — captura de ventas 100 % manual;
+  Firestec no tiene API y no se integra.
+- **Validación legal:** ✅ VALIDADO (2026-06-17) — un asesor laboral panameño
+  confirmó las reglas de jornada y festivos (11 parámetros, sin cambios). Ver
+  `docs/VALIDACION_LEGAL.md`.
 
 ---
 

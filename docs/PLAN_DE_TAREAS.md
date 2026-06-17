@@ -128,8 +128,8 @@ Pantalla para teclear la venta diaria y el dashboard de ganancias con
 período flexible.
 **Verificable:** desde la UI se teclea una venta y el dashboard muestra la
 ganancia del período.
-**Pendiente a resolver aquí:** confirmar si Firestec imprime el total de
-ventas diario — define si la captura es asistida o 100% manual.
+**Resuelto (2026-06-17):** la captura es **100 % manual** (Firestec no tiene
+API y no se integra). Ver `DECISIONES.md`.
 
 > Al terminar la Fase 3, el área de finanzas se despliega y se pone en uso
 > real ANTES de empezar la Fase 4.
