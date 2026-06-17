@@ -9,10 +9,13 @@
 import { FormEvent, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { useAuth } from './ContextoAuth';
+import { useTraduccion } from '../i18n/ContextoIdioma';
+import { SelectorIdioma } from '../i18n/SelectorIdioma';
 import styles from './PantallaLogin.module.css';
 
 export function PantallaLogin() {
   const { iniciarSesion, estaAutenticado } = useAuth();
+  const { t } = useTraduccion();
   const navegar = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -31,11 +34,11 @@ export function PantallaLogin() {
 
     // Validación básica en cliente
     if (!email.trim()) {
-      setError('El correo electrónico es obligatorio.');
+      setError(t('login.errorCorreo'));
       return;
     }
     if (!password) {
-      setError('La contraseña es obligatoria.');
+      setError(t('login.errorContrasena'));
       return;
     }
 
@@ -45,7 +48,7 @@ export function PantallaLogin() {
       navegar('/', { replace: true });
     } catch (err: unknown) {
       const mensaje =
-        err instanceof Error ? err.message : 'Error al iniciar sesión. Intenta de nuevo.';
+        err instanceof Error ? err.message : t('login.errorGenerico');
       setError(mensaje);
     } finally {
       setEnviando(false);
@@ -59,14 +62,18 @@ export function PantallaLogin() {
         <div className={styles.encabezado}>
           <div className={styles.logo}>GP</div>
           <h1 className={styles.titulo}>GestorPro</h1>
-          <p className={styles.subtitulo}>Administración empresarial</p>
+          <p className={styles.subtitulo}>{t('login.subtitulo')}</p>
+        </div>
+
+        <div className={styles.selectorIdioma}>
+          <SelectorIdioma />
         </div>
 
         {/* Formulario */}
         <form onSubmit={(e) => void manejarEnvio(e)} noValidate className={styles.formulario}>
           <div className={styles.campo}>
             <label htmlFor="email" className={styles.etiqueta}>
-              Correo electrónico
+              {t('login.correo')}
             </label>
             <input
               id="email"
@@ -82,7 +89,7 @@ export function PantallaLogin() {
 
           <div className={styles.campo}>
             <label htmlFor="password" className={styles.etiqueta}>
-              Contraseña
+              {t('login.contrasena')}
             </label>
             <input
               id="password"
@@ -103,12 +110,12 @@ export function PantallaLogin() {
           )}
 
           <button type="submit" className={styles.botonPrincipal} disabled={enviando}>
-            {enviando ? 'Entrando…' : 'Iniciar sesión'}
+            {enviando ? t('login.entrando') : t('login.entrar')}
           </button>
         </form>
 
         <p className={styles.pie}>
-          Solo personal autorizado. Contacta al administrador para obtener acceso.
+          {t('login.pie')}
         </p>
       </div>
     </div>

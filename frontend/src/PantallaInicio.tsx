@@ -5,18 +5,14 @@
  */
 
 import { useAuth } from './core/auth/ContextoAuth';
+import { useTraduccion } from './core/i18n/ContextoIdioma';
 import { LayoutPrincipal } from './core/ui/LayoutPrincipal';
 import { Link } from 'react-router';
 import styles from './PantallaInicio.module.css';
 
-const ETIQUETA_ROL: Record<string, string> = {
-  empleado: 'Empleado',
-  supervisor: 'Supervisor',
-  administrador: 'Administrador',
-};
-
 export function PantallaInicio() {
   const { usuario } = useAuth();
+  const { t } = useTraduccion();
 
   if (!usuario) return null;
 
@@ -28,10 +24,10 @@ export function PantallaInicio() {
             {usuario.nombre.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h1 className={styles.saludo}>Bienvenido, {usuario.nombre}</h1>
+            <h1 className={styles.saludo}>{t('inicio.bienvenido', { nombre: usuario.nombre })}</h1>
             <p className={styles.detalle}>
-              Sesión activa como{' '}
-              <strong>{ETIQUETA_ROL[usuario.rol] ?? usuario.rol}</strong>
+              {t('inicio.sesionActivaComo')}{' '}
+              <strong>{t(`rol.${usuario.rol}`)}</strong>
             </p>
             <p className={styles.email}>{usuario.email}</p>
           </div>
@@ -40,57 +36,57 @@ export function PantallaInicio() {
         <div className={styles.tarjetasModulos}>
           <div className={styles.tarjeta}>
             <div className={styles.iconoModulo}>💰</div>
-            <h2 className={styles.tituloModulo}>Finanzas</h2>
+            <h2 className={styles.tituloModulo}>{t('inicio.finanzas')}</h2>
             <p className={styles.descripcionModulo}>
-              Cuentas por pagar, gastos y dashboard de ganancias.
+              {t('inicio.finanzasDesc')}
             </p>
             <div className={styles.enlacesModulo}>
               <Link to="/cuentas-por-pagar" className={styles.enlaceModulo}>
-                Cuentas por pagar →
+                {t('nav.cuentasPorPagar')} →
               </Link>
               <Link to="/gastos" className={styles.enlaceModulo}>
-                Gastos →
+                {t('nav.gastos')} →
               </Link>
               <Link to="/dashboard" className={styles.enlaceModulo}>
-                Dashboard →
+                {t('nav.dashboard')} →
               </Link>
             </div>
           </div>
 
           <div className={styles.tarjeta}>
             <div className={styles.iconoModulo}>🏢</div>
-            <h2 className={styles.tituloModulo}>Administración</h2>
+            <h2 className={styles.tituloModulo}>{t('inicio.administracion')}</h2>
             <p className={styles.descripcionModulo}>
-              Sedes, empleados (con sus roles operativos) y kioscos.
+              {t('inicio.administracionDesc')}
             </p>
             <div className={styles.enlacesModulo}>
               <Link to="/sedes" className={styles.enlaceModulo}>
-                Sedes →
+                {t('nav.sedes')} →
               </Link>
               <Link to="/empleados" className={styles.enlaceModulo}>
-                Empleados →
+                {t('nav.empleados')} →
               </Link>
               <Link to="/kioscos" className={styles.enlaceModulo}>
-                Kioscos →
+                {t('nav.kioscos')} →
               </Link>
             </div>
           </div>
 
           <div className={styles.tarjeta}>
             <div className={styles.iconoModulo}>⏱</div>
-            <h2 className={styles.tituloModulo}>Asistencia</h2>
+            <h2 className={styles.tituloModulo}>{t('inicio.asistencia')}</h2>
             <p className={styles.descripcionModulo}>
-              Fichaje, jornadas y cobro anticipado de horas extra.
+              {t('inicio.asistenciaDesc')}
             </p>
             <div className={styles.enlacesModulo}>
               <Link to="/asistencia/revision" className={styles.enlaceModulo}>
-                Cola de revisión →
+                {t('nav.colaRevision')} →
               </Link>
               <Link to="/asistencia/jornadas" className={styles.enlaceModulo}>
-                Jornadas →
+                {t('nav.jornadas')} →
               </Link>
               <Link to="/asistencia/cobros" className={styles.enlaceModulo}>
-                Cobros →
+                {t('nav.cobros')} →
               </Link>
               <Link
                 to="/kiosco"
@@ -98,7 +94,7 @@ export function PantallaInicio() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Kiosco (nuevo tab) →
+                {t('nav.kioscoNuevoTab')} →
               </Link>
             </div>
           </div>

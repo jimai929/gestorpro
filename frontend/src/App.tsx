@@ -4,6 +4,7 @@
  */
 
 import { createBrowserRouter, RouterProvider } from 'react-router';
+import { ProveedorIdioma } from './core/i18n/ContextoIdioma';
 import { ProveedorAuth } from './core/auth/ContextoAuth';
 import { RutaProtegida } from './core/auth/RutaProtegida';
 import { PantallaLogin } from './core/auth/PantallaLogin';
@@ -101,8 +102,10 @@ const router = createBrowserRouter([
 
 export function App() {
   return (
-    <ProveedorAuth>
-      <RouterProvider router={router} />
-    </ProveedorAuth>
+    <ProveedorIdioma>
+      <ProveedorAuth>
+        <RouterProvider router={router} />
+      </ProveedorAuth>
+    </ProveedorIdioma>
   );
 }

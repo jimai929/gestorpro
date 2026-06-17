@@ -1,0 +1,15 @@
+.selector {
+  appearance: auto;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-borde, #d1d5db);
+  border-radius: 0.5rem;
+  background: #fff;
+  color: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.selector:focus-visible {
+  outline: 2px solid var(--color-primario, #2563eb);
+  outline-offset: 1px;
+}

@@ -6,20 +6,17 @@
 import { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../auth/ContextoAuth';
+import { useTraduccion } from '../i18n/ContextoIdioma';
+import { SelectorIdioma } from '../i18n/SelectorIdioma';
 import styles from './LayoutPrincipal.module.css';
 
 interface PropiedadesLayout {
   children: ReactNode;
 }
 
-const ETIQUETA_ROL: Record<string, string> = {
-  empleado: 'Empleado',
-  supervisor: 'Supervisor',
-  administrador: 'Administrador',
-};
-
 export function LayoutPrincipal({ children }: PropiedadesLayout) {
   const { usuario, cerrarSesion } = useAuth();
+  const { t } = useTraduccion();
 
   const manejarCerrarSesion = () => {
     void cerrarSesion();
@@ -39,12 +36,13 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
             <div className={styles.infoUsuario}>
               <span className={styles.nombreUsuario}>{usuario.nombre}</span>
               <span className={styles.badgeRol}>
-                {ETIQUETA_ROL[usuario.rol] ?? usuario.rol}
+                {t(`rol.${usuario.rol}`)}
               </span>
             </div>
           )}
+          <SelectorIdioma />
           <button className={styles.botonSalir} onClick={manejarCerrarSesion}>
-            Cerrar sesión
+            {t('comun.cerrarSesion')}
           </button>
         </div>
       </header>
