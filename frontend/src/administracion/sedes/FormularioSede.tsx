@@ -15,6 +15,7 @@
 import { useState } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { crearSede, editarSede } from './servicioSedes';
 import { MODOS_EXCEPCION, type Sede, type ModoExcepcion } from './tipos';
 import styles from './FormularioSede.module.css';
@@ -27,6 +28,7 @@ interface PropiedadesFormulario {
 }
 
 export function FormularioSede({ sede, onGuardado, onCancelar }: PropiedadesFormulario) {
+  const { t } = useTraduccion();
   const esEdicion = sede !== undefined;
 
   const [nombre, setNombre] = useState(sede?.nombre ?? '');
@@ -44,7 +46,7 @@ export function FormularioSede({ sede, onGuardado, onCancelar }: PropiedadesForm
         : await crearSede({ nombre: nombre.trim(), modoExcepcion });
       onGuardado(resultado);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar la sede.');
+      setError(err instanceof Error ? err.message : t('adm.sede.errGuardar'));
     } finally {
       setGuardando(false);
     }
@@ -52,20 +54,20 @@ export function FormularioSede({ sede, onGuardado, onCancelar }: PropiedadesForm
 
   return (
     <div className={styles.contenedor}>
-      <p className={styles.titulo}>{esEdicion ? 'Editar sede' : 'Nueva sede'}</p>
+      <p className={styles.titulo}>{esEdicion ? t('adm.sede.editar') : t('adm.sede.nueva')}</p>
 
       {error && <p className={styles.error}>{error}</p>}
 
       <div className={styles.fila}>
         <Entrada
-          etiqueta="Nombre *"
+          etiqueta={t('adm.sede.nombre')}
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nombre de la sede"
+          placeholder={t('adm.sede.nombrePlaceholder')}
           disabled={guardando}
         />
         <div className={styles.grupoSelect}>
-          <label className={styles.etiqueta}>Modo de excepción</label>
+          <label className={styles.etiqueta}>{t('adm.sede.modoExcepcion')}</label>
           <select
             className={styles.select}
             value={modoExcepcion}
@@ -74,7 +76,7 @@ export function FormularioSede({ sede, onGuardado, onCancelar }: PropiedadesForm
           >
             {MODOS_EXCEPCION.map((m) => (
               <option key={m.valor} value={m.valor}>
-                {m.etiqueta}
+                {t(`adm.modo.${m.valor}`)}
               </option>
             ))}
           </select>
@@ -83,7 +85,7 @@ export function FormularioSede({ sede, onGuardado, onCancelar }: PropiedadesForm
 
       <div className={styles.acciones}>
         <Boton type="button" variante="secundario" onClick={onCancelar} disabled={guardando}>
-          Cancelar
+          {t('comun.cancelar')}
         </Boton>
         <Boton
           type="button"
@@ -91,7 +93,7 @@ export function FormularioSede({ sede, onGuardado, onCancelar }: PropiedadesForm
           disabled={!nombre.trim()}
           onClick={() => { void guardar(); }}
         >
-          {esEdicion ? 'Guardar cambios' : 'Crear sede'}
+          {esEdicion ? t('adm.sede.guardarCambios') : t('adm.sede.crear')}
         </Boton>
       </div>
     </div>

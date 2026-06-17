@@ -14,16 +14,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioSede } from './FormularioSede';
 import { obtenerSedes, editarSede } from './servicioSedes';
-import { MODOS_EXCEPCION, type Sede } from './tipos';
+import { type Sede } from './tipos';
 import styles from './PantallaSedes.module.css';
 
-const ETIQUETA_MODO: Record<string, string> = Object.fromEntries(
-  MODOS_EXCEPCION.map((m) => [m.valor, m.etiqueta]),
-);
-
 export function PantallaSedes() {
+  const { t } = useTraduccion();
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -38,11 +36,11 @@ export function PantallaSedes() {
     try {
       setSedes(await obtenerSedes({ incluirInactivas: true }));
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'Error al cargar las sedes.');
+      setErrorCarga(err instanceof Error ? err.message : t('adm.sede.errCargar'));
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void cargar();
@@ -66,7 +64,7 @@ export function PantallaSedes() {
       await editarSede(sede.id, { activo: !sede.activo });
       await cargar();
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'No se pudo actualizar la sede.');
+      setErrorCarga(err instanceof Error ? err.message : t('adm.sede.errActualizar'));
     } finally {
       setActualizandoId(null);
     }
@@ -79,23 +77,23 @@ export function PantallaSedes() {
     <LayoutPrincipal>
       <div className={styles.contenedor}>
         {/* Barra de navegación de administración */}
-        <nav className={styles.navAdmin} aria-label="Administración">
+        <nav className={styles.navAdmin} aria-label={t('adm.ariaNav')}>
           <NavLink to="/sedes" className={claseNav}>
-            Sedes
+            {t('nav.sedes')}
           </NavLink>
           <NavLink to="/empleados" className={claseNav}>
-            Empleados
+            {t('nav.empleados')}
           </NavLink>
           <NavLink to="/kioscos" className={claseNav}>
-            Kioscos
+            {t('nav.kioscos')}
           </NavLink>
         </nav>
 
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Sedes</h1>
-            <p className={styles.subtitulo}>Alta, edición y baja de sedes</p>
+            <h1 className={styles.tituloPagina}>{t('nav.sedes')}</h1>
+            <p className={styles.subtitulo}>{t('adm.sede.subtitulo')}</p>
           </div>
           <Boton
             onClick={() => {
@@ -103,7 +101,7 @@ export function PantallaSedes() {
               setMostrarFormNueva((prev) => !prev);
             }}
           >
-            {mostrarFormNueva ? 'Cerrar formulario' : '+ Registrar sede'}
+            {mostrarFormNueva ? t('adm.cerrarFormulario') : t('adm.sede.btnRegistrar')}
           </Boton>
         </div>
 
@@ -124,24 +122,24 @@ export function PantallaSedes() {
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
               <Boton variante="secundario" onClick={() => { void cargar(); }}>
-                Reintentar
+                {t('adm.reintentar')}
               </Boton>
             </div>
           )}
 
-          {!errorCarga && cargando && <p className={styles.estadoCarga}>Cargando sedes…</p>}
+          {!errorCarga && cargando && <p className={styles.estadoCarga}>{t('adm.sede.cargandoLista')}</p>}
 
           {!errorCarga && !cargando && sedes.length === 0 && (
-            <p className={styles.estadoVacio}>No hay sedes registradas todavía.</p>
+            <p className={styles.estadoVacio}>{t('adm.sede.vacio')}</p>
           )}
 
           {!errorCarga && !cargando && sedes.length > 0 && (
             <table className={styles.tabla}>
               <thead>
                 <tr>
-                  <th>Nombre</th>
-                  <th>Modo de excepción</th>
-                  <th>Estado</th>
+                  <th>{t('adm.sede.thNombre')}</th>
+                  <th>{t('adm.sede.thModo')}</th>
+                  <th>{t('adm.estado')}</th>
                   <th className={styles.colAccion}></th>
                 </tr>
               </thead>
@@ -150,16 +148,16 @@ export function PantallaSedes() {
                   <tr key={sede.id} className={sede.activo ? undefined : styles.filaInactiva}>
                     <td>{sede.nombre}</td>
                     <td className={styles.contacto}>
-                      {ETIQUETA_MODO[sede.modoExcepcion] ?? sede.modoExcepcion}
+                      {t(`adm.modo.${sede.modoExcepcion}`)}
                     </td>
                     <td>
                       <span className={sede.activo ? styles.badgeActivo : styles.badgeInactivo}>
-                        {sede.activo ? 'Activa' : 'Inactiva'}
+                        {sede.activo ? t('adm.sede.activa') : t('adm.sede.inactiva')}
                       </span>
                     </td>
                     <td className={styles.colAccion}>
                       <button type="button" className={styles.botonAccion} onClick={() => abrirEdicion(sede)}>
-                        Editar
+                        {t('comun.editar')}
                       </button>
                       <button
                         type="button"
@@ -167,7 +165,7 @@ export function PantallaSedes() {
                         onClick={() => { void alternarActivo(sede); }}
                         disabled={actualizandoId === sede.id}
                       >
-                        {sede.activo ? 'Desactivar' : 'Activar'}
+                        {sede.activo ? t('adm.sede.desactivar') : t('adm.sede.activar')}
                       </button>
                     </td>
                   </tr>

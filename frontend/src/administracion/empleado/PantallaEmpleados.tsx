@@ -17,6 +17,7 @@ import QRCode from 'qrcode';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioEmpleado } from './FormularioEmpleado';
 import { obtenerSedes } from '../sedes/servicioSedes';
 import {
@@ -36,6 +37,7 @@ interface EstadoQr {
 }
 
 export function PantallaEmpleados() {
+  const { t } = useTraduccion();
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [sedes, setSedes] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(true);
@@ -78,12 +80,12 @@ export function PantallaEmpleados() {
       setAvisoAlta(null); // la fila ya es visible: el aviso de alta deja de hacer falta
       return true;
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'Error al cargar los empleados.');
+      setErrorCarga(err instanceof Error ? err.message : t('adm.emp.errCargar'));
       return false;
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void cargar();
@@ -97,8 +99,8 @@ export function PantallaEmpleados() {
     setQrImagenError(null);
     void QRCode.toDataURL(token, { width: 240, margin: 1 })
       .then(setQrImagen)
-      .catch(() => setQrImagenError('No se pudo generar la imagen del QR.'));
-  }, []);
+      .catch(() => setQrImagenError(t('adm.emp.errQrImagen')));
+  }, [t]);
 
   // Render del QR como imagen cuando cambia el token mostrado.
   useEffect(() => {
@@ -125,10 +127,10 @@ export function PantallaEmpleados() {
       } else if ('qrToken' in resultado) {
         // Recarga fallida tras el alta: decir que el alta SÍ se completó, para que
         // el admin no la dé por fallida y la repita. El QR queda en el botón "QR".
-        setAvisoAlta('El empleado se creó correctamente. Su fila aparecerá al recargar la lista; el QR está en su botón "QR".');
+        setAvisoAlta(t('adm.emp.avisoAltaOk'));
       } else if (!recargaOk) {
         // Simetría para la EDICIÓN (H17): el PUT sí se aplicó aunque la recarga fallara.
-        setAvisoAlta('Los cambios se guardaron correctamente. La fila se actualizará al recargar la lista.');
+        setAvisoAlta(t('adm.emp.avisoEdicionOk'));
       }
     });
   };
@@ -145,7 +147,7 @@ export function PantallaEmpleados() {
       await editarEmpleado(emp.id, { activo: !emp.activo });
       await cargar();
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'No se pudo actualizar el empleado.');
+      setErrorCarga(err instanceof Error ? err.message : t('adm.emp.errActualizar'));
     } finally {
       setActualizandoId(null);
     }
@@ -158,7 +160,7 @@ export function PantallaEmpleados() {
       setQrError(null);
       setQr({ empleadoId: emp.id, nombre: emp.nombre, token: qrToken });
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'No se pudo obtener el QR.');
+      setErrorCarga(err instanceof Error ? err.message : t('adm.emp.errObtenerQr'));
     }
   };
 
@@ -177,7 +179,7 @@ export function PantallaEmpleados() {
     } catch (err) {
       // No tragar el error: en una rotación de secreto, el admin DEBE saber que
       // el QR anterior NO se revocó (el mostrado sigue siendo el válido).
-      setQrError(err instanceof Error ? err.message : 'No se pudo regenerar el QR.');
+      setQrError(err instanceof Error ? err.message : t('adm.emp.errRegenerarQr'));
     } finally {
       setRegenerando(false);
     }
@@ -203,7 +205,7 @@ export function PantallaEmpleados() {
     if (!pinDe) return;
     setPinError(null);
     if (!/^\d{4}$/.test(pinValor)) {
-      setPinError('El PIN debe ser de 4 dígitos.');
+      setPinError(t('adm.emp.errPin'));
       return;
     }
     setGuardandoPin(true);
@@ -212,7 +214,7 @@ export function PantallaEmpleados() {
       setPinDe(null);
       setPinValor('');
     } catch (err) {
-      setPinError(err instanceof Error ? err.message : 'No se pudo resetear el PIN.');
+      setPinError(err instanceof Error ? err.message : t('adm.emp.errResetPin'));
     } finally {
       setGuardandoPin(false);
     }
@@ -224,16 +226,16 @@ export function PantallaEmpleados() {
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
-        <nav className={styles.navAdmin} aria-label="Administración">
-          <NavLink to="/sedes" className={claseNav}>Sedes</NavLink>
-          <NavLink to="/empleados" className={claseNav}>Empleados</NavLink>
-          <NavLink to="/kioscos" className={claseNav}>Kioscos</NavLink>
+        <nav className={styles.navAdmin} aria-label={t('adm.ariaNav')}>
+          <NavLink to="/sedes" className={claseNav}>{t('nav.sedes')}</NavLink>
+          <NavLink to="/empleados" className={claseNav}>{t('nav.empleados')}</NavLink>
+          <NavLink to="/kioscos" className={claseNav}>{t('nav.kioscos')}</NavLink>
         </nav>
 
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Empleados</h1>
-            <p className={styles.subtitulo}>Alta, edición, baja lógica y secretos (QR / PIN)</p>
+            <h1 className={styles.tituloPagina}>{t('nav.empleados')}</h1>
+            <p className={styles.subtitulo}>{t('adm.emp.subtitulo')}</p>
           </div>
           <Boton
             onClick={() => {
@@ -241,7 +243,7 @@ export function PantallaEmpleados() {
               setMostrarFormNuevo((prev) => !prev);
             }}
           >
-            {mostrarFormNuevo ? 'Cerrar formulario' : '+ Registrar empleado'}
+            {mostrarFormNuevo ? t('adm.cerrarFormulario') : t('adm.emp.btnRegistrar')}
           </Boton>
         </div>
 
@@ -261,26 +263,26 @@ export function PantallaEmpleados() {
           {errorCarga && (
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
-              <Boton variante="secundario" onClick={() => { void cargar(); }}>Reintentar</Boton>
+              <Boton variante="secundario" onClick={() => { void cargar(); }}>{t('adm.reintentar')}</Boton>
             </div>
           )}
 
-          {!errorCarga && cargando && <p className={styles.estadoCarga}>Cargando empleados…</p>}
+          {!errorCarga && cargando && <p className={styles.estadoCarga}>{t('adm.emp.cargandoLista')}</p>}
 
           {!errorCarga && !cargando && empleados.length === 0 && (
-            <p className={styles.estadoVacio}>No hay empleados registrados todavía.</p>
+            <p className={styles.estadoVacio}>{t('adm.emp.vacio')}</p>
           )}
 
           {!errorCarga && !cargando && empleados.length > 0 && (
             <table className={styles.tabla}>
               <thead>
                 <tr>
-                  <th>Número</th>
-                  <th>Nombre</th>
-                  <th>Sede</th>
-                  <th>Roles</th>
-                  <th>Salario</th>
-                  <th>Estado</th>
+                  <th>{t('adm.emp.thNumero')}</th>
+                  <th>{t('adm.emp.thNombre')}</th>
+                  <th>{t('adm.emp.thSede')}</th>
+                  <th>{t('adm.emp.thRoles')}</th>
+                  <th>{t('adm.emp.thSalario')}</th>
+                  <th>{t('adm.estado')}</th>
                   <th className={styles.colAccion}></th>
                 </tr>
               </thead>
@@ -304,18 +306,18 @@ export function PantallaEmpleados() {
                     <td className={styles.tenue}>B/. {emp.salarioFijo.toFixed(2)}</td>
                     <td>
                       <span className={emp.activo ? styles.badgeActivo : styles.badgeInactivo}>
-                        {emp.activo ? 'Activo' : 'Inactivo'}
+                        {emp.activo ? t('adm.emp.activo') : t('adm.emp.inactivo')}
                       </span>
                     </td>
                     <td className={styles.colAccion}>
                       <button type="button" className={styles.botonAccion} onClick={() => abrirEdicion(emp)}>
-                        Editar
+                        {t('comun.editar')}
                       </button>
                       <button type="button" className={styles.botonAccion} onClick={() => { void verQr(emp); }}>
-                        QR
+                        {t('adm.emp.qr')}
                       </button>
                       <button type="button" className={styles.botonAccion} onClick={() => { setPinError(null); setPinValor(''); setPinDe(emp); }}>
-                        Reset PIN
+                        {t('adm.emp.resetPin')}
                       </button>
                       <button
                         type="button"
@@ -323,7 +325,7 @@ export function PantallaEmpleados() {
                         onClick={() => { void alternarActivo(emp); }}
                         disabled={actualizandoId === emp.id}
                       >
-                        {emp.activo ? 'Desactivar' : 'Activar'}
+                        {emp.activo ? t('adm.emp.desactivar') : t('adm.emp.activar')}
                       </button>
                     </td>
                   </tr>
@@ -338,28 +340,28 @@ export function PantallaEmpleados() {
       {qr && (
         <div className={styles.overlay} role="dialog" aria-modal="true">
           <div className={styles.modal}>
-            <h2 className={styles.modalTitulo}>QR de {qr.nombre}</h2>
+            <h2 className={styles.modalTitulo}>{t('adm.emp.qrTitulo', { nombre: qr.nombre })}</h2>
             <div className={styles.qrCaja}>
               {qrImagen ? (
-                <img src={qrImagen} alt={`QR de ${qr.nombre}`} className={styles.qrImagen} />
+                <img src={qrImagen} alt={t('adm.emp.qrTitulo', { nombre: qr.nombre })} className={styles.qrImagen} />
               ) : qrImagenError ? (
                 <div className={styles.error}>
                   {qrImagenError}{' '}
                   <Boton variante="secundario" onClick={() => generarImagen(qr.token)}>
-                    Reintentar
+                    {t('adm.reintentar')}
                   </Boton>
                 </div>
               ) : (
-                <p>Generando…</p>
+                <p>{t('adm.emp.generando')}</p>
               )}
             </div>
             <p className={styles.qrToken}>{qr.token}</p>
-            <p className={styles.qrNota}>Regenerar invalida el QR anterior al instante.</p>
+            <p className={styles.qrNota}>{t('adm.emp.qrNota')}</p>
             {qrError && <p className={styles.error}>{qrError}</p>}
             <div className={styles.modalAcciones}>
-              <Boton variante="secundario" onClick={cerrarQr}>Cerrar</Boton>
-              <Boton variante="secundario" onClick={imprimirQr} disabled={!qrImagen}>Imprimir</Boton>
-              <Boton cargando={regenerando} onClick={() => { void rotarQr(); }}>Regenerar QR</Boton>
+              <Boton variante="secundario" onClick={cerrarQr}>{t('comun.cerrar')}</Boton>
+              <Boton variante="secundario" onClick={imprimirQr} disabled={!qrImagen}>{t('adm.emp.imprimir')}</Boton>
+              <Boton cargando={regenerando} onClick={() => { void rotarQr(); }}>{t('adm.emp.regenerarQr')}</Boton>
             </div>
           </div>
         </div>
@@ -369,24 +371,24 @@ export function PantallaEmpleados() {
       {pinDe && (
         <div className={styles.overlay} role="dialog" aria-modal="true">
           <div className={styles.modal}>
-            <h2 className={styles.modalTitulo}>Resetear PIN — {pinDe.nombre}</h2>
+            <h2 className={styles.modalTitulo}>{t('adm.emp.resetPinTitulo', { nombre: pinDe.nombre })}</h2>
             {pinError && <p className={styles.error}>{pinError}</p>}
             <Entrada
-              etiqueta="Nuevo PIN (4 dígitos)"
+              etiqueta={t('adm.emp.nuevoPin')}
               value={pinValor}
               onChange={(e) => setPinValor(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="••••"
               inputMode="numeric"
               maxLength={4}
-              ayuda="Evita secuencias (1234) y repeticiones (0000)."
+              ayuda={t('adm.emp.pinAyuda')}
               disabled={guardandoPin}
             />
             <div className={styles.modalAcciones}>
               <Boton variante="secundario" onClick={() => { setPinDe(null); setPinValor(''); }} disabled={guardandoPin}>
-                Cancelar
+                {t('comun.cancelar')}
               </Boton>
               <Boton cargando={guardandoPin} disabled={pinValor.length !== 4} onClick={() => { void guardarPin(); }}>
-                Guardar PIN
+                {t('adm.emp.guardarPin')}
               </Boton>
             </div>
           </div>

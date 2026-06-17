@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { crearKiosco } from './servicioKioscos';
 import { obtenerSedes } from '../sedes/servicioSedes';
 import type { Sede } from '../sedes/tipos';
@@ -20,6 +21,7 @@ interface PropiedadesFormulario {
 }
 
 export function FormularioKiosco({ onGuardado, onCancelar }: PropiedadesFormulario) {
+  const { t } = useTraduccion();
   const [nombre, setNombre] = useState('');
   const [sedeId, setSedeId] = useState('');
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -29,8 +31,8 @@ export function FormularioKiosco({ onGuardado, onCancelar }: PropiedadesFormular
   useEffect(() => {
     obtenerSedes()
       .then(setSedes)
-      .catch(() => setError('No se pudieron cargar las sedes.'));
-  }, []);
+      .catch(() => setError(t('adm.kiosco.errCargarSedes')));
+  }, [t]);
 
   const guardar = async () => {
     if (!nombre.trim() || !sedeId) return;
@@ -40,7 +42,7 @@ export function FormularioKiosco({ onGuardado, onCancelar }: PropiedadesFormular
       const kiosco = await crearKiosco({ nombre: nombre.trim(), sedeId });
       onGuardado(kiosco);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar el kiosco.');
+      setError(err instanceof Error ? err.message : t('adm.kiosco.errGuardar'));
     } finally {
       setGuardando(false);
     }
@@ -48,27 +50,27 @@ export function FormularioKiosco({ onGuardado, onCancelar }: PropiedadesFormular
 
   return (
     <div className={styles.contenedor}>
-      <p className={styles.titulo}>Nuevo kiosco</p>
+      <p className={styles.titulo}>{t('adm.kiosco.nuevo')}</p>
 
       {error && <p className={styles.error}>{error}</p>}
 
       <div className={styles.fila}>
         <Entrada
-          etiqueta="Nombre *"
+          etiqueta={t('adm.kiosco.nombre')}
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nombre del kiosco"
+          placeholder={t('adm.kiosco.nombrePlaceholder')}
           disabled={guardando}
         />
         <div className={styles.grupoSelect}>
-          <label className={styles.etiqueta}>Sede *</label>
+          <label className={styles.etiqueta}>{t('adm.kiosco.sede')}</label>
           <select
             className={styles.select}
             value={sedeId}
             onChange={(e) => setSedeId(e.target.value)}
             disabled={guardando}
           >
-            <option value="">Seleccionar sede</option>
+            <option value="">{t('adm.kiosco.selSede')}</option>
             {sedes.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nombre}
@@ -80,7 +82,7 @@ export function FormularioKiosco({ onGuardado, onCancelar }: PropiedadesFormular
 
       <div className={styles.acciones}>
         <Boton type="button" variante="secundario" onClick={onCancelar} disabled={guardando}>
-          Cancelar
+          {t('comun.cancelar')}
         </Boton>
         <Boton
           type="button"
@@ -88,7 +90,7 @@ export function FormularioKiosco({ onGuardado, onCancelar }: PropiedadesFormular
           disabled={!nombre.trim() || !sedeId}
           onClick={() => { void guardar(); }}
         >
-          Crear kiosco
+          {t('adm.kiosco.crear')}
         </Boton>
       </div>
     </div>

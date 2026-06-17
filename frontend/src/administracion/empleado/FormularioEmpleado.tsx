@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { obtenerSedes } from '../sedes/servicioSedes';
 import type { Sede } from '../sedes/tipos';
 import { crearEmpleado, editarEmpleado, obtenerRolesOperativos } from './servicioEmpleados';
@@ -26,6 +27,7 @@ interface PropiedadesFormulario {
 }
 
 export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: PropiedadesFormulario) {
+  const { t } = useTraduccion();
   const esEdicion = empleado !== undefined;
 
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -52,18 +54,18 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
     setErrorSedes(null);
     void obtenerSedes()
       .then(setSedes)
-      .catch(() => setErrorSedes('No se pudieron cargar las sedes.'))
+      .catch(() => setErrorSedes(t('adm.emp.errSedes')))
       .finally(() => setCargandoSedes(false));
-  }, []);
+  }, [t]);
 
   const cargarRoles = useCallback(() => {
     setCargandoRoles(true);
     setErrorRoles(null);
     void obtenerRolesOperativos()
       .then(setRoles)
-      .catch(() => setErrorRoles('No se pudieron cargar los roles operativos.'))
+      .catch(() => setErrorRoles(t('adm.emp.errRoles')))
       .finally(() => setCargandoRoles(false));
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     cargarSedes();
@@ -81,15 +83,15 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
 
     const salarioNum = parseFloat(salario);
     if (!numero.trim() || !nombre.trim() || !sedeId) {
-      setError('Número, nombre y sede son obligatorios.');
+      setError(t('adm.emp.errCamposReq'));
       return;
     }
     if (isNaN(salarioNum) || salarioNum < 0) {
-      setError('El salario debe ser un número igual o mayor a cero.');
+      setError(t('adm.emp.errSalario'));
       return;
     }
     if (!esEdicion && !/^\d{4}$/.test(pin)) {
-      setError('El PIN debe ser de 4 dígitos.');
+      setError(t('adm.emp.errPin'));
       return;
     }
 
@@ -116,7 +118,7 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
           });
       onGuardado(resultado);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar el empleado.');
+      setError(err instanceof Error ? err.message : t('adm.emp.errGuardar'));
     } finally {
       setGuardando(false);
     }
@@ -128,27 +130,27 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
 
   return (
     <div className={styles.contenedor}>
-      <p className={styles.titulo}>{esEdicion ? 'Editar empleado' : 'Nuevo empleado'}</p>
+      <p className={styles.titulo}>{esEdicion ? t('adm.emp.editar') : t('adm.emp.nuevo')}</p>
 
       {error && <p className={styles.error}>{error}</p>}
 
       <div className={styles.fila}>
         <Entrada
-          etiqueta="Número *"
+          etiqueta={t('adm.emp.numero')}
           value={numero}
           onChange={(e) => setNumero(e.target.value)}
-          placeholder="Ej. E001"
+          placeholder={t('adm.emp.numeroPlaceholder')}
           disabled={guardando}
         />
         <Entrada
-          etiqueta="Nombre *"
+          etiqueta={t('adm.emp.nombre')}
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nombre del empleado"
+          placeholder={t('adm.emp.nombrePlaceholder')}
           disabled={guardando}
         />
         <div className={styles.grupoSelect}>
-          <label className={styles.etiqueta}>Sede *</label>
+          <label className={styles.etiqueta}>{t('adm.emp.sede')}</label>
           <select
             className={styles.select}
             value={sedeId}
@@ -156,7 +158,7 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
             disabled={guardando || cargandoSedes || errorSedes !== null}
           >
             <option value="">
-              {cargandoSedes ? 'Cargando…' : errorSedes ? 'No disponible' : 'Seleccionar sede'}
+              {cargandoSedes ? t('comun.cargando') : errorSedes ? t('adm.noDisponible') : t('adm.emp.selSede')}
             </option>
             {sedes.map((s) => (
               <option key={s.id} value={s.id}>
@@ -168,13 +170,13 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
             <span className={styles.ayudaError}>
               {errorSedes}{' '}
               <button type="button" className={styles.enlaceReintentar} onClick={cargarSedes}>
-                Reintentar
+                {t('adm.reintentar')}
               </button>
             </span>
           )}
         </div>
         <Entrada
-          etiqueta="Salario fijo (B/.) *"
+          etiqueta={t('adm.emp.salario')}
           type="number"
           value={salario}
           onChange={(e) => setSalario(e.target.value)}
@@ -185,24 +187,24 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
         />
         {!esEdicion && (
           <Entrada
-            etiqueta="PIN (4 dígitos) *"
+            etiqueta={t('adm.emp.pin')}
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             placeholder="••••"
             inputMode="numeric"
             maxLength={4}
-            ayuda="Evita secuencias (1234) y repeticiones (0000)."
+            ayuda={t('adm.emp.pinAyuda')}
             disabled={guardando}
           />
         )}
         {/* Foto preparada para reconocimiento facial — deshabilitada (tarea futura). */}
         <div className={styles.grupoSelect}>
-          <label className={styles.etiqueta}>Foto de referencia</label>
+          <label className={styles.etiqueta}>{t('adm.emp.fotoRef')}</label>
           <input
             className={styles.select}
             type="text"
             value=""
-            placeholder="Reconocimiento facial — pendiente"
+            placeholder={t('adm.emp.fotoPlaceholder')}
             disabled
             readOnly
           />
@@ -211,20 +213,20 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
 
       {/* Roles operativos (cajera, verificador, …). Un empleado puede tener varios. */}
       <div className={styles.roles}>
-        <span className={styles.etiqueta}>Roles operativos</span>
+        <span className={styles.etiqueta}>{t('adm.emp.rolesOperativos')}</span>
         <div className={styles.rolesLista}>
           {cargandoRoles ? (
-            <span className={styles.rolesVacio}>Cargando roles…</span>
+            <span className={styles.rolesVacio}>{t('adm.emp.cargandoRoles')}</span>
           ) : errorRoles ? (
             <span className={styles.ayudaError}>
               {errorRoles}{' '}
               <button type="button" className={styles.enlaceReintentar} onClick={cargarRoles}>
-                Reintentar
+                {t('adm.reintentar')}
               </button>
-              {esEdicion && ' Se conservan los roles actuales al guardar.'}
+              {esEdicion && t('adm.emp.conservaRoles')}
             </span>
           ) : roles.length === 0 ? (
-            <span className={styles.rolesVacio}>No hay roles operativos disponibles.</span>
+            <span className={styles.rolesVacio}>{t('adm.emp.sinRoles')}</span>
           ) : (
             roles.map((rol) => (
               <label key={rol.id} className={styles.rolItem}>
@@ -243,10 +245,10 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
 
       <div className={styles.acciones}>
         <Boton type="button" variante="secundario" onClick={onCancelar} disabled={guardando}>
-          Cancelar
+          {t('comun.cancelar')}
         </Boton>
         <Boton type="button" cargando={guardando} disabled={!completo} onClick={() => { void guardar(); }}>
-          {esEdicion ? 'Guardar cambios' : 'Crear empleado'}
+          {esEdicion ? t('adm.emp.guardarCambios') : t('adm.emp.crear')}
         </Boton>
       </div>
     </div>

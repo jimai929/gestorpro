@@ -12,12 +12,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioKiosco } from './FormularioKiosco';
 import { obtenerKioscos, regenerarTokenKiosco } from './servicioKioscos';
 import type { Kiosco, KioscoConToken } from './tipos';
 import styles from './PantallaKioscos.module.css';
 
 export function PantallaKioscos() {
+  const { t } = useTraduccion();
   const [kioscos, setKioscos] = useState<Kiosco[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -33,11 +35,11 @@ export function PantallaKioscos() {
     try {
       setKioscos(await obtenerKioscos());
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : 'Error al cargar los kioscos.');
+      setErrorCarga(err instanceof Error ? err.message : t('adm.kiosco.errCargar'));
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void cargar();
@@ -57,7 +59,7 @@ export function PantallaKioscos() {
       const { token } = await regenerarTokenKiosco(kiosco.id);
       setTokenRevelado({ nombre: kiosco.nombre, token });
     } catch (err) {
-      setErrorAccion(err instanceof Error ? err.message : 'Error al regenerar el token.');
+      setErrorAccion(err instanceof Error ? err.message : t('adm.kiosco.errRegenerar'));
     } finally {
       setRegenerandoId(null);
     }
@@ -69,19 +71,19 @@ export function PantallaKioscos() {
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
-        <nav className={styles.navAdmin} aria-label="Administración">
-          <NavLink to="/sedes" className={claseNav}>Sedes</NavLink>
-          <NavLink to="/empleados" className={claseNav}>Empleados</NavLink>
-          <NavLink to="/kioscos" className={claseNav}>Kioscos</NavLink>
+        <nav className={styles.navAdmin} aria-label={t('adm.ariaNav')}>
+          <NavLink to="/sedes" className={claseNav}>{t('nav.sedes')}</NavLink>
+          <NavLink to="/empleados" className={claseNav}>{t('nav.empleados')}</NavLink>
+          <NavLink to="/kioscos" className={claseNav}>{t('nav.kioscos')}</NavLink>
         </nav>
 
         <div className={styles.encabezado}>
           <div>
-            <h1 className={styles.tituloPagina}>Kioscos</h1>
-            <p className={styles.subtitulo}>Alta de kioscos de fichaje por sede</p>
+            <h1 className={styles.tituloPagina}>{t('nav.kioscos')}</h1>
+            <p className={styles.subtitulo}>{t('adm.kiosco.subtitulo')}</p>
           </div>
           <Boton onClick={() => setMostrarFormNuevo((prev) => !prev)}>
-            {mostrarFormNuevo ? 'Cerrar formulario' : '+ Registrar kiosco'}
+            {mostrarFormNuevo ? t('adm.cerrarFormulario') : t('adm.kiosco.btnRegistrar')}
           </Boton>
         </div>
 
@@ -95,11 +97,10 @@ export function PantallaKioscos() {
             style={{ border: '2px solid #2563eb', background: '#eff6ff' }}
           >
             <p style={{ fontWeight: 600, margin: 0 }}>
-              Token del kiosco «{tokenRevelado.nombre}»
+              {t('adm.kiosco.tokenTitulo', { nombre: tokenRevelado.nombre })}
             </p>
             <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
-              Cópielo y configúrelo en el dispositivo (pantalla del kiosco). Por
-              seguridad, <strong>solo se muestra una vez</strong>.
+              {t('adm.kiosco.tokenInstruccionA')}<strong>{t('adm.kiosco.tokenSoloUnaVez')}</strong>.
             </p>
             <code
               style={{
@@ -115,7 +116,7 @@ export function PantallaKioscos() {
             </code>
             <div style={{ marginTop: '0.5rem' }}>
               <Boton variante="secundario" onClick={() => setTokenRevelado(null)}>
-                Cerrar
+                {t('comun.cerrar')}
               </Boton>
             </div>
           </div>
@@ -128,24 +129,24 @@ export function PantallaKioscos() {
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
               <Boton variante="secundario" onClick={() => { void cargar(); }}>
-                Reintentar
+                {t('adm.reintentar')}
               </Boton>
             </div>
           )}
 
-          {!errorCarga && cargando && <p className={styles.estadoCarga}>Cargando kioscos…</p>}
+          {!errorCarga && cargando && <p className={styles.estadoCarga}>{t('adm.kiosco.cargandoLista')}</p>}
 
           {!errorCarga && !cargando && kioscos.length === 0 && (
-            <p className={styles.estadoVacio}>No hay kioscos registrados todavía.</p>
+            <p className={styles.estadoVacio}>{t('adm.kiosco.vacio')}</p>
           )}
 
           {!errorCarga && !cargando && kioscos.length > 0 && (
             <table className={styles.tabla}>
               <thead>
                 <tr>
-                  <th>Nombre</th>
-                  <th>Sede</th>
-                  <th>Acciones</th>
+                  <th>{t('adm.kiosco.thNombre')}</th>
+                  <th>{t('adm.kiosco.thSede')}</th>
+                  <th>{t('adm.kiosco.thAcciones')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,7 +160,7 @@ export function PantallaKioscos() {
                         cargando={regenerandoId === kiosco.id}
                         onClick={() => { void regenerar(kiosco); }}
                       >
-                        Regenerar token
+                        {t('adm.kiosco.regenerarToken')}
                       </Boton>
                     </td>
                   </tr>
