@@ -1,10 +1,11 @@
 # Validación legal de la jornada — checklist para el asesor laboral panameño
 
-> **✅ ESTADO (2026-06-17): VALIDADO.** Un asesor laboral panameño firmó la
-> validación; **los 11 parámetros se confirmaron SIN cambios** (valores tal como
-> están en `legal.ts`). El gate bloqueante de P2 queda **resuelto**. La firma del
-> asesor está en poder de Jim. (Si más adelante el asesor corrige algún valor,
-> es editar UNA constante en `legal.ts` y recalcular las jornadas afectadas.)
+> **✅ ESTADO: VALIDADO.** Firmado por el asesor laboral panameño **Jose Moise
+> Jaramillo** el **2026-06-14**; **los 11 parámetros se confirmaron SIN cambios**
+> (valores tal como están en `legal.ts`). El gate bloqueante de P2 queda
+> **resuelto**. La firma física obra en poder de Jim (matrícula del asesor:
+> pendiente de anotar). Si más adelante el asesor corrige algún valor, es editar
+> UNA constante en `legal.ts` y recalcular las jornadas afectadas.
 
 > **Para qué es esto.** El motor de jornada de GestorPro implementa las reglas
 > laborales como una **interpretación general, NO asesoría legal**. Antes de
@@ -123,7 +124,8 @@ validar explícitamente:
 
 ## Cierre del gate
 
-**Veredicto del asesor (2026-06-17): TODOS los parámetros OK, sin cambios.**
+**Veredicto del asesor Jose Moise Jaramillo (2026-06-14): TODOS los parámetros
+OK, sin cambios.**
 
 | # | Parámetro | Veredicto |
 |---|-----------|-----------|
@@ -146,6 +148,6 @@ Como no hubo cambios de valor: no hace falta editar `legal.ts` (solo se actualiz
 el aviso de cabecera a "validado") ni recalcular jornadas. Gate marcado resuelto
 en `DESPLIEGUE.md` (§8, P2) y `DECISIONES.md` (pre-producción).
 
-> Nota: la firma física del asesor está en poder de Jim. Cuando se quiera dejar
-> el nombre del asesor por escrito en el repo, sustituir aquí "el asesor" por su
-> nombre y matrícula.
+> Asesor: **Jose Moise Jaramillo** · Fecha de validación: **2026-06-14** · Firma
+> física en poder de Jim. Pendiente menor (no bloquea): anotar la matrícula del
+> asesor cuando Jim la facilite.

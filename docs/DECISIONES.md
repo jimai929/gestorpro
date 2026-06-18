@@ -197,10 +197,11 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
 > abajo NO bloquean el desarrollo pero **deben resolverse ANTES de poner la app
 > en producción**. Son validaciones externas, no código pendiente.
 
-### Pre-producción — VALIDACIÓN LEGAL PANAMEÑA ✅ VALIDADO (2026-06-17)
+### Pre-producción — VALIDACIÓN LEGAL PANAMEÑA ✅ VALIDADO (2026-06-14)
 
-**Resuelto:** un asesor laboral panameño firmó la validación y confirmó los 11
-parámetros SIN cambios (veredicto detallado en `docs/VALIDACION_LEGAL.md`). El
+**Resuelto:** el asesor laboral panameño **Jose Moise Jaramillo** firmó la
+validación el 2026-06-14 y confirmó los 11 parámetros SIN cambios (veredicto
+detallado en `docs/VALIDACION_LEGAL.md`). El
 gate bloqueante de la asistencia en producción queda **levantado**. Lo de abajo
 queda como referencia de qué se validó (todo vive en
 `backend/src/asistencia/jornada/legal.ts`, FIJO/no configurable):
