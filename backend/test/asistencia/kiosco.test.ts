@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { prisma } from '../../src/core/prisma.js';
+import { construirApp } from '../../src/app.js';
 import {
   crearKiosco,
   regenerarTokenKiosco,
@@ -73,5 +74,38 @@ describe('kiosco — token de dispositivo', () => {
     await expect(
       regenerarTokenKiosco('00000000-0000-0000-0000-000000000000'),
     ).rejects.toBeInstanceOf(ErrorNoEncontrado);
+  });
+});
+
+describe('kiosco — listado público GET /kioscos (L5: no filtrar modoExcepcion)', () => {
+  it('la respuesta pública NO incluye sede.modoExcepcion (divulgación de info)', async () => {
+    // El endpoint es público (sin sesión); su payload no debe revelar el modo de
+    // excepción de cada sede. construirApp registra el authPlugin, que exige un
+    // secreto JWT aunque esta ruta no lo use: se fija uno de prueba.
+    process.env.JWT_ACCESS_SECRET ??= 'test-secret-kioscos';
+    n += 1;
+    const sede = await prisma.sede.create({
+      data: { nombre: `SedePub ${n}-${Date.now()}`, modoExcepcion: 'ambos' },
+    });
+    const kiosco = await prisma.kiosco.create({ data: { nombre: `KPub ${n}`, sedeId: sede.id } });
+
+    const app = construirApp();
+    try {
+      const res = await app.inject({ method: 'GET', url: '/kioscos' });
+      expect(res.statusCode).toBe(200);
+      const lista = res.json() as Array<{
+        id: string;
+        nombre: string;
+        sede: Record<string, unknown>;
+      }>;
+      const propio = lista.find((k) => k.id === kiosco.id);
+      expect(propio, 'el kiosco activo debe aparecer en el listado').toBeDefined();
+      // Sí expone el nombre de la sede (lo necesita el selector del kiosco)…
+      expect(propio!.sede.nombre).toBe(sede.nombre);
+      // …pero NUNCA el modo de excepción.
+      expect(propio!.sede).not.toHaveProperty('modoExcepcion');
+    } finally {
+      await app.close();
+    }
   });
 });

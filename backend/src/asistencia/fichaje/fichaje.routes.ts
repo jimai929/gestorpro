@@ -81,10 +81,14 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
   const limiteKiosco = { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } };
 
   // Catálogo de kioscos para que el dispositivo se identifique. Público (el
-  // kiosco no tiene sesión de usuario); expone nombre, sede y modo de excepción.
+  // kiosco no tiene sesión de usuario); expone solo nombre y sede. NO expone
+  // `modoExcepcion` (sería divulgación de info en una ruta pública: revelaría el
+  // método de excepción de cada sede): el modo llega al kiosco en el 409 de
+  // POST /fichajes, autorizado por el token de dispositivo.
   app.get('/kioscos', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     try {
-      // `select` explícito: NUNCA exponer `tokenHash` en el listado público.
+      // `select` explícito: NUNCA exponer `tokenHash` ni `modoExcepcion` en el
+      // listado público.
       const kioscos = await prisma.kiosco.findMany({
         where: { activo: true },
         orderBy: { nombre: 'asc' },
@@ -94,7 +98,7 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
           sedeId: true,
           activo: true,
           creadoEn: true,
-          sede: { select: { nombre: true, modoExcepcion: true } },
+          sede: { select: { nombre: true } },
         },
       });
       return await reply.send(kioscos);
