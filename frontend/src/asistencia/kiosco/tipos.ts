@@ -7,9 +7,12 @@
 
 export type ModoExcepcion = 'pin' | 'supervisor' | 'ambos';
 
+// Sede anidada en el listado público GET /kioscos: solo `nombre`. El
+// `modoExcepcion` NO se expone en esa ruta pública (L5, seguridad: sería
+// divulgación de info); el modo de excepción llega al kiosco en el 409 de
+// POST /fichajes (ver `RespuestaExcepcion`).
 export interface Sede {
   nombre: string;
-  modoExcepcion: ModoExcepcion;
 }
 
 export interface Kiosco {
