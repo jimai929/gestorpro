@@ -52,10 +52,11 @@ Avanzar por defecto: hacer lo de bajo riesgo, preguntar solo lo de alto riesgo.
 * Problema fuera de alcance: anotarlo y seguir.
 * Tarea grande o decisión de arquitectura: proponer un plan breve primero.
 
-Pedir confirmación (alto riesgo): `git commit`, `git push`, instalar
-dependencias, cambiar de stack, refactor grande, y toda operación con riesgo de
-pérdida de datos (`db:reset`, `prisma migrate reset`, drop, truncate, rename o
-eliminación de tabla/columna, modificar migration aplicada, borrar datos reales).
+Pedir confirmación (alto riesgo): `git push`, instalar dependencias, cambiar de
+stack, refactor grande, y toda operación con riesgo de pérdida de datos
+(`db:reset`, `prisma migrate reset`, drop, truncate, rename o eliminación de
+tabla/columna, modificar migration aplicada, borrar datos reales). `git commit`
+NO requiere confirmación (ver `## Git`).
 
 ---
 
@@ -114,7 +115,9 @@ modal ni redirigir antes del éxito real; mostrar loading. Primero versión usab
 
 ## Git
 
-* No commit ni push sin aprobación explícita de Jim. Un commit, un tema.
+* Commit autónomo al terminar una tarea verificada, sin pedir permiso cada vez
+  (un commit, un tema; mensaje en español). `git push` SÍ requiere aprobación
+  explícita de Jim.
 * No commitear `.env`, secretos, logs, temporales ni scratch.
 
 ---
