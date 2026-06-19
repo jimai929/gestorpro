@@ -4,7 +4,7 @@ Puntos que faltan ANTES (o justo DESPUÉS) de poner la app en producción. Cada
 ítem indica **tipo** (Bloqueante / Recomendado), **estado actual** y
 **responsable** (Legal = Jim busca al asesor · Técnico = Claude Code).
 
-> Estado del producto: Fases 0–6 completas, tests verdes (backend 132/132,
+> Estado del producto: Fases 0–6 completas, tests verdes (backend 136/136,
 > frontend 34/34), i18n es/en/zh, `deploy/` validado en LOCAL. El único
 > obstáculo real para producción es desplegar en un VPS real.
 
@@ -14,7 +14,7 @@ Puntos que faltan ANTES (o justo DESPUÉS) de poner la app en producción. Cada
 |---|------|------|--------|-------------|
 | 1 | Validación legal de `legal.ts` | 🔴 Bloqueante | ✅ Validado — J. M. Jaramillo, 2026-06-14 | Legal (Jim) |
 | 2 | Rol app no-owner + REVOKE de `auditoria` | 🔴 Bloqueante | Implementado en scripts + verificado local; falta correr en VPS | Técnico |
-| 3 | L5: quitar `modoExcepcion` de `GET /kioscos` | 🔴 Bloqueante (seguridad) | No hecho | Técnico |
+| 3 | L5: quitar `modoExcepcion` de `GET /kioscos` | 🔴 Bloqueante (seguridad) | ✅ Hecho (commits f8de57b + 6e59405) | Técnico |
 | 4 | Firestec — total de ventas diario | 🟡 Recomendado | Cerrado (manual) | Legal (Jim) |
 | 5 | Post-deploy: backup cron + copia externa + monitoreo | 🔴 Bloqueante | Scripts listos; falta operativa | Técnico (+ VPS de Jim) |
 
@@ -67,12 +67,13 @@ Puntos que faltan ANTES (o justo DESPUÉS) de poner la app en producción. Cada
   alternativa atacar por sede (fuerza bruta de PIN vs. credencial de supervisor).
   Es divulgación de información y reduce la superficie de defensa → **hay que
   quitarlo antes de exponer la app**.
-- **Estado actual:** ❌ NO hecho. El endpoint público sigue incluyendo
-  `modoExcepcion`. El kiosco lo recibe en el flujo de excepción vía el 409 del
-  `POST /fichajes` (autorizado por token de dispositivo), así que NO necesita
-  venir en el listado público.
-- **Responsable:** Técnico (Claude Code) — cambio pequeño de business code
-  (excluir el campo del DTO del `GET /kioscos` público).
+- **Estado actual:** ✅ HECHO (commits f8de57b + 6e59405). El `GET /kioscos`
+  público usa un `select` explícito que NUNCA expone `modoExcepcion` ni
+  `tokenHash` (ver `backend/src/asistencia/fichaje/fichaje.routes.ts:88-90`); el
+  tipo `Sede` del front se alineó para no esperar ese campo. El kiosco recibe el
+  `modoExcepcion` solo en el flujo de excepción, vía el 409 del `POST /fichajes`
+  (autorizado por token de dispositivo), no en el listado público.
+- **Responsable:** Técnico (Claude Code) — cerrado.
 
 ## 4. Firestec — total de ventas diario
 
