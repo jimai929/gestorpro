@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Despliegue/actualización de GestorPro en el VPS. Idempotente y seguro de
 # repetir. Orquesta: build → Postgres → migrate deploy (rol migrador) → grants y
-# append-only → seed base → verificación append-only → levantar backend + caddy.
+# append-only → seed base → verificación append-only → backend → validar
+# Caddyfile → caddy.
 #
 # Requiere deploy/.env (copiar de .env.example y rellenar). Ejecutar desde
 # cualquier ruta: el script se sitúa en su propio directorio.
@@ -129,6 +130,15 @@ if [[ "$estado_backend" != "healthy" ]]; then
   exit 1
 fi
 echo "    Backend healthy."
+
+echo "==> Validando el Caddyfile antes de exponer caddy"
+# caddy es el ÚLTIMO servicio en levantarse (es el borde público con TLS): si su
+# Caddyfile tuviera un error de sintaxis, hoy solo se vería al arrancar, con el
+# backend ya healthy y la app sin reverse-proxy. Se valida ANTES en un contenedor
+# efímero; con set -e, un Caddyfile inválido aborta el despliegue aquí. La imagen
+# caddy no tiene ENTRYPOINT (CMD=["caddy","run",...]), por eso el comando lleva
+# 'caddy'; --no-deps evita arrancar backend/postgres solo para validar.
+docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
 
 echo "==> Levantando caddy"
 docker compose up -d caddy
