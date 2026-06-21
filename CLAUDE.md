@@ -85,6 +85,10 @@ NO requiere confirmación (ver `## Git`).
 * Dinero (Gasto, PagoProveedor, VentaDiaria) es inmutable: no editar ni borrar;
   corregir con reverso + corrección. Sin doble corrección ni sobrepago.
 * `Auditoria` es append-only. Dinero siempre en `Decimal`, nunca `Float`.
+* Aislamiento entre empresas (multi-tenant) es **fail-closed**: una consulta sin
+  contexto de tenant da 0 filas o error, NUNCA datos de otra empresa. Frontera
+  real = RLS de Postgres bajo el rol `gestorpro_app`; la app NUNCA conecta con
+  `gestorpro_migrador` (tiene `BYPASSRLS`). Detalle: `docs/ARQUITECTURA_MULTITENANT.md`.
 * `Fichaje` y `Correccion` inmutables; `Jornada` se recalcula desde fichajes.
 * Operaciones de dinero, saldos, pagos o correcciones van en transacción.
 * Migrations: nunca editar una ya aplicada; cambios estructurales en migration
