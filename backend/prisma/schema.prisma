@@ -45,7 +45,15 @@ model Empresa {
   zonaHoraria String   @default("America/Panama") @map("zona_horaria")
   creadoEn    DateTime @default(now()) @map("creado_en")
 
-  membresias Membresia[]
+  membresias           Membresia[]
+  sedes                Sede[]
+  proveedores          Proveedor[]
+  categoriasGasto      CategoriaGasto[]
+  rolesOperativos      RolOperativo[]
+  turnos               Turno[]
+  diasFestivos         DiaFestivo[]
+  configuracionesCobro ConfiguracionCobro[]
+  auditorias           Auditoria[]
 
   @@map("empresa")
 }
@@ -82,6 +90,7 @@ model Sede {
   empleados Empleado[]
   kioscos   Kiosco[]
   turnos    Turno[]
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("sede")
 }
@@ -133,6 +142,7 @@ model Auditoria {
   usuarioId String   @map("usuario_id") @db.Uuid
   detalle   Json?
   creadoEn  DateTime @default(now()) @map("creado_en")
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("auditoria")
 }
@@ -168,6 +178,7 @@ model Proveedor {
   creadoEn             DateTime @default(now()) @map("creado_en")
 
   compras Compra[]
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("proveedor")
 }
@@ -230,6 +241,7 @@ model CategoriaGasto {
   creadoEn       DateTime @default(now()) @map("creado_en")
 
   gastos Gasto[]
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("categoria_gasto")
 }
@@ -393,6 +405,7 @@ model RolOperativo {
   creadoEn DateTime @default(now()) @map("creado_en")
 
   empleados EmpleadoRolOperativo[]
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("rol_operativo")
 }
@@ -489,6 +502,7 @@ model Turno {
   creadoEn           DateTime @default(now()) @map("creado_en")
 
   empleados Empleado[]
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("turno")
 }
@@ -547,6 +561,7 @@ model DiaFestivo {
   fecha     DateTime @unique @db.Date
   nombre   String
   creadoEn DateTime @default(now()) @map("creado_en")
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("dia_festivo")
 }
@@ -606,6 +621,7 @@ model ConfiguracionCobro {
   porcentajeCobrable Int      @default(80) @map("porcentaje_cobrable")
   umbralAprobacion   Decimal  @default(100) @map("umbral_aprobacion") @db.Decimal(12, 2)
   actualizadoEn      DateTime @updatedAt @map("actualizado_en")
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("configuracion_cobro")
 }
