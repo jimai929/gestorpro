@@ -80,6 +80,17 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
 - **`Auditoria` es append-only** — solo inserción, nunca update ni delete.
   Garantía en tres capas: superficie cerrada del repositorio, REVOKE en
   Postgres, y ausencia de campos mutables.
+- **Excepción acotada al append-only de `Auditoria` (multi-tenant, 2026-06-21):**
+  completar la columna estructural `empresa_id` en las filas históricas de
+  `auditoria` durante la conversión a multi-tenant **NO viola el append-only**. Es
+  un UPDATE **una sola vez**, ejecutado por el rol **migrador (owner)** —imposible
+  desde `gestorpro_app`, que conserva el REVOKE—, que **solo añade el tenant al que
+  la fila siempre perteneció** (la única empresa que existía) y **NO toca el hecho
+  auditado** (`entidad`/`entidad_id`/`accion`/`usuario_id`/`detalle`/`creado_en`).
+  Es el mismo principio "metadata estructural ≠ alteración del hecho" de la
+  normalización de identidad del cierre de caja (ver más abajo, "Datos y arranque"),
+  aplicado a la bitácora. Fuera de esta conversión, `auditoria` sigue siendo
+  estrictamente append-only. Detalle: `docs/ARQUITECTURA_MULTITENANT.md` §7.3.
 - **`CategoriaGasto` es una tabla gestionable** por el admin, no un enum.
 - **Endpoint de corrección único y genérico** (`POST /correcciones`), no
   uno por entidad.

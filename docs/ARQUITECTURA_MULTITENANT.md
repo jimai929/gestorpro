@@ -429,6 +429,18 @@ los `autorizar('administrador')` existentes siguen funcionando, ahora scoped por
 el `empresaId` del token. **Super-admin = flag booleano ortogonal** (puede no
 tener ninguna membresía).
 
+> **Invariante "super-admin sin `Membresia`" — TODO de implementación (NO en el
+> backfill).** El backfill Ola 2 (Fase 1) no crea membresía para super-admins, pero
+> hoy eso es trivial porque al migrar NO existe ningún super-admin (`es_super_admin`
+> nace `false` y ningún flujo lo pone en `true`). El invariante se garantiza en dos
+> sitios futuros, **sin editar la migración ya aplicada** (regla dura: no editar una
+> migración aplicada, `DECISIONES.md`; el backfill fue correcto cuando corrió):
+> - **Fase 4 (flujo de alta de super-admin):** crear/promover un super-admin NO crea
+>   `Membresia`; quitarle todas las membresías a un usuario no lo invalida si es
+>   super-admin.
+> - **Fase 8 (test de aislamiento):** invariante verificado — un `Usuario` con
+>   `esSuperAdmin = true` tiene **0 filas en `membresia`** (fila (super-admin) del §6).
+
 ### 4.3 Coexistencia con `app.autorizar`
 `app.autorizar(...roles)` (`auth.plugin.ts:50-57`) **no cambia de firma**: sigue
 comparando `request.user.rol`. Cambia el **origen** de ese `rol`: de `Usuario.rol`
@@ -529,6 +541,7 @@ actor (con `empresaId`).
 | (cobertura) | **Toda tabla tenant-scoped tiene RLS** | recorrer `information_schema` y fallar si una tabla tenant-scoped no tiene `rowsecurity`+`FORCE` (usa la allowlist de §2.4) |
 | (job) | **`barrerHuerfanos` multi-tenant** | con A y B con huérfanos, el job marca los de **ambas**; no `marcadas:0` silencioso (cubre B2) |
 | (cred) | **El runtime no usa `migrador`** (§0.bis regla 1/③) | el `DATABASE_URL` efectivo del proceso resuelve a `gestorpro_app`, no a `gestorpro_migrador`; falla CI/arranque si porta credenciales del migrador |
+| (super-admin) | **Super-admin sin `Membresia`** (Fase 4 + §4.2) | crear/promover un super-admin ⇒ **0 filas en `membresia`** para ese usuario; un `esSuperAdmin=true` nunca aparece en `membresia` |
 
 **Mínimo de regla dura (§0.bis):** los tres tests obligatorios ①②③ son,
 respectivamente, la fila **(RLS)** (el rol app no se salta RLS), las filas
