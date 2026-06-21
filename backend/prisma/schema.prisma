@@ -33,8 +33,44 @@ enum ModoExcepcion {
 }
 
 /// Sede física de la empresa (un cliente puede tener varias).
+/// Tenant raíz del SaaS multi-empresa. Cada fila es un cliente aislado. El
+/// aislamiento entre empresas es fail-closed (RLS bajo gestorpro_app); ver
+/// docs/ARQUITECTURA_MULTITENANT.md.
+model Empresa {
+  id          String   @id @default(uuid()) @db.Uuid
+  nombre      String
+  slug        String   @unique
+  activo      Boolean  @default(true)
+  plan        String   @default("base")
+  zonaHoraria String   @default("America/Panama") @map("zona_horaria")
+  creadoEn    DateTime @default(now()) @map("creado_en")
+
+  membresias Membresia[]
+
+  @@map("empresa")
+}
+
+/// Pertenencia de un Usuario a una Empresa con un rol concreto (N:M). Un usuario
+/// puede tener varias; `predeterminada` marca la activa por defecto en login. El
+/// super-admin de plataforma es un Usuario SIN ninguna Membresia.
+model Membresia {
+  id             String   @id @default(uuid()) @db.Uuid
+  usuarioId      String   @map("usuario_id") @db.Uuid
+  usuario        Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  empresaId      String   @map("empresa_id") @db.Uuid
+  empresa        Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  rol            Rol      @default(empleado)
+  predeterminada Boolean  @default(false)
+  creadoEn       DateTime @default(now()) @map("creado_en")
+
+  @@unique([usuarioId, empresaId])
+  @@index([empresaId])
+  @@map("membresia")
+}
+
 model Sede {
   id            String        @id @default(uuid()) @db.Uuid
+  empresaId     String?       @map("empresa_id") @db.Uuid
   nombre        String
   activo        Boolean       @default(true)
   modoExcepcion ModoExcepcion @default(pin) @map("modo_excepcion")
@@ -60,9 +96,11 @@ model Usuario {
   rol          Rol      @default(empleado)
   passwordHash String   @map("password_hash")
   activo       Boolean  @default(true)
+  esSuperAdmin Boolean  @default(false) @map("es_super_admin")
   creadoEn     DateTime @default(now()) @map("creado_en")
 
-  sesiones SesionRefresco[]
+  sesiones   SesionRefresco[]
+  membresias Membresia[]
 
   @@map("usuario")
 }
@@ -88,6 +126,7 @@ model SesionRefresco {
 /// cerrada y desacoplada.
 model Auditoria {
   id        String   @id @default(uuid()) @db.Uuid
+  empresaId String?  @map("empresa_id") @db.Uuid
   entidad   String
   entidadId String   @map("entidad_id")
   accion    String
@@ -120,6 +159,7 @@ enum TipoCompra {
 /// Proveedor al que se le compra mercancía o servicios.
 model Proveedor {
   id                   String   @id @default(uuid()) @db.Uuid
+  empresaId            String?  @map("empresa_id") @db.Uuid
   nombre               String
   identificacionFiscal String?  @map("identificacion_fiscal")
   telefono             String?
@@ -183,6 +223,7 @@ model PagoProveedor {
 /// de empleado en el gasto (regla de coherencia).
 model CategoriaGasto {
   id             String   @id @default(uuid()) @db.Uuid
+  empresaId      String?  @map("empresa_id") @db.Uuid
   nombre         String   @unique
   esPagoEmpleado Boolean  @default(false) @map("es_pago_empleado")
   activo         Boolean  @default(true)
@@ -344,8 +385,9 @@ model Empleado {
 /// sin tocar el modelo); la baja es lógica (`activo`). Un empleado puede tener
 /// varios a la vez (N:M vía `EmpleadoRolOperativo`).
 model RolOperativo {
-  id       String   @id @default(uuid()) @db.Uuid
-  clave    String   @unique // llave estable de máquina: 'cajera', 'verificador'
+  id        String   @id @default(uuid()) @db.Uuid
+  empresaId String?  @map("empresa_id") @db.Uuid
+  clave     String   @unique // llave estable de máquina: 'cajera', 'verificador'
   nombre   String // etiqueta para mostrar
   activo   Boolean  @default(true)
   creadoEn DateTime @default(now()) @map("creado_en")
@@ -434,6 +476,7 @@ model RevisionFichaje {
 /// legal (jornadas, recargos, topes) es FIJA y vive en el motor, no aquí.
 model Turno {
   id                 String   @id @default(uuid()) @db.Uuid
+  empresaId          String?  @map("empresa_id") @db.Uuid
   nombre             String
   sedeId             String?  @map("sede_id") @db.Uuid
   sede               Sede?    @relation(fields: [sedeId], references: [id])
@@ -499,8 +542,9 @@ model Correccion {
 /// recargo de 150% si se trabaja, y protege el día contra descuento si no se
 /// trabaja (salario fijo).
 model DiaFestivo {
-  id       String   @id @default(uuid()) @db.Uuid
-  fecha    DateTime @unique @db.Date
+  id        String   @id @default(uuid()) @db.Uuid
+  empresaId String?  @map("empresa_id") @db.Uuid
+  fecha     DateTime @unique @db.Date
   nombre   String
   creadoEn DateTime @default(now()) @map("creado_en")
 
@@ -558,6 +602,7 @@ model SolicitudCobro {
 /// cobro es directo). Fila única gestionada por la app.
 model ConfiguracionCobro {
   id                 String   @id @default(uuid()) @db.Uuid
+  empresaId          String?  @map("empresa_id") @db.Uuid
   porcentajeCobrable Int      @default(80) @map("porcentaje_cobrable")
   umbralAprobacion   Decimal  @default(100) @map("umbral_aprobacion") @db.Decimal(12, 2)
   actualizadoEn      DateTime @updatedAt @map("actualizado_en")
