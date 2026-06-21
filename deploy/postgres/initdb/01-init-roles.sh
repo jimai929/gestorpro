@@ -17,15 +17,18 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'gestorpro_migrador') THEN
-    CREATE ROLE gestorpro_migrador LOGIN;
+    CREATE ROLE gestorpro_migrador LOGIN BYPASSRLS;
   END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'gestorpro_app') THEN
     CREATE ROLE gestorpro_app LOGIN;
   END IF;
 END
 $$;
-ALTER ROLE gestorpro_migrador LOGIN PASSWORD :'migpw';
-ALTER ROLE gestorpro_app      LOGIN PASSWORD :'apppw';
+-- BYPASSRLS al migrador (migra/seed/backfill ignoran RLS+FORCE); el app SIEMPRE
+-- NOBYPASSRLS (es el rol sujeto al aislamiento de tenant). Se fija también en el
+-- ALTER para que una re-ejecución de reparación lo aplique sobre roles ya creados.
+ALTER ROLE gestorpro_migrador LOGIN BYPASSRLS   PASSWORD :'migpw';
+ALTER ROLE gestorpro_app      LOGIN NOBYPASSRLS PASSWORD :'apppw';
 -- Base propiedad del migrador: crear solo si no existe (\gexec ejecuta el CREATE
 -- DATABASE generado por el SELECT únicamente cuando la base falta).
 SELECT 'CREATE DATABASE gestorpro OWNER gestorpro_migrador'
