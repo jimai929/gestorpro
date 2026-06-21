@@ -91,6 +91,14 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
   normalización de identidad del cierre de caja (ver más abajo, "Datos y arranque"),
   aplicado a la bitácora. Fuera de esta conversión, `auditoria` sigue siendo
   estrictamente append-only. Detalle: `docs/ARQUITECTURA_MULTITENANT.md` §7.3.
+- **Identidad de `Empleado` es única POR EMPRESA (multi-tenant, 2026-06-21):**
+  `numero` y `qrToken` son únicos **dentro de su empresa**, no globales (como en
+  single-tenant) ni por sede. Dos empresas pueden tener cada una un "E001"; una
+  empresa NO puede repetir "E001" entre sus sedes. Se implementa a nivel BD
+  (fail-closed) añadiendo `empresa_id` a `empleado` + `@@unique([empresaId, numero])`
+  y `([empresaId, qrToken])`. Desnormalizar `empresa_id` en `empleado` NO
+  contradice la regla "no desnormalizar tablas de dinero inmutables": `empleado` no
+  es tabla de dinero. Detalle: `docs/ARQUITECTURA_MULTITENANT.md` (Ola 3c).
 - **`CategoriaGasto` es una tabla gestionable** por el admin, no un enum.
 - **Endpoint de corrección único y genérico** (`POST /correcciones`), no
   uno por entidad.

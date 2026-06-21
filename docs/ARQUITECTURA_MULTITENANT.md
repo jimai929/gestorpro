@@ -184,7 +184,7 @@ desnormaliza en esta fase, ver nota y la tensión I1 del Apéndice).
 | **Gasto** | Hereda (`sedeId`) | dinero | — |
 | **VentaDiaria** | Hereda (`sedeId`) | dinero | `uq_venta_normal(sede_id,fecha,turno,cajera)` ya particiona |
 | **DetalleCierre** | Hereda (`ventaId`) | — | `@@unique([ventaId, tipoArqueo])` |
-| **Empleado** | Hereda (`sedeId`) | — | `@unique(numero)`→`@@unique([sedeId,numero])`; `@unique(qrToken)`→`@@unique([sedeId,qrToken])` (rompe `findUnique`, ver §7.2/I2) |
+| **Empleado** | **Directo** (decisión 2026-06-21: identidad única POR EMPRESA) | antes "Hereda"; se le añade `empresa_id` para unicidad per-empresa a nivel BD (fail-closed) y simplifica su RLS | `@unique(numero)`→`@@unique([empresaId,numero])`; `@unique(qrToken)`→`@@unique([empresaId,qrToken])` (rompe `findUnique`, ver §7.2/I2; Ola 3c) |
 | **RolOperativo** | **Directo** | Por-empresa (1.4) | `@unique(clave)` → `@@unique([empresaId, clave])` |
 | **EmpleadoRolOperativo** | Hereda | PK `(empleadoId, rolOperativoId)` | suficiente |
 | **Kiosco** | Hereda (`sedeId`) | — | `tokenHash` es `String?` sin `@unique` hoy → sin cambio; acotar búsqueda por empresa |
@@ -235,9 +235,16 @@ gobernanza (sembrar los nacionales por empresa es barato e idempotente).
 
 - **`Sede.nombre`**: hoy NO tiene `@unique`. NO añadir `@@unique([empresaId,nombre])`
   (endurecer algo libre puede romper el backfill si la default tiene homónimas).
-- **`Empleado.numero`/`qrToken`**: `@unique` global → compuestos por `sedeId`.
-  `qrToken` compuesto **rompe `findUnique`** (§7.2/I2): hay que reescribir la
-  identificación por QR a `findFirst` derivando la sede del kiosco autenticado.
+- **`Empleado.numero`/`qrToken`**: `@unique` global → compuestos **POR EMPRESA**
+  (decisión 2026-06-21: identidad única por empresa, no per-sede). Requiere añadir
+  `empresa_id` a `empleado` (deja de ser "hereda") → `@@unique([empresaId,numero])`
+  y `([empresaId,qrToken])`. `qrToken` compuesto **rompe `findUnique`** (§7.2/I2):
+  hay que reescribir la identificación por QR a `findFirst` con el `empresaId` del
+  contexto (derivado del kiosco autenticado). Todo esto es **Ola 3c**.
+  **Ola 3c TODO OBLIGATORIO:** un `CHECK`/trigger que garantice
+  `empleado.empresa_id = sede.empresa_id`. La unicidad y la RLS dependen de su
+  exactitud; el espíritu fail-closed NO asume "no derivará", lo **fuerza** con una
+  restricción de BD (decisión 2026-06-21: de "recomendable" a "obligatorio").
 - **`Kiosco.tokenHash`**: `String?` sin `@unique` → sin cambio de constraint;
   acotar la búsqueda por empresa igualmente.
 - **`Auditoria`**: añadir `empresaId` a una tabla con `REVOKE UPDATE/DELETE`
