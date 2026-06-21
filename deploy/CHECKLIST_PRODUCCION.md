@@ -108,8 +108,15 @@ Puntos que faltan ANTES (o justo DESPUÉS) de poner la app en producción. Cada
   `JWT_ACCESS_SECRET`, `ADMIN_EMAIL` real/no adivinable, `ADMIN_PASSWORD`.
 - `FICHAJE_REVISION_TOTAL=true` en prod (riesgo aceptado con el verificador
   facial simulado: todo fichaje a revisión).
-- En el VPS, antes de activar la allowlist de IPs del kiosco en el `Caddyfile`,
-  correr `docker compose exec caddy caddy validate`.
+- Validar el `Caddyfile` tras editarlo (p. ej. al activar la allowlist de IPs del
+  kiosco). El comando depende de si caddy ya está corriendo:
+  - Stack levantado (post-deploy) → `exec` (corre dentro del contenedor vivo):
+    `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile`.
+  - Caddy aún NO levantado (validación previa) → `run` en contenedor efímero:
+    `docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile`.
+  - La imagen caddy no tiene ENTRYPOINT, por eso el comando lleva `caddy` (sin él:
+    `exec: "validate": not found`). `deploy.sh` ya valida el Caddyfile antes de
+    levantar caddy en cada despliegue.
 - Servidor en zona horaria `America/Panama` (afecta la clasificación
   diurna/nocturna del motor de jornada).
 - Tras cada `git pull` en el VPS: `prisma migrate deploy` (la BD persistente
