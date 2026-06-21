@@ -39,6 +39,63 @@ Además, dos cambios de alcance verificados: la identificación por QR usa
 
 ---
 
+## 0.bis. Estado de decisiones y restricciones (confirmado 2026-06-21)
+
+Tras la revisión, Jim confirmó la dirección arquitectónica. Estado:
+
+**Decisiones confirmadas:**
+- **#1 Aislamiento — CONFIRMADO: RLS (frontera dura) + Prisma `$extends`
+  (conveniencia), fail-closed.** El filtro de aplicación puro queda descartado
+  como frontera (solo `$extends` lo aporta, y por encima manda RLS).
+- **#3 Tablas "hereda" — CONFIRMADO (dirección): policy RLS con subquery por-FK;
+  NO se desnormaliza `empresa_id` en las tablas de dinero inmutables
+  (`gasto`, `pago_proveedor`, `venta_diaria`) — eso es regla dura.** La
+  desnormalización SOLO se reconsideraría si se **demuestra** (medición real) que
+  el `EXISTS(... )` por-FK degrada de forma inaceptable los `SELECT ... FOR UPDATE`
+  de los caminos de dinero (`cuentas-por-pagar.service.ts:178,190`,
+  `saldo.service.ts:46`). Sin esa prueba, NO se reabre. Es responsabilidad de la
+  Fase 5 medirlo y reportar antes de desviarse.
+
+**Decisión #2 (`Usuario`↔`Empresa`) — CERRADA (2026-06-21): (B) `Membresia` N:M.**
+La revisión de los requisitos reales (`DECISIONES.md:13,190`,
+`PLAN_DE_CONSTRUCCION.md:5`) confirma que **HOY no existe el escenario "una persona
+gestiona varias empresas"**: el producto se *vende* a varias empresas (cada una
+aislada), los usuarios los crea el admin de su empresa (sin registro abierto), y
+un usuario se relaciona con las *sedes* de **su** empresa. Aun así, Jim eligió **(B)
+`Membresia(usuarioId, empresaId, rol, predeterminada)` N:M** deliberadamente, para
+no cerrar la puerta al caso multi-empresa propio de un SaaS y para modelar el
+super-admin limpiamente (un `Usuario` sin ninguna `Membresia`). Por tanto las
+secciones **§3.2 (payload con `empresaId` activo de la membresía) y §4.2
+(`Membresia` + `esSuperAdmin`) son la ruta CANÓNICA**, no condicionales. En el
+backfill (Ola 2) se crea **una `Membresia{usuarioId, empresaId=default,
+rol=Usuario.rol, predeterminada=true}` por cada `Usuario` existente** (§5). La
+opción (A) `Usuario.empresaId` directo queda descartada.
+
+**Restricciones de seguridad nuevas — NIVEL BERRO (red line), peer de "dinero
+inmutable" y "auditoría append-only":**
+1. **El runtime de la app NUNCA conecta con `gestorpro_migrador`.** Ese rol tiene
+   `BYPASSRLS` (necesario para migrar/seed) y por tanto **ignora el aislamiento
+   de tenant**. `DATABASE_URL` de la app SIEMPRE apunta a `gestorpro_app` (sujeto
+   a RLS). El rol migrador se usa solo para migraciones/seed/backfill, nunca para
+   servir peticiones. Verificable en `deploy/docker-compose.yml:45`.
+2. **La batería de tests de aislamiento DEBE incluir, como mínimo:**
+   - ① **el rol app no puede saltarse RLS** — conectado como `gestorpro_app`
+     (estilo `test/finanzas/auditoria-append-only.test.ts`), sin GUC de tenant ⇒
+     0 filas; con GUC de empresa A ⇒ solo A; `INSERT` con `empresa_id` de B ⇒
+     error `WITH CHECK`.
+   - ② **lectura/escritura cross-tenant rechazada** — el cliente de la empresa A
+     no puede leer, listar, ni mutar **ningún** dato de la empresa B (por cada
+     tipo de entidad).
+   - ③ **el proceso de la app NUNCA porta credenciales de `migrador`** — test/check
+     que verifica que el `DATABASE_URL` efectivo del runtime resuelve al rol
+     `gestorpro_app` y no a `gestorpro_migrador` (falla el arranque/CI si no).
+3. **El aislamiento cross-tenant es FAIL-CLOSED y es una regla dura del proyecto**,
+   al mismo nivel que "el dinero es inmutable" y "la auditoría es append-only":
+   una consulta sin contexto de tenant debe dar **0 filas o error, nunca datos de
+   otra empresa**. (Añadida a `CLAUDE.md` · Integridad de datos.)
+
+---
+
 ## Resumen ejecutivo
 
 GestorPro pasa de single-tenant (una empresa) a SaaS multi-tenant introduciendo
@@ -451,6 +508,12 @@ actor (con `empresaId`).
 | (RLS) | **Frontera DB** (rol `gestorpro_app`, estilo `auditoria-append-only.test.ts`) | con `set_config('app.empresa_id','A')`: `SELECT * FROM gasto` ⇒ solo A; `WHERE id=gastoDeB` ⇒ 0 filas; `INSERT (empresa_id='B')` ⇒ error `WITH CHECK`; sin GUC ⇒ 0 filas |
 | (cobertura) | **Toda tabla tenant-scoped tiene RLS** | recorrer `information_schema` y fallar si una tabla tenant-scoped no tiene `rowsecurity`+`FORCE` (usa la allowlist de §2.4) |
 | (job) | **`barrerHuerfanos` multi-tenant** | con A y B con huérfanos, el job marca los de **ambas**; no `marcadas:0` silencioso (cubre B2) |
+| (cred) | **El runtime no usa `migrador`** (§0.bis regla 1/③) | el `DATABASE_URL` efectivo del proceso resuelve a `gestorpro_app`, no a `gestorpro_migrador`; falla CI/arranque si porta credenciales del migrador |
+
+**Mínimo de regla dura (§0.bis):** los tres tests obligatorios ①②③ son,
+respectivamente, la fila **(RLS)** (el rol app no se salta RLS), las filas
+**(a)/(b)** (lectura/escritura cross-tenant rechazada) y la fila **(cred)** (el
+proceso no porta credenciales de migrador). No son opcionales.
 
 **Niveles:** (a)–(d) a nivel **servicio**; (e),(f) y smoke de (a) a nivel **HTTP**
 (`app.inject`); (RLS) a nivel **DB** con `pg.Client` crudo. El test **RLS a nivel
@@ -524,13 +587,13 @@ Orden duro: 0→1→2 antes que 3; 4 antes que 5; 5 antes que 8.
 
 ### Decisiones abiertas que el revisor debe confirmar
 
-1. **Aislamiento (la grande):** ¿**RLS + `$extends`** (falla cerrado, cubre raw,
-   coste alto) o **filtro de aplicación puro** (menor coste, falla abierto)?
-2. **`Usuario`↔`Empresa`:** ¿**(B) `Membresia` N:M** (multi-empresa, super-admin
-   limpio) o **(A) `Usuario.empresaId` directo NOT NULL** (más simple)?
-3. **Tablas "hereda" bajo RLS:** ¿**policy con subquery por-FK** (más cara en los
-   `FOR UPDATE`) o **desnormalizar `empresa_id`** en las 2–3 tablas de dinero con
-   `$queryRaw`+lock (`compra`, `saldo_horas_extra`)? (tensión §1.2/I1)
+1. ~~Aislamiento~~ **CERRADA (2026-06-21): RLS + `$extends`, fail-closed.** Ver §0.bis.
+2. ~~`Usuario`↔`Empresa`~~ **CERRADA (2026-06-21): (B) `Membresia` N:M** (elección
+   de Jim, para no cerrar el caso multi-empresa del SaaS + super-admin limpio).
+   Ver §0.bis. §3.2/§4.2 son canónicas.
+3. ~~Tablas "hereda"~~ **CERRADA (dirección, 2026-06-21): policy con subquery
+   por-FK; NO desnormalizar tablas de dinero inmutables.** Solo se reabre con
+   medición que pruebe degradación inaceptable del `FOR UPDATE`. Ver §0.bis.
 4. **Catálogos:** confirmar **POR-EMPRESA** para los 5 (esp. `DiaFestivo`:
    por-empresa vs feriados nacionales globales).
 5. **Baja de empresa / revocación de super-admin (I5):** ¿invalidar sesiones
