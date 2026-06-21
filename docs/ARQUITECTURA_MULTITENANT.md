@@ -71,7 +71,27 @@ backfill (Ola 2) se crea **una `Membresia{usuarioId, empresaId=default,
 rol=Usuario.rol, predeterminada=true}` por cada `Usuario` existente** (§5). La
 opción (A) `Usuario.empresaId` directo queda descartada.
 
-**Restricciones de seguridad nuevas — NIVEL BERRO (red line), peer de "dinero
+**Restricción "usuario ↔ empresa" bajo (B) — capa de aplicación, NO CHECK de BD.**
+Al no llevar `Usuario` un `empresa_id` directo, el invariante "un usuario normal
+pertenece a una empresa" **no** es un CHECK de una sola fila (sería una existencia
+cross-tabla → exigiría trigger o constraint diferido: descartado por frágil). Se
+enforza así:
+- **Super-admin** = `Usuario.esSuperAdmin = true` (flag, default `false`); puede
+  tener **0 membresías** (legítimo: opera en la capa plataforma).
+- **Usuario normal** (`esSuperAdmin = false`) **requiere ≥1 `Membresia` para ser
+  funcional**: `iniciarSesion` rechaza con `ErrorAutenticacion` a un no-super-admin
+  con 0 membresías (§3.3). La BD no impide que exista un usuario sin membresía; el
+  **login** impide que opere.
+- **Anti-huérfanos:** el alta de usuario crea el `Usuario` + su primera `Membresia`
+  en **la misma transacción** (un usuario sin membresía quedaría "huérfano", sin
+  poder entrar). Es invariante del flujo de creación (Fase 4), no de la BD.
+- Único constraint a nivel BD: `membresia @@unique([usuarioId, empresaId])` (un rol
+  por par usuario-empresa).
+
+Esto **reemplaza** al CHECK `(es_super_admin) OR (empresa_id IS NOT NULL)`, que era
+mecanismo exclusivo del descartado diseño (A) y no aplica bajo (B).
+
+**Restricciones de seguridad nuevas — NIVEL HIERRO (red line), peer de "dinero
 inmutable" y "auditoría append-only":**
 1. **El runtime de la app NUNCA conecta con `gestorpro_migrador`.** Ese rol tiene
    `BYPASSRLS` (necesario para migrar/seed) y por tanto **ignora el aislamiento
