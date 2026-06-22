@@ -1,10 +1,22 @@
 // Cargar el entorno antes de importar el cliente Prisma (que lee DATABASE_URL).
 import '../src/core/entorno.js';
 import { randomBytes } from 'node:crypto';
-import { prisma } from '../src/core/prisma.js';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../src/generated/prisma/client.js';
 import { hashearContrasena } from '../src/core/auth/contrasena.js';
 import { Rol } from '../src/generated/prisma/enums.js';
 import { demoHabilitado, resolverPasswordAdmin } from './seed-opciones.js';
+
+// El seed corre como el rol PRIVILEGIADO (migrador, BYPASSRLS), igual que en
+// producción (deploy.sh) y dev: ignora RLS y rellena empresa_id explícito en cada
+// tabla directa. NUNCA como gestorpro_app (sujeto a RLS, no podría sembrar). En dev,
+// MIGRATOR_DATABASE_URL (.env); en prod, deploy.sh fija DATABASE_URL=migrador en el
+// paso de seed (por eso el fallback).
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({
+    connectionString: process.env.MIGRATOR_DATABASE_URL ?? process.env.DATABASE_URL,
+  }),
+});
 
 /**
  * Semilla de la base de datos de GestorPro.
@@ -26,14 +38,26 @@ const TOKEN_KIOSCO_DEMO = 'demo-kiosco-token';
 async function main(): Promise<void> {
   const demoOn = demoHabilitado(process.env);
 
-  // Sede base (idempotente por nombre).
+  // Empresa por defecto PRIMERO: sede y catálogos llevan empresa_id NOT NULL, así
+  // que la empresa debe existir antes. Idempotente por slug (también la crea el
+  // backfill Ola 2).
+  const empresaDefault = await prisma.empresa.upsert({
+    where: { slug: 'default' },
+    update: {},
+    create: { nombre: 'Empresa Default', slug: 'default' },
+  });
+
+  // Sede base (idempotente por nombre), ligada a la empresa default.
   let sede = await prisma.sede.findFirst({ where: { nombre: 'Sede Central' } });
   if (!sede) {
-    sede = await prisma.sede.create({ data: { nombre: 'Sede Central' } });
+    sede = await prisma.sede.create({
+      data: { nombre: 'Sede Central', empresaId: empresaDefault.id },
+    });
   }
 
   // Usuario administrador inicial. La contraseña viene de ADMIN_PASSWORD; en
   // producción es obligatoria (sin default débil) — ver resolverPasswordAdmin.
+  // `usuario` está EXCLUIDA de RLS: no lleva empresa_id.
   const email = process.env.ADMIN_EMAIL ?? 'admin@gestorpro.local';
   const passwordHash = await hashearContrasena(resolverPasswordAdmin(process.env, demoOn));
   const admin = await prisma.usuario.upsert({
@@ -47,14 +71,8 @@ async function main(): Promise<void> {
     },
   });
 
-  // Empresa por defecto + membresía del admin: el login EXIGE membresía, así que
-  // sin ella el admin no podría entrar tras un seed fresco. La empresa default
-  // también la crea el backfill Ola 2; aquí es idempotente por slug.
-  const empresaDefault = await prisma.empresa.upsert({
-    where: { slug: 'default' },
-    update: {},
-    create: { nombre: 'Empresa Default', slug: 'default' },
-  });
+  // Membresía del admin en la empresa default: el login EXIGE membresía, así que
+  // sin ella el admin no podría entrar tras un seed fresco.
   await prisma.membresia.upsert({
     where: {
       usuarioId_empresaId: { usuarioId: admin.id, empresaId: empresaDefault.id },
@@ -69,16 +87,16 @@ async function main(): Promise<void> {
   });
 
   // Base (prod-safe): catálogos y configuración.
-  await sembrarRolesOperativos();
-  await sembrarCategoriasGasto();
-  await sembrarConfiguracionCobro();
+  await sembrarRolesOperativos(empresaDefault.id);
+  await sembrarCategoriasGasto(empresaDefault.id);
+  await sembrarConfiguracionCobro(empresaDefault.id);
 
   // Datos de demostración: solo en desarrollo (o con SEED_DEMO=true).
   if (demoOn) {
     // Los empleados (con sus roles operativos) antes de los cierres, para que la
     // cajera/verificador de los cierres demo correspondan a empleados reales.
-    await sembrarDemoAsistencia(sede.id);
-    await sembrarDemoFinanzas(admin.id, sede.id);
+    await sembrarDemoAsistencia(empresaDefault.id, sede.id);
+    await sembrarDemoFinanzas(empresaDefault.id, admin.id, sede.id);
   }
 
   console.log('Semilla aplicada:');
@@ -92,25 +110,26 @@ async function main(): Promise<void> {
  * rol nuevo (vendedor, técnico, …) es agregar una entrada aquí. Idempotente
  * (upsert por `clave`).
  */
-async function sembrarRolesOperativos(): Promise<void> {
+async function sembrarRolesOperativos(empresaId: string): Promise<void> {
   const roles = [
     { clave: 'cajera', nombre: 'Cajera' },
     { clave: 'verificador', nombre: 'Verificador' },
   ];
   for (const rol of roles) {
     await prisma.rolOperativo.upsert({
-      where: { clave: rol.clave },
+      // clave única POR empresa (compuesta): el upsert ya no colisiona entre tenants.
+      where: { empresaId_clave: { empresaId, clave: rol.clave } },
       update: {},
-      create: rol,
+      create: { ...rol, empresaId },
     });
   }
 }
 
 /** Configuración de cobro por defecto (80% cobrable, umbral B/. 100). Idempotente. */
-async function sembrarConfiguracionCobro(): Promise<void> {
-  const existe = await prisma.configuracionCobro.findFirst();
+async function sembrarConfiguracionCobro(empresaId: string): Promise<void> {
+  const existe = await prisma.configuracionCobro.findFirst({ where: { empresaId } });
   if (!existe) {
-    await prisma.configuracionCobro.create({ data: {} });
+    await prisma.configuracionCobro.create({ data: { empresaId } });
   }
 }
 
@@ -118,7 +137,7 @@ async function sembrarConfiguracionCobro(): Promise<void> {
  * Categorías de gasto base. Idempotente (upsert por nombre único). Incluye una
  * categoría de pago a empleado para ejercitar la regla de coherencia.
  */
-async function sembrarCategoriasGasto(): Promise<void> {
+async function sembrarCategoriasGasto(empresaId: string): Promise<void> {
   const categorias = [
     { nombre: 'Servicios públicos', esPagoEmpleado: false },
     { nombre: 'Alquiler', esPagoEmpleado: false },
@@ -127,9 +146,11 @@ async function sembrarCategoriasGasto(): Promise<void> {
   ];
   for (const categoria of categorias) {
     await prisma.categoriaGasto.upsert({
+      // `nombre` sigue @unique GLOBAL (Fase 3 pendiente para esta tabla); el seed de
+      // la empresa default no colisiona. Al hacer Fase 3 será @@unique([empresaId,nombre]).
       where: { nombre: categoria.nombre },
       update: {},
-      create: categoria,
+      create: { ...categoria, empresaId },
     });
   }
 }
@@ -139,7 +160,11 @@ async function sembrarCategoriasGasto(): Promise<void> {
  * los cuatro estados (pagada, parcial, vencida, por vencer). Idempotente: si ya
  * existe el primer proveedor de demo, no hace nada.
  */
-async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<void> {
+async function sembrarDemoFinanzas(
+  empresaId: string,
+  adminId: string,
+  sedeId: string,
+): Promise<void> {
   const yaSembrado = await prisma.proveedor.findFirst({
     where: { nombre: 'Distribuidora Istmo S.A.' },
   });
@@ -148,14 +173,15 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
   const hoy = Date.now();
   const dias = (n: number): Date => new Date(hoy + n * 86_400_000);
 
+  // proveedor es tabla DIRECTA (empresa_id); compra/pago/gasto/venta "heredan" por FK.
   const istmo = await prisma.proveedor.create({
-    data: { nombre: 'Distribuidora Istmo S.A.', identificacionFiscal: 'RUC-8-123-456' },
+    data: { nombre: 'Distribuidora Istmo S.A.', identificacionFiscal: 'RUC-8-123-456', empresaId },
   });
   const tropical = await prisma.proveedor.create({
-    data: { nombre: 'Importadora Tropical', identificacionFiscal: 'RUC-2-987-654' },
+    data: { nombre: 'Importadora Tropical', identificacionFiscal: 'RUC-2-987-654', empresaId },
   });
   const global = await prisma.proveedor.create({
-    data: { nombre: 'Suministros Global' },
+    data: { nombre: 'Suministros Global', empresaId },
   });
 
   // Factura pagada por completo.
@@ -304,7 +330,7 @@ async function sembrarDemoFinanzas(adminId: string, sedeId: string): Promise<voi
  * se crea solo si falta y los roles se (re)asignan siempre, de modo que correrlo
  * dos veces no duplica ni deja empleados sin sus roles.
  */
-async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
+async function sembrarDemoAsistencia(empresaId: string, sedeId: string): Promise<void> {
   // Kiosco con token de dispositivo (idempotente por nombre + sede). Si ya existe
   // sin token (datos previos a esta versión), se le asigna el token demo.
   const tokenHashDemo = await hashearContrasena(TOKEN_KIOSCO_DEMO);
@@ -324,6 +350,7 @@ async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
       data: {
         nombre: 'Turno General',
         sedeId,
+        empresaId,
         horaInicio: '08:00',
         horaFin: '17:00',
         toleranciaMin: 10,
@@ -333,9 +360,11 @@ async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
     });
   }
 
-  const cajera = await prisma.rolOperativo.findUniqueOrThrow({ where: { clave: 'cajera' } });
+  const cajera = await prisma.rolOperativo.findUniqueOrThrow({
+    where: { empresaId_clave: { empresaId, clave: 'cajera' } },
+  });
   const verificador = await prisma.rolOperativo.findUniqueOrThrow({
-    where: { clave: 'verificador' },
+    where: { empresaId_clave: { empresaId, clave: 'verificador' } },
   });
 
   const pinHash = await hashearContrasena('1234');
@@ -382,8 +411,8 @@ async function sembrarDemoAsistencia(sedeId: string): Promise<void> {
   // Días festivos (idempotente: fecha es única, se omiten duplicados).
   await prisma.diaFestivo.createMany({
     data: [
-      { fecha: new Date('2026-05-01'), nombre: 'Día del Trabajador' },
-      { fecha: new Date('2026-11-03'), nombre: 'Separación de Panamá de Colombia' },
+      { fecha: new Date('2026-05-01'), nombre: 'Día del Trabajador', empresaId },
+      { fecha: new Date('2026-11-03'), nombre: 'Separación de Panamá de Colombia', empresaId },
     ],
     skipDuplicates: true,
   });
