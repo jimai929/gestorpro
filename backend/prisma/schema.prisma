@@ -400,7 +400,7 @@ model Empleado {
 model RolOperativo {
   id        String   @id @default(uuid()) @db.Uuid
   empresaId String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
-  clave     String   @unique // llave estable de máquina: 'cajera', 'verificador'
+  clave     String   // llave estable de máquina: 'cajera', 'verificador' (única POR empresa)
   nombre   String // etiqueta para mostrar
   activo   Boolean  @default(true)
   creadoEn DateTime @default(now()) @map("creado_en")
@@ -408,6 +408,9 @@ model RolOperativo {
   empleados EmpleadoRolOperativo[]
   empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
+  // Fase 5 (slice de Fase 3): clave única POR empresa (no global), ahora que
+  // rol_operativo tiene empresa_id. Permite que cada empresa tenga su 'cajera'.
+  @@unique([empresaId, clave])
   @@map("rol_operativo")
 }
 
