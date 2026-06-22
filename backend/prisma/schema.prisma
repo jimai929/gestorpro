@@ -78,7 +78,7 @@ model Membresia {
 
 model Sede {
   id            String        @id @default(uuid()) @db.Uuid
-  empresaId     String?       @map("empresa_id") @db.Uuid
+  empresaId     String        @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
   nombre        String
   activo        Boolean       @default(true)
   modoExcepcion ModoExcepcion @default(pin) @map("modo_excepcion")
@@ -136,7 +136,7 @@ model SesionRefresco {
 /// cerrada y desacoplada.
 model Auditoria {
   id        String   @id @default(uuid()) @db.Uuid
-  empresaId String?  @map("empresa_id") @db.Uuid
+  empresaId String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
   entidad   String
   entidadId String   @map("entidad_id")
   accion    String
@@ -170,7 +170,7 @@ enum TipoCompra {
 /// Proveedor al que se le compra mercancía o servicios.
 model Proveedor {
   id                   String   @id @default(uuid()) @db.Uuid
-  empresaId            String?  @map("empresa_id") @db.Uuid
+  empresaId            String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
   nombre               String
   identificacionFiscal String?  @map("identificacion_fiscal")
   telefono             String?
@@ -235,7 +235,7 @@ model PagoProveedor {
 /// de empleado en el gasto (regla de coherencia).
 model CategoriaGasto {
   id             String   @id @default(uuid()) @db.Uuid
-  empresaId      String?  @map("empresa_id") @db.Uuid
+  empresaId      String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
   nombre         String   @unique
   esPagoEmpleado Boolean  @default(false) @map("es_pago_empleado")
   activo         Boolean  @default(true)
@@ -399,7 +399,7 @@ model Empleado {
 /// varios a la vez (N:M vía `EmpleadoRolOperativo`).
 model RolOperativo {
   id        String   @id @default(uuid()) @db.Uuid
-  empresaId String?  @map("empresa_id") @db.Uuid
+  empresaId String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
   clave     String   @unique // llave estable de máquina: 'cajera', 'verificador'
   nombre   String // etiqueta para mostrar
   activo   Boolean  @default(true)
@@ -490,7 +490,7 @@ model RevisionFichaje {
 /// legal (jornadas, recargos, topes) es FIJA y vive en el motor, no aquí.
 model Turno {
   id                 String   @id @default(uuid()) @db.Uuid
-  empresaId          String?  @map("empresa_id") @db.Uuid
+  empresaId          String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
   nombre             String
   sedeId             String?  @map("sede_id") @db.Uuid
   sede               Sede?    @relation(fields: [sedeId], references: [id])
@@ -558,7 +558,7 @@ model Correccion {
 /// trabaja (salario fijo).
 model DiaFestivo {
   id        String   @id @default(uuid()) @db.Uuid
-  empresaId String?  @map("empresa_id") @db.Uuid
+  empresaId String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
   fecha     DateTime @unique @db.Date
   nombre   String
   creadoEn DateTime @default(now()) @map("creado_en")
@@ -618,7 +618,7 @@ model SolicitudCobro {
 /// cobro es directo). Fila única gestionada por la app.
 model ConfiguracionCobro {
   id                 String   @id @default(uuid()) @db.Uuid
-  empresaId          String?  @map("empresa_id") @db.Uuid
+  empresaId          String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
   porcentajeCobrable Int      @default(80) @map("porcentaje_cobrable")
   umbralAprobacion   Decimal  @default(100) @map("umbral_aprobacion") @db.Decimal(12, 2)
   actualizadoEn      DateTime @updatedAt @map("actualizado_en")

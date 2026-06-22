@@ -27,6 +27,16 @@ $$;
 -- BYPASSRLS al migrador (migra/seed/backfill ignoran RLS+FORCE); el app SIEMPRE
 -- NOBYPASSRLS (es el rol sujeto al aislamiento de tenant). Se fija también en el
 -- ALTER para que una re-ejecución de reparación lo aplique sobre roles ya creados.
+-- DECISIÓN (Fase 5): el migrador es BYPASSRLS pero NO superusuario (mínimo
+-- privilegio). Por eso NO puede saltarse los privilegios de TABLA: la migración
+-- 20260523224500 le revocó UPDATE/DELETE/TRUNCATE sobre `auditoria`, y se los
+-- devuelve la migración 20260621223903_grant_auditoria_update_migrador
+-- (ANTES del backfill de Ola 2). Ese GRANT NO puede vivir aquí: en el initdb la
+-- tabla `auditoria` aún no existe (las crea `migrate deploy`). El append-only se
+-- mantiene porque se exige sobre gestorpro_app, no sobre el migrador.
+-- En un VPS YA desplegado antes de la Fase 5 (migrador sin BYPASSRLS), correr a
+-- mano como superusuario: ALTER ROLE gestorpro_migrador BYPASSRLS;  (el GRANT de
+-- auditoria lo aplica la migración al desplegar).
 ALTER ROLE gestorpro_migrador LOGIN BYPASSRLS   PASSWORD :'migpw';
 ALTER ROLE gestorpro_app      LOGIN NOBYPASSRLS PASSWORD :'apppw';
 -- Base propiedad del migrador: crear solo si no existe (\gexec ejecuta el CREATE
