@@ -15,10 +15,18 @@ const { Client } = pg;
  */
 describe('auditoria — append-only a nivel de rol (gestorpro_app)', () => {
   let app: pg.Client;
+  let empresaId: string;
 
   beforeAll(async () => {
     app = new Client({ connectionString: inject('databaseUrlApp') });
     await app.connect();
+    // RLS (Fase 5): auditoria exige contexto de tenant. Se usa la "Empresa Default"
+    // que crea el backfill (migración ola2). set_config de SESIÓN (no LOCAL) para
+    // que aplique a todas las queries de este cliente dedicado. NUNCA '' (rompería
+    // el cast a uuid): aquí siempre es un uuid real.
+    const e = await app.query(`SELECT id FROM empresa WHERE slug = 'default'`);
+    empresaId = e.rows[0].id as string;
+    await app.query(`SELECT set_config('app.empresa_id', $1, false)`, [empresaId]);
   });
 
   afterAll(async () => {
@@ -32,10 +40,10 @@ describe('auditoria — append-only a nivel de rol (gestorpro_app)', () => {
   // paginación que cuente filas globales NO debe asumir que auditoria está vacía.
   it('permite INSERT y SELECT (no se rompió la operación legítima de la app)', async () => {
     const insert = await app.query(
-      `INSERT INTO auditoria (id, entidad, entidad_id, accion, usuario_id, detalle)
-       VALUES (gen_random_uuid(), $1, $2, $3, gen_random_uuid(), $4::jsonb)
+      `INSERT INTO auditoria (id, empresa_id, entidad, entidad_id, accion, usuario_id, detalle)
+       VALUES (gen_random_uuid(), $5::uuid, $1, $2, $3, gen_random_uuid(), $4::jsonb)
        RETURNING id`,
-      ['PruebaAppendOnly', 'x-1', 'crear', JSON.stringify({ prueba: true })],
+      ['PruebaAppendOnly', 'x-1', 'crear', JSON.stringify({ prueba: true }), empresaId],
     );
     expect(insert.rowCount).toBe(1);
     const id = insert.rows[0].id as string;

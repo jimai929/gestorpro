@@ -53,7 +53,10 @@ export default async function ({
   await admin.connect();
   try {
     await admin.query(`DROP ROLE IF EXISTS ${ROL_APP}`);
-    await admin.query(`CREATE ROLE ${ROL_APP} LOGIN PASSWORD '${PW_APP}'`);
+    // NOBYPASSRLS explícito (aunque es el default de PG): el rol app DEBE quedar
+    // sujeto a RLS para que los tests de aislamiento sean reales y no dependan del
+    // default. Replica `01-init-roles.sh` de producción.
+    await admin.query(`CREATE ROLE ${ROL_APP} LOGIN NOBYPASSRLS PASSWORD '${PW_APP}'`);
     // Grants base del schema (igual que initdb): usar el schema, sin crear en él.
     await admin.query(`GRANT USAGE ON SCHEMA public TO ${ROL_APP}`);
     await admin.query(`REVOKE CREATE ON SCHEMA public FROM ${ROL_APP}`);
