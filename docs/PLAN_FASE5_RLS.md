@@ -473,6 +473,40 @@ de upsert pasan a claves compuestas; por ahora siguen simples.)
 
 ---
 
+## 6.4 Convenciones de tests bajo RLS (REGLA DURA — para no volver a fallar)
+
+Tras el flip, el cliente `prisma` de la app corre como `gestorpro_app` (RLS). Tres
+reglas innegociables al escribir/migrar tests (Seg 2 en adelante):
+
+1. **El assert POSITIVO de negocio NUNCA se lee con `semilla()` (god-view).** `semilla`
+   ignora RLS; leer el dato con él NO prueba que el tenant ve SU dato bajo RLS, solo
+   que la fila existe en la BD. Un positivo leído con `semilla` es un falso "verde"
+   que oculta una fuga de aislamiento.
+2. **NUNCA `prisma` crudo (cliente app) dentro de `comoEmpresa(...)`.** `comoEmpresa`
+   solo fija la ALS; una llamada `prisma.x.find(...)` suelta NO pasa por `txEmpresa`,
+   así que NO fija el GUC → RLS devuelve 0 filas → el assert se cae o da falso 0.
+3. **Lectura POSITIVA de BD en un test = `comoEmpresa(empresaId, () => txEmpresa((tx) =>
+   tx.x.find(...)))`** (o un método de lectura de SERVICIO, que internamente usa
+   `txEmpresa`), o asentar sobre el VALOR DE RETORNO del servicio. Así el assert corre
+   como `gestorpro_app` + contexto de tenant + GUC + RLS → prueba de verdad que el
+   tenant ve su propio dato.
+
+`semilla()` SOLO se usa para: (a) **arrange** (sembrar fixtures, bypass legítimo como
+el migrador en prod); (b) **assert de AUSENCIA / no-mutación** ("no se creó nada",
+"no cambió") — ahí god-view prueba que la fila no existe en NINGÚN lado (bajo app sin
+GUC daría 0 por RLS y no distinguiría ausencia de bloqueo); (c) **god-view cross-tenant**
+(empresa A no ve B); (d) **columnas-secreto / existencia física** que ningún servicio
+expone. Si una regla de negocio positiva no tiene método de lectura de servicio, se
+lee con `comoEmpresa + txEmpresa` (regla 3), NO con `semilla`.
+
+> Precedente (2026-06-22, migración de tests Seg 2): un workflow de agentes produjo
+> (a) asserts positivos leídos con `semilla` (violación de la regla 1) y (b) `prisma`
+> crudo dentro de `comoEmpresa` (violación de la regla 2, falso verde). Ambos se
+> detectaron en la integración (auditoría de cada `semilla`) y se corrigieron a la
+> regla 3. Por eso esta sección.
+
+---
+
 ## 7. Tests de Fase 5 (mínimos) y verificación de deploy
 
 No es la batería §6 completa (Fase 8), sino el piso fail-closed:
