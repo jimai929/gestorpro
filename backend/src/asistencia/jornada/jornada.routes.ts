@@ -1,7 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../core/prisma.js';
 import { responderError } from '../../core/http.js';
-import { barrerHuerfanos, corregirJornada, crearJornadaManual } from './jornada.service.js';
+import {
+  barrerHuerfanos,
+  corregirJornada,
+  crearJornadaManual,
+  listarJornadas,
+} from './jornada.service.js';
 
 const esquemaCorreccion = {
   body: {
@@ -50,22 +54,10 @@ export async function jornadaRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.autenticar] },
     async (request, reply) => {
       try {
-        const { empleadoId, desde, hasta } = request.query;
-        const jornadas = await prisma.jornada.findMany({
-          where: {
-            ...(empleadoId ? { empleadoId } : {}),
-            ...(desde || hasta
-              ? {
-                  fecha: {
-                    ...(desde ? { gte: new Date(desde) } : {}),
-                    ...(hasta ? { lte: new Date(hasta) } : {}),
-                  },
-                }
-              : {}),
-          },
-          orderBy: { fecha: 'desc' },
-          include: { empleado: { select: { numero: true, nombre: true } } },
-        });
+        // listarJornadas corre bajo txEmpresa (RLS): GET /jornadas (autenticado) ve
+        // solo las jornadas del tenant del token. El empresaId sale del contexto, no
+        // del query (que solo filtra por empleado/fecha).
+        const jornadas = await listarJornadas(request.query);
         return await reply.send(jornadas.map(aJornadaDto));
       } catch (error) {
         return responderError(error, request, reply);

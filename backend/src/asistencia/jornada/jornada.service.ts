@@ -1,4 +1,5 @@
 import { prisma, type ClienteTx } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorNoEncontrado, ErrorValidacion } from '../../core/errors.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { acreditarSaldo } from '../cobro/saldo.service.js';
@@ -31,11 +32,12 @@ function lunesDeLaSemana(fecha: Date): Date {
  * (`recargosDetalle.minutosExtraPagables`). Base del tope semanal de 9h.
  */
 async function extraPagablesSemanaPrevios(
+  tx: ClienteTx,
   empleadoId: string,
   fecha: Date,
 ): Promise<number> {
   const lunes = lunesDeLaSemana(fecha);
-  const jornadas = await prisma.jornada.findMany({
+  const jornadas = await tx.jornada.findMany({
     where: { empleadoId, fecha: { gte: lunes, lt: fecha } },
     select: { recargosDetalle: true },
   });
@@ -45,8 +47,8 @@ async function extraPagablesSemanaPrevios(
   }, 0);
 }
 
-async function esDiaFestivo(fecha: Date): Promise<boolean> {
-  return (await prisma.diaFestivo.findUnique({ where: { fecha } })) !== null;
+async function esDiaFestivo(tx: ClienteTx, fecha: Date): Promise<boolean> {
+  return (await tx.diaFestivo.findUnique({ where: { fecha } })) !== null;
 }
 
 /** Inserta o sobreescribe la jornada (recalculable) de un empleado, dentro de tx. */
@@ -94,36 +96,37 @@ export async function recalcularJornadaPorSalida(
   momentoSalida: Date,
 ) {
   const inicioVentana = new Date(momentoSalida.getTime() - VENTANA_MS);
-  const fichajes = await prisma.fichaje.findMany({
-    where: { empleadoId, momento: { gte: inicioVentana, lte: momentoSalida } },
-    orderBy: { momento: 'asc' },
-  });
+  // Bajo RLS, las lecturas previas y el cierre van en la MISMA txEmpresa: comparten
+  // el GUC de tenant (si no, las lecturas darían 0 filas) y son atómicas (si una
+  // falla, no queda la jornada cerrada con el saldo mal). Una jornada recalculable
+  // acredita el DELTA respecto a su monto previo.
+  return txEmpresa(async (tx) => {
+    const fichajes = await tx.fichaje.findMany({
+      where: { empleadoId, momento: { gte: inicioVentana, lte: momentoSalida } },
+      orderBy: { momento: 'asc' },
+    });
 
-  const entrada = fichajes.find((f) => f.tipo === 'entrada');
-  if (!entrada) return null; // salida sin entrada: la caza el job de huérfanos
+    const entrada = fichajes.find((f) => f.tipo === 'entrada');
+    if (!entrada) return null; // salida sin entrada: la caza el job de huérfanos
 
-  const delDia: FichajeCalculo[] = fichajes
-    .filter((f) => f.momento >= entrada.momento)
-    .map((f) => ({ tipo: f.tipo, momento: f.momento }));
+    const delDia: FichajeCalculo[] = fichajes
+      .filter((f) => f.momento >= entrada.momento)
+      .map((f) => ({ tipo: f.tipo, momento: f.momento }));
 
-  const empleado = await prisma.empleado.findUnique({
-    where: { id: empleadoId },
-    include: { turno: true },
-  });
-  if (!empleado) return null;
+    const empleado = await tx.empleado.findUnique({
+      where: { id: empleadoId },
+      include: { turno: true },
+    });
+    if (!empleado) return null;
 
-  const fecha = soloFecha(entrada.momento);
-  const resultado = calcularJornada(delDia, {
-    pausaPorDefectoMin: empleado.turno?.pausaPorDefectoMin ?? 0,
-    salarioMensual: Number(empleado.salarioFijo),
-    esFestivo: await esDiaFestivo(fecha),
-    minutosExtraPagablesSemanaPrevios: await extraPagablesSemanaPrevios(empleadoId, fecha),
-  });
+    const fecha = soloFecha(entrada.momento);
+    const resultado = calcularJornada(delDia, {
+      pausaPorDefectoMin: empleado.turno?.pausaPorDefectoMin ?? 0,
+      salarioMensual: Number(empleado.salarioFijo),
+      esFestivo: await esDiaFestivo(tx, fecha),
+      minutosExtraPagablesSemanaPrevios: await extraPagablesSemanaPrevios(tx, empleadoId, fecha),
+    });
 
-  // El cierre de la jornada y la acreditación del saldo van en la MISMA
-  // transacción: si una falla, no queda la jornada cerrada con el saldo mal.
-  // Una jornada recalculable acredita el DELTA respecto a su monto previo.
-  return prisma.$transaction(async (tx) => {
     const previa = await tx.jornada.findUnique({
       where: { empleadoId_fecha: { empleadoId, fecha } },
       select: { montoExtra: true },
@@ -136,44 +139,92 @@ export async function recalcularJornadaPorSalida(
 }
 
 /**
+ * Lista jornadas (consulta de horas) del tenant en contexto, bajo RLS. Filtros
+ * opcionales por empleado y rango de fechas. Lo consume GET /jornadas.
+ */
+export function listarJornadas(filtros: {
+  empleadoId?: string;
+  desde?: string;
+  hasta?: string;
+}) {
+  return txEmpresa((tx) =>
+    tx.jornada.findMany({
+      where: {
+        ...(filtros.empleadoId ? { empleadoId: filtros.empleadoId } : {}),
+        ...(filtros.desde || filtros.hasta
+          ? {
+              fecha: {
+                ...(filtros.desde ? { gte: new Date(filtros.desde) } : {}),
+                ...(filtros.hasta ? { lte: new Date(filtros.hasta) } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: { fecha: 'desc' },
+      include: { empleado: { select: { numero: true, nombre: true } } },
+    }),
+  );
+}
+
+/**
  * Job nocturno de respaldo: marca como ANOMALÍA las entradas sin salida pasada
  * la ventana de 16h (fichajes huérfanos), para que el jefe las revise. Devuelve
  * cuántas marcó. Idempotente: no duplica si ya hay jornada para ese día.
  */
 export async function barrerHuerfanos(ahora: Date = new Date()): Promise<number> {
   const limite = new Date(ahora.getTime() - VENTANA_MS);
-  const entradas = await prisma.fichaje.findMany({
-    where: { tipo: 'entrada', momento: { lt: limite } },
+
+  // Job de PLATAFORMA, no de request: corre fuera de RLS de tenant. Itera las
+  // empresas activas (empresa está EXCLUIDA de RLS → legible sin GUC) y procesa
+  // cada una dentro de su PROPIA txEmpresa: el GUC fija el tenant, así RLS acota
+  // fichaje/jornada a esa empresa. Antes barría TODAS las sedes sin contexto;
+  // bajo RLS eso daría 0 filas y reportaría marcadas:0 en silencio (corrección B2).
+  const empresas = await prisma.empresa.findMany({
+    where: { activo: true },
+    select: { id: true },
   });
 
   let marcadas = 0;
-  for (const entrada of entradas) {
-    const fin = new Date(entrada.momento.getTime() + VENTANA_MS);
-    const salida = await prisma.fichaje.findFirst({
-      where: {
-        empleadoId: entrada.empleadoId,
-        tipo: 'salida',
-        momento: { gte: entrada.momento, lte: fin },
-      },
-    });
-    if (salida) continue; // tiene salida: no es huérfano
+  for (const { id: empresaId } of empresas) {
+    marcadas += await txEmpresa(
+      async (tx) => {
+        const entradas = await tx.fichaje.findMany({
+          where: { tipo: 'entrada', momento: { lt: limite } },
+        });
 
-    const fecha = soloFecha(entrada.momento);
-    const existente = await prisma.jornada.findUnique({
-      where: { empleadoId_fecha: { empleadoId: entrada.empleadoId, fecha } },
-    });
-    if (existente) continue; // ya hay jornada (calculada o marcada)
+        let n = 0;
+        for (const entrada of entradas) {
+          const fin = new Date(entrada.momento.getTime() + VENTANA_MS);
+          const salida = await tx.fichaje.findFirst({
+            where: {
+              empleadoId: entrada.empleadoId,
+              tipo: 'salida',
+              momento: { gte: entrada.momento, lte: fin },
+            },
+          });
+          if (salida) continue; // tiene salida: no es huérfano
 
-    await prisma.jornada.create({
-      data: {
-        empleadoId: entrada.empleadoId,
-        fecha,
-        anomalia: true,
-        detalleAnomalia: 'Fichaje de entrada sin salida (huérfano).',
-        estado: 'anomalia',
+          const fecha = soloFecha(entrada.momento);
+          const existente = await tx.jornada.findUnique({
+            where: { empleadoId_fecha: { empleadoId: entrada.empleadoId, fecha } },
+          });
+          if (existente) continue; // ya hay jornada (calculada o marcada)
+
+          await tx.jornada.create({
+            data: {
+              empleadoId: entrada.empleadoId,
+              fecha,
+              anomalia: true,
+              detalleAnomalia: 'Fichaje de entrada sin salida (huérfano).',
+              estado: 'anomalia',
+            },
+          });
+          n++;
+        }
+        return n;
       },
-    });
-    marcadas++;
+      { empresaId },
+    );
   }
   return marcadas;
 }
@@ -197,7 +248,7 @@ export async function corregirJornada(datos: {
     throw new ErrorValidacion('El motivo de la corrección es obligatorio.');
   }
 
-  return prisma.$transaction(async (tx) => {
+  return txEmpresa(async (tx) => {
     const jornada = await tx.jornada.findUnique({ where: { id: datos.jornadaId } });
     if (!jornada) {
       throw new ErrorNoEncontrado('La jornada no existe.');
@@ -291,7 +342,7 @@ export async function crearJornadaManual(datos: {
   const minutosExtra = datos.minutosExtra ?? 0;
   const montoExtra = datos.montoExtra ?? 0;
 
-  return prisma.$transaction(async (tx) => {
+  return txEmpresa(async (tx) => {
     const empleado = await tx.empleado.findUnique({ where: { id: datos.empleadoId } });
     if (!empleado) {
       throw new ErrorNoEncontrado('El empleado no existe.');

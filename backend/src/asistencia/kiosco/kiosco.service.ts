@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { prisma } from '../../core/prisma.js';
+import { txEmpresa, txBootstrapDispositivo } from '../../core/tenant/contexto.js';
 import {
   ErrorAutenticacion,
   ErrorNoEncontrado,
@@ -36,18 +36,18 @@ function generarToken(): string {
  * debe entregarlo al dispositivo, porque no se puede recuperar después.
  */
 export async function crearKiosco(datos: DatosKiosco) {
-  const sede = await prisma.sede.findUnique({ where: { id: datos.sedeId } });
-  if (!sede) {
-    throw new ErrorValidacion('La sede indicada no existe.');
-  }
   const token = generarToken();
-  const kiosco = await prisma.kiosco.create({
-    data: {
-      nombre: datos.nombre,
-      sedeId: datos.sedeId,
-      tokenHash: await hashearContrasena(token),
-    },
-    select: CAMPOS_PUBLICOS,
+  const tokenHash = await hashearContrasena(token); // argon2 FUERA de la tx
+  const kiosco = await txEmpresa(async (tx) => {
+    // Bajo RLS (contexto del admin), la sede de OTRA empresa no es visible → 422.
+    const sede = await tx.sede.findUnique({ where: { id: datos.sedeId } });
+    if (!sede) {
+      throw new ErrorValidacion('La sede indicada no existe.');
+    }
+    return tx.kiosco.create({
+      data: { nombre: datos.nombre, sedeId: datos.sedeId, tokenHash },
+      select: CAMPOS_PUBLICOS,
+    });
   });
   return { ...kiosco, token };
 }
@@ -57,31 +57,38 @@ export async function crearKiosco(datos: DatosKiosco) {
  * token). Invalida el token anterior. Devuelve el nuevo token en claro una vez.
  */
 export async function regenerarTokenKiosco(id: string) {
-  const kiosco = await prisma.kiosco.findUnique({ where: { id }, select: { id: true } });
-  if (!kiosco) {
-    throw new ErrorNoEncontrado('Kiosco no encontrado.');
-  }
   const token = generarToken();
-  await prisma.kiosco.update({
-    where: { id },
-    data: { tokenHash: await hashearContrasena(token) },
+  const tokenHash = await hashearContrasena(token); // argon2 FUERA de la tx
+  await txEmpresa(async (tx) => {
+    // Bajo RLS, un kiosco de otra empresa no es visible → 404.
+    const kiosco = await tx.kiosco.findUnique({ where: { id }, select: { id: true } });
+    if (!kiosco) {
+      throw new ErrorNoEncontrado('Kiosco no encontrado.');
+    }
+    await tx.kiosco.update({ where: { id }, data: { tokenHash } });
   });
   return { id, token };
 }
 
 /**
- * Verifica el token de dispositivo de un kiosco para autorizar un fichaje. Lanza
- * `ErrorAutenticacion` (→ 401) si el kiosco no existe, está inactivo, no tiene
- * token configurado, o el token no coincide. No revela cuál de los casos fue.
+ * Bootstrap de fichaje: verifica el token de dispositivo y RESUELVE la empresa del
+ * kiosco (vía su sede). El dispositivo no tiene JWT, así que para leer su propia
+ * fila —protegida por RLS— se usa `txBootstrapDispositivo` (bypass acotado a ESA
+ * lectura). El fichaje en sí corre DESPUÉS bajo RLS normal con el empresaId devuelto.
+ * Lanza `ErrorAutenticacion` (→ 401) si el kiosco no existe, está inactivo, no tiene
+ * token, o el token no coincide. No revela cuál de los casos fue. La verificación
+ * argon2 se hace FUERA de la tx de bootstrap (no la retiene).
  */
-export async function verificarTokenKiosco(
+export async function resolverContextoKiosco(
   kioscoId: string,
   token: string | undefined,
-): Promise<void> {
-  const kiosco = await prisma.kiosco.findUnique({
-    where: { id: kioscoId },
-    select: { activo: true, tokenHash: true },
-  });
+): Promise<{ empresaId: string }> {
+  const kiosco = await txBootstrapDispositivo((tx) =>
+    tx.kiosco.findUnique({
+      where: { id: kioscoId },
+      select: { activo: true, tokenHash: true, sede: { select: { empresaId: true } } },
+    }),
+  );
   if (
     !kiosco ||
     !kiosco.activo ||
@@ -91,4 +98,5 @@ export async function verificarTokenKiosco(
   ) {
     throw new ErrorAutenticacion('Kiosco no autorizado.');
   }
+  return { empresaId: kiosco.sede.empresaId };
 }

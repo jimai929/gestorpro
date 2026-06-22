@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import { prisma } from '../../core/prisma.js';
 import { responderError } from '../../core/http.js';
+import { conContextoTenant, txBootstrapDispositivo } from '../../core/tenant/contexto.js';
 import { crearServicioFichaje, colaRevision, revisarFichaje } from './fichaje.service.js';
 import {
   crearKiosco,
   regenerarTokenKiosco,
-  verificarTokenKiosco,
+  resolverContextoKiosco,
 } from '../kiosco/kiosco.service.js';
 
 const esquemaFichaje = {
@@ -88,19 +88,24 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
   app.get('/kioscos', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     try {
       // `select` explícito: NUNCA exponer `tokenHash` ni `modoExcepcion` en el
-      // listado público.
-      const kioscos = await prisma.kiosco.findMany({
-        where: { activo: true },
-        orderBy: { nombre: 'asc' },
-        select: {
-          id: true,
-          nombre: true,
-          sedeId: true,
-          activo: true,
-          creadoEn: true,
-          sede: { select: { nombre: true } },
-        },
-      });
+      // listado público (campos minimizados). El dispositivo no tiene contexto de
+      // tenant todavía (elige kiosco ANTES de saber su empresa), así que el listado
+      // usa el bootstrap acotado de dispositivo: ve los kioscos activos (exposición
+      // leve de nombre/sede entre tenants, sin datos financieros; Q2-A).
+      const kioscos = await txBootstrapDispositivo((tx) =>
+        tx.kiosco.findMany({
+          where: { activo: true },
+          orderBy: { nombre: 'asc' },
+          select: {
+            id: true,
+            nombre: true,
+            sedeId: true,
+            activo: true,
+            creadoEn: true,
+            sede: { select: { nombre: true } },
+          },
+        }),
+      );
       return await reply.send(kioscos);
     } catch (error) {
       return responderError(error, request, reply);
@@ -142,13 +147,18 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         // Autorización del dispositivo: el kiosco se identifica con su token
-        // (header x-kiosco-token), no solo con el kioscoId del body.
+        // (header x-kiosco-token). El bootstrap verifica el token y RESUELVE la
+        // empresa del kiosco; el fichaje corre DESPUÉS bajo el contexto de ESA
+        // empresa (RLS normal), nunca con empresaId del body.
         const tokenKiosco = request.headers['x-kiosco-token'];
-        await verificarTokenKiosco(
+        const { empresaId } = await resolverContextoKiosco(
           request.body.kioscoId,
           typeof tokenKiosco === 'string' ? tokenKiosco : undefined,
         );
-        const resultado = await servicio.fichar(request.body);
+        const resultado = await conContextoTenant(
+          { empresaId, esSuperAdmin: false },
+          () => servicio.fichar(request.body),
+        );
         if (resultado.estado === 'requiere_excepcion') {
           return await reply.code(409).send({
             requiereExcepcion: true,

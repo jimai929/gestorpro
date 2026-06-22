@@ -1,4 +1,4 @@
-import { prisma } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import {
   ErrorConflicto,
   ErrorNoEncontrado,
@@ -25,14 +25,16 @@ export interface DatosProveedor {
 }
 
 export function crearProveedor(datos: DatosProveedor) {
-  return prisma.proveedor.create({
-    data: {
-      nombre: datos.nombre,
-      identificacionFiscal: datos.identificacionFiscal ?? null,
-      telefono: datos.telefono ?? null,
-      personaContacto: datos.personaContacto ?? null,
-    },
-  });
+  return txEmpresa((tx) =>
+    tx.proveedor.create({
+      data: {
+        nombre: datos.nombre,
+        identificacionFiscal: datos.identificacionFiscal ?? null,
+        telefono: datos.telefono ?? null,
+        personaContacto: datos.personaContacto ?? null,
+      },
+    }),
+  );
 }
 
 /**
@@ -61,7 +63,7 @@ export async function editarProveedor(id: string, datos: DatosEditarProveedor) {
     ...(datos.activo !== undefined ? { activo: datos.activo } : {}),
   };
   try {
-    return await prisma.proveedor.update({ where: { id }, data });
+    return await txEmpresa((tx) => tx.proveedor.update({ where: { id }, data }));
   } catch (error) {
     if (esErrorPrisma(error, 'P2025')) {
       throw new ErrorNoEncontrado('El proveedor indicado no existe.');
@@ -72,10 +74,12 @@ export async function editarProveedor(id: string, datos: DatosEditarProveedor) {
 
 /** Lista proveedores. Con `soloActivos` filtra los dados de baja (para selectores). */
 export function listarProveedores(filtros?: { soloActivos?: boolean }) {
-  return prisma.proveedor.findMany({
-    where: filtros?.soloActivos ? { activo: true } : {},
-    orderBy: { nombre: 'asc' },
-  });
+  return txEmpresa((tx) =>
+    tx.proveedor.findMany({
+      where: filtros?.soloActivos ? { activo: true } : {},
+      orderBy: { nombre: 'asc' },
+    }),
+  );
 }
 
 // ─── Compras ──────────────────────────────────────────────────────────────--
@@ -111,19 +115,36 @@ export async function registrarCompra(datos: DatosCompra) {
     throw new ErrorValidacion('Una compra a crédito requiere fecha de vencimiento.');
   }
   try {
-    const compra = await prisma.compra.create({
-      data: {
-        proveedorId: datos.proveedorId,
-        sedeId: datos.sedeId,
-        numeroFactura: datos.numeroFactura,
-        montoTotal: datos.montoTotal,
-        tipo: datos.tipo,
-        fechaEmision: new Date(datos.fechaEmision),
-        fechaVencimiento:
-          datos.tipo === 'credito' && datos.fechaVencimiento
-            ? new Date(datos.fechaVencimiento)
-            : null,
-      },
+    const compra = await txEmpresa(async (tx) => {
+      // Validar que proveedor y sede son VISIBLES para el tenant. Bajo RLS, uno de
+      // OTRA empresa (o inexistente) no se ve → "no existen" (422), en vez de un
+      // 500 por violación de WITH CHECK. Cubre además la FK-injection cross-tenant
+      // vía body (§6c): el padre se valida contra el empresaId del token.
+      const proveedor = await tx.proveedor.findUnique({
+        where: { id: datos.proveedorId },
+        select: { id: true },
+      });
+      const sede = await tx.sede.findUnique({
+        where: { id: datos.sedeId },
+        select: { id: true },
+      });
+      if (!proveedor || !sede) {
+        throw new ErrorValidacion('El proveedor o la sede indicados no existen.');
+      }
+      return tx.compra.create({
+        data: {
+          proveedorId: datos.proveedorId,
+          sedeId: datos.sedeId,
+          numeroFactura: datos.numeroFactura,
+          montoTotal: datos.montoTotal,
+          tipo: datos.tipo,
+          fechaEmision: new Date(datos.fechaEmision),
+          fechaVencimiento:
+            datos.tipo === 'credito' && datos.fechaVencimiento
+              ? new Date(datos.fechaVencimiento)
+              : null,
+        },
+      });
     });
     return aCompraDto(compra);
   } catch (error) {
@@ -140,11 +161,13 @@ export async function registrarCompra(datos: DatosCompra) {
 }
 
 export async function listarCompras(filtros: { sedeId?: string }) {
-  const compras = await prisma.compra.findMany({
-    where: filtros.sedeId ? { sedeId: filtros.sedeId } : {},
-    orderBy: { fechaEmision: 'desc' },
-    include: { proveedor: true },
-  });
+  const compras = await txEmpresa((tx) =>
+    tx.compra.findMany({
+      where: filtros.sedeId ? { sedeId: filtros.sedeId } : {},
+      orderBy: { fechaEmision: 'desc' },
+      include: { proveedor: true },
+    }),
+  );
   return compras.map(aCompraDto);
 }
 
@@ -174,7 +197,7 @@ export async function registrarPago(datos: DatosPago) {
     throw new ErrorValidacion('El monto del pago debe ser mayor que cero.');
   }
 
-  return prisma.$transaction(async (tx) => {
+  return txEmpresa(async (tx) => {
     const compras = await tx.$queryRaw<Array<{ monto_total: string; tipo: string }>>`
       SELECT monto_total, tipo FROM compra WHERE id = ${datos.compraId}::uuid FOR UPDATE`;
     if (compras.length === 0) {
@@ -208,7 +231,7 @@ export async function registrarPago(datos: DatosPago) {
         usuarioId: datos.usuarioId,
       },
     });
-  }, { isolationLevel: 'ReadCommitted', timeout: 15000 });
+  }, { tx: { isolationLevel: 'ReadCommitted', timeout: 15000 } });
 }
 
 // ─── Cuentas por pagar (vista derivada) ───────────────────────────────────--
@@ -247,20 +270,17 @@ export async function listarCuentasPorPagar(filtros: {
   sedeId?: string;
   estado?: string;
 }) {
-  const filas = await prisma.$queryRaw<FilaCuenta[]>`
-    SELECT cpp.compra_id, cpp.proveedor_id, p.nombre AS proveedor_nombre, cpp.sede_id,
-           cpp.numero_factura, cpp.monto_total, cpp.fecha_emision, cpp.fecha_vencimiento,
-           cpp.total_pagado, cpp.saldo, cpp.estado
-    FROM cuenta_por_pagar cpp
-    JOIN proveedor p ON p.id = cpp.proveedor_id
-    ORDER BY cpp.fecha_vencimiento ASC`;
+  const filas = await txEmpresa((tx) =>
+    tx.$queryRaw<FilaCuenta[]>`
+      SELECT cpp.compra_id, cpp.proveedor_id, p.nombre AS proveedor_nombre, cpp.sede_id,
+             cpp.numero_factura, cpp.monto_total, cpp.fecha_emision, cpp.fecha_vencimiento,
+             cpp.total_pagado, cpp.saldo, cpp.estado
+      FROM cuenta_por_pagar cpp
+      JOIN proveedor p ON p.id = cpp.proveedor_id
+      WHERE (${filtros.sedeId ?? null}::uuid IS NULL OR cpp.sede_id = ${filtros.sedeId ?? null}::uuid)
+        AND (${filtros.estado ?? null}::text IS NULL OR cpp.estado = ${filtros.estado ?? null}::text)
+      ORDER BY cpp.fecha_vencimiento ASC`,
+  );
 
-  let resultado = filas;
-  if (filtros.sedeId) {
-    resultado = resultado.filter((f) => f.sede_id === filtros.sedeId);
-  }
-  if (filtros.estado) {
-    resultado = resultado.filter((f) => f.estado === filtros.estado);
-  }
-  return resultado.map(aCuentaDto);
+  return filas.map(aCuentaDto);
 }
