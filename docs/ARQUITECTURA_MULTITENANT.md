@@ -549,11 +549,19 @@ actor (con `empresaId`).
 | (job) | **`barrerHuerfanos` multi-tenant** | con A y B con huérfanos, el job marca los de **ambas**; no `marcadas:0` silencioso (cubre B2) |
 | (cred) | **El runtime no usa `migrador`** (§0.bis regla 1/③) | el `DATABASE_URL` efectivo del proceso resuelve a `gestorpro_app`, no a `gestorpro_migrador`; falla CI/arranque si porta credenciales del migrador |
 | (super-admin) | **Super-admin sin `Membresia`** (Fase 4 + §4.2) | crear/promover un super-admin ⇒ **0 filas en `membresia`** para ese usuario; un `esSuperAdmin=true` nunca aparece en `membresia` |
+| (super-admin-null) | **Super-admin con `empresaId=null` NO ve datos de ningún tenant** (nota revisión 4a → Fase 5/8) | una ruta de tenant ejecutada con `empresaId=null` ⇒ **0 filas / 403, NUNCA "todos los tenants"**. **Fase 5 DEBE fail-closed ante `empresaId=null`**: el `rol=empleado` (mínimo privilegio) del super-admin no debe caer en una rama "match-all". |
 
 **Mínimo de regla dura (§0.bis):** los tres tests obligatorios ①②③ son,
 respectivamente, la fila **(RLS)** (el rol app no se salta RLS), las filas
 **(a)/(b)** (lectura/escritura cross-tenant rechazada) y la fila **(cred)** (el
 proceso no porta credenciales de migrador). No son opcionales.
+
+**Tradeoff aceptado (revisión 4a, nota #3):** la revocación de membresía / baja de
+empresa surte efecto al **siguiente refresh** (hasta ~15 min de validez del access
+token por su TTL). Es el comportamiento estándar de JWT con TTL corto; se acepta y
+queda documentado en `auth.service.ts` (`refrescarAcceso`). Si en el futuro se
+exigiera revocación instantánea: acortar el TTL o chequear estado en cada request
+(coste por petición).
 
 **Niveles:** (a)–(d) a nivel **servicio**; (e),(f) y smoke de (a) a nivel **HTTP**
 (`app.inject`); (RLS) a nivel **DB** con `pg.Client` crudo. El test **RLS a nivel
