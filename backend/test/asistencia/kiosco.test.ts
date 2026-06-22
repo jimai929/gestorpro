@@ -1,23 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { prisma } from '../../src/core/prisma.js';
 import { construirApp } from '../../src/app.js';
+import { semilla, comoEmpresa, crearEmpresa } from '../helpers/db.js';
 import {
   crearKiosco,
   regenerarTokenKiosco,
-  verificarTokenKiosco,
+  resolverContextoKiosco,
 } from '../../src/asistencia/kiosco/kiosco.service.js';
 import { ErrorAutenticacion, ErrorNoEncontrado, ErrorValidacion } from '../../src/core/errors.js';
 
 let n = 0;
-async function nuevaSede() {
+async function nuevaSede(empresaId: string) {
   n += 1;
-  return prisma.sede.create({ data: { nombre: `SedeKiosco ${n}-${Date.now()}` } });
+  return semilla().sede.create({ data: { nombre: `SedeKiosco ${n}-${Date.now()}`, empresaId } });
 }
 
 describe('kiosco — alta', () => {
   it('crea un kiosco activo y devuelve un token de dispositivo (sin exponer el hash)', async () => {
-    const sede = await nuevaSede();
-    const kiosco = await crearKiosco({ nombre: 'Kiosco Test', sedeId: sede.id });
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const kiosco = await comoEmpresa(empresaId, () =>
+      crearKiosco({ nombre: 'Kiosco Test', sedeId: sede.id }),
+    );
 
     expect(kiosco.nombre).toBe('Kiosco Test');
     expect(kiosco.sedeId).toBe(sede.id);
@@ -27,52 +30,64 @@ describe('kiosco — alta', () => {
     // El token en claro NO se persiste ni se devuelve como hash.
     expect((kiosco as Record<string, unknown>).tokenHash).toBeUndefined();
 
-    const enBase = await prisma.kiosco.findUnique({ where: { id: kiosco.id } });
+    // god-view: verificar el hash persistido (campo interno, no expuesto por el servicio).
+    const enBase = await semilla().kiosco.findUnique({ where: { id: kiosco.id } });
     expect(enBase).not.toBeNull();
     expect(enBase?.tokenHash).toBeTruthy();
     expect(enBase?.tokenHash).not.toBe(kiosco.token); // se guarda el hash, no el token
   });
 
   it('rechaza el alta si la sede no existe (ErrorValidacion) y no crea la fila', async () => {
+    const empresaId = await crearEmpresa();
     const sedeInexistente = '00000000-0000-0000-0000-000000000000';
     await expect(
-      crearKiosco({ nombre: 'Kiosco Huérfano', sedeId: sedeInexistente }),
+      comoEmpresa(empresaId, () =>
+        crearKiosco({ nombre: 'Kiosco Huérfano', sedeId: sedeInexistente }),
+      ),
     ).rejects.toBeInstanceOf(ErrorValidacion);
     // El guard corta antes del create: ningún kiosco quedó ligado a esa sede.
-    expect(await prisma.kiosco.findMany({ where: { sedeId: sedeInexistente } })).toHaveLength(0);
+    // Ausencia → semilla god-view (nada se creó en ningún lado).
+    expect(await semilla().kiosco.findMany({ where: { sedeId: sedeInexistente } })).toHaveLength(0);
   });
 });
 
 describe('kiosco — token de dispositivo', () => {
   it('verifica el token correcto y rechaza uno inválido o ausente', async () => {
-    const sede = await nuevaSede();
-    const { id, token } = await crearKiosco({ nombre: 'K', sedeId: sede.id });
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const { id, token } = await comoEmpresa(empresaId, () => crearKiosco({ nombre: 'K', sedeId: sede.id }));
 
-    await expect(verificarTokenKiosco(id, token)).resolves.toBeUndefined();
-    await expect(verificarTokenKiosco(id, 'token-incorrecto')).rejects.toBeInstanceOf(ErrorAutenticacion);
-    await expect(verificarTokenKiosco(id, undefined)).rejects.toBeInstanceOf(ErrorAutenticacion);
+    // resolverContextoKiosco verifica el token vía bootstrap de dispositivo (bypass
+    // acotado de UNA lectura) y DEVUELVE la empresa del kiosco; el fichaje corre
+    // luego bajo RLS normal con ese empresaId. Token incorrecto/ausente → 401.
+    await expect(resolverContextoKiosco(id, token)).resolves.toEqual({ empresaId });
+    await expect(resolverContextoKiosco(id, 'token-incorrecto')).rejects.toBeInstanceOf(ErrorAutenticacion);
+    await expect(resolverContextoKiosco(id, undefined)).rejects.toBeInstanceOf(ErrorAutenticacion);
   });
 
   it('regenerar invalida el token anterior y acepta el nuevo', async () => {
-    const sede = await nuevaSede();
-    const { id, token: viejo } = await crearKiosco({ nombre: 'K', sedeId: sede.id });
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const { id, token: viejo } = await comoEmpresa(empresaId, () => crearKiosco({ nombre: 'K', sedeId: sede.id }));
 
-    const { token: nuevo } = await regenerarTokenKiosco(id);
+    const { token: nuevo } = await comoEmpresa(empresaId, () => regenerarTokenKiosco(id));
     expect(nuevo).not.toBe(viejo);
-    await expect(verificarTokenKiosco(id, viejo)).rejects.toBeInstanceOf(ErrorAutenticacion);
-    await expect(verificarTokenKiosco(id, nuevo)).resolves.toBeUndefined();
+    await expect(resolverContextoKiosco(id, viejo)).rejects.toBeInstanceOf(ErrorAutenticacion);
+    await expect(resolverContextoKiosco(id, nuevo)).resolves.toEqual({ empresaId });
   });
 
   it('rechaza el token de un kiosco inactivo', async () => {
-    const sede = await nuevaSede();
-    const { id, token } = await crearKiosco({ nombre: 'K', sedeId: sede.id });
-    await prisma.kiosco.update({ where: { id }, data: { activo: false } });
-    await expect(verificarTokenKiosco(id, token)).rejects.toBeInstanceOf(ErrorAutenticacion);
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const { id, token } = await comoEmpresa(empresaId, () => crearKiosco({ nombre: 'K', sedeId: sede.id }));
+    await semilla().kiosco.update({ where: { id }, data: { activo: false } });
+    await expect(resolverContextoKiosco(id, token)).rejects.toBeInstanceOf(ErrorAutenticacion);
   });
 
   it('regenerar un kiosco inexistente lanza ErrorNoEncontrado', async () => {
+    const empresaId = await crearEmpresa();
     await expect(
-      regenerarTokenKiosco('00000000-0000-0000-0000-000000000000'),
+      comoEmpresa(empresaId, () => regenerarTokenKiosco('00000000-0000-0000-0000-000000000000')),
     ).rejects.toBeInstanceOf(ErrorNoEncontrado);
   });
 });
@@ -83,12 +98,16 @@ describe('kiosco — listado público GET /kioscos (L5: no filtrar modoExcepcion
     // excepción de cada sede. construirApp registra el authPlugin, que exige un
     // secreto JWT aunque esta ruta no lo use: se fija uno de prueba.
     process.env.JWT_ACCESS_SECRET ??= 'test-secret-kioscos';
+    const empresaId = await crearEmpresa();
     n += 1;
-    const sede = await prisma.sede.create({
-      data: { nombre: `SedePub ${n}-${Date.now()}`, modoExcepcion: 'ambos' },
+    // Fixtures vía semilla (god-view); tablas directas necesitan empresaId explícito.
+    const sede = await semilla().sede.create({
+      data: { nombre: `SedePub ${n}-${Date.now()}`, modoExcepcion: 'ambos', empresaId },
     });
-    const kiosco = await prisma.kiosco.create({ data: { nombre: `KPub ${n}`, sedeId: sede.id } });
+    const kiosco = await semilla().kiosco.create({ data: { nombre: `KPub ${n}`, sedeId: sede.id } });
 
+    // Ruta pública: el bootstrap de dispositivo (txBootstrapDispositivo) resuelve el
+    // listado sin contexto de tenant; no se usa comoEmpresa (no hay token de usuario).
     const app = construirApp();
     try {
       const res = await app.inject({ method: 'GET', url: '/kioscos' });

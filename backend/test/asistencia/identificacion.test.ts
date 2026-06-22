@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { prisma } from '../../src/core/prisma.js';
+import { describe, it, expect, afterAll } from 'vitest';
+import { semilla, comoEmpresa, crearEmpresa, cerrarSemilla } from '../helpers/db.js';
 import { identificarEmpleado } from '../../src/asistencia/fichaje/identificacion.service.js';
 import {
   verificadorFacialSimulado,
@@ -9,11 +9,15 @@ import { ErrorNoEncontrado } from '../../src/core/errors.js';
 
 let n = 0;
 
-async function crearEmpleado() {
+async function crearEmpleado(empresaId: string) {
   n += 1;
   const sufijo = `${n}-${Date.now()}`;
-  const sede = await prisma.sede.create({ data: { nombre: `Sede ${sufijo}` } });
-  return prisma.empleado.create({
+  // sede es tabla DIRECTA → empresaId explícito (siembra ignora RLS).
+  const sede = await semilla().sede.create({
+    data: { nombre: `Sede ${sufijo}`, empresaId },
+  });
+  // empleado "hereda" empresa por su FK a sede → sin empresaId.
+  return semilla().empleado.create({
     data: {
       numero: `E${sufijo}`,
       nombre: 'Empleado de prueba',
@@ -25,22 +29,31 @@ async function crearEmpleado() {
   });
 }
 
+afterAll(cerrarSemilla);
+
 describe('identificación de empleado', () => {
   it('identifica por número de empleado', async () => {
-    const empleado = await crearEmpleado();
-    const encontrado = await identificarEmpleado({ numero: empleado.numero });
+    const empresaId = await crearEmpresa();
+    const empleado = await crearEmpleado(empresaId);
+    const encontrado = await comoEmpresa(empresaId, () =>
+      identificarEmpleado({ numero: empleado.numero }),
+    );
     expect(encontrado.id).toBe(empleado.id);
   });
 
   it('identifica por QR', async () => {
-    const empleado = await crearEmpleado();
-    const encontrado = await identificarEmpleado({ qrToken: empleado.qrToken });
+    const empresaId = await crearEmpresa();
+    const empleado = await crearEmpleado(empresaId);
+    const encontrado = await comoEmpresa(empresaId, () =>
+      identificarEmpleado({ qrToken: empleado.qrToken }),
+    );
     expect(encontrado.id).toBe(empleado.id);
   });
 
   it('rechaza un empleado inexistente', async () => {
+    const empresaId = await crearEmpresa();
     await expect(
-      identificarEmpleado({ numero: 'NO-EXISTE' }),
+      comoEmpresa(empresaId, () => identificarEmpleado({ numero: 'NO-EXISTE' })),
     ).rejects.toBeInstanceOf(ErrorNoEncontrado);
   });
 });
