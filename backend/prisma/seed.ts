@@ -47,6 +47,27 @@ async function main(): Promise<void> {
     },
   });
 
+  // Empresa por defecto + membresía del admin: el login EXIGE membresía, así que
+  // sin ella el admin no podría entrar tras un seed fresco. La empresa default
+  // también la crea el backfill Ola 2; aquí es idempotente por slug.
+  const empresaDefault = await prisma.empresa.upsert({
+    where: { slug: 'default' },
+    update: {},
+    create: { nombre: 'Empresa Default', slug: 'default' },
+  });
+  await prisma.membresia.upsert({
+    where: {
+      usuarioId_empresaId: { usuarioId: admin.id, empresaId: empresaDefault.id },
+    },
+    update: {},
+    create: {
+      usuarioId: admin.id,
+      empresaId: empresaDefault.id,
+      rol: Rol.administrador,
+      predeterminada: true,
+    },
+  });
+
   // Base (prod-safe): catálogos y configuración.
   await sembrarRolesOperativos();
   await sembrarCategoriasGasto();
