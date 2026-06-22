@@ -1,4 +1,5 @@
-import { prisma, type ClienteTx } from '../../core/prisma.js';
+import type { ClienteTx } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorValidacion } from '../../core/errors.js';
 
 /**
@@ -61,6 +62,8 @@ export async function debitarSaldo(
 
 /** Lee el saldo actual del empleado (0 si aún no tiene fila). Solo lectura. */
 export async function obtenerSaldo(empleadoId: string): Promise<number> {
-  const fila = await prisma.saldoHorasExtra.findUnique({ where: { empleadoId } });
+  const fila = await txEmpresa((tx) =>
+    tx.saldoHorasExtra.findUnique({ where: { empleadoId } }),
+  );
   return fila ? Number(fila.saldo) : 0;
 }

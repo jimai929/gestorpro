@@ -1,4 +1,5 @@
-import { prisma, type ClienteTx } from '../../core/prisma.js';
+import type { ClienteTx } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorValidacion } from '../../core/errors.js';
 
 /** Serializa el monto (Decimal) a number para el contrato de la API. */
@@ -7,10 +8,12 @@ function aGastoDto<T extends { monto: { toString(): string } }>(gasto: T) {
 }
 
 export function listarCategorias() {
-  return prisma.categoriaGasto.findMany({
-    where: { activo: true },
-    orderBy: { nombre: 'asc' },
-  });
+  return txEmpresa((tx) =>
+    tx.categoriaGasto.findMany({
+      where: { activo: true },
+      orderBy: { nombre: 'asc' },
+    }),
+  );
 }
 
 export interface DatosGasto {
@@ -79,7 +82,7 @@ export async function crearGastoEnTransaccion(tx: ClienteTx, datos: DatosGasto) 
  * transacción. La coherencia de empleado se valida en `crearGastoEnTransaccion`.
  */
 export function registrarGasto(datos: DatosGasto) {
-  return prisma.$transaction((tx) => crearGastoEnTransaccion(tx, datos));
+  return txEmpresa((tx) => crearGastoEnTransaccion(tx, datos));
 }
 
 export async function listarGastos(filtros: {
@@ -87,7 +90,8 @@ export async function listarGastos(filtros: {
   hasta?: string;
   sedeId?: string;
 }) {
-  const gastos = await prisma.gasto.findMany({
+  const gastos = await txEmpresa((tx) =>
+    tx.gasto.findMany({
     where: {
       tipo: 'normal',
       ...(filtros.sedeId ? { sedeId: filtros.sedeId } : {}),
@@ -102,6 +106,7 @@ export async function listarGastos(filtros: {
     },
     orderBy: { fechaOperacion: 'desc' },
     include: { categoria: true },
-  });
+    }),
+  );
   return gastos.map(aGastoDto);
 }

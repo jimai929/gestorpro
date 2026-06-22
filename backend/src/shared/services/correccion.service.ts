@@ -1,4 +1,5 @@
-import { prisma, type ClienteTx } from '../../core/prisma.js';
+import type { ClienteTx } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import { auditoriaRepo } from '../repositories/auditoria.repository.js';
 
 /** Error de negocio al corregir un movimiento. Las rutas lo mapean a 400. */
@@ -84,7 +85,7 @@ export async function corregirMovimiento<T extends MovimientoBase>(
     throw new ErrorCorreccion('El monto corregido no puede ser negativo.');
   }
 
-  return prisma.$transaction(async (tx) => {
+  return txEmpresa(async (tx) => {
     const original = await adaptador.cargar(movimientoId, tx);
     if (!original) {
       throw new ErrorCorreccion('El movimiento a corregir no existe.');

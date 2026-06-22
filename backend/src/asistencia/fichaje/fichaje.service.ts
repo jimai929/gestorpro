@@ -1,4 +1,4 @@
-import { prisma } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import {
   ErrorAutenticacion,
   ErrorNoEncontrado,
@@ -57,9 +57,9 @@ export function crearServicioFichaje(
         qrToken: solicitud.qrToken,
       });
 
-      const kiosco = await prisma.kiosco.findUnique({
-        where: { id: solicitud.kioscoId },
-      });
+      const kiosco = await txEmpresa((tx) =>
+        tx.kiosco.findUnique({ where: { id: solicitud.kioscoId } }),
+      );
       if (!kiosco || !kiosco.activo) {
         throw new ErrorNoEncontrado('Kiosco no encontrado o inactivo.');
       }
@@ -72,16 +72,18 @@ export function crearServicioFichaje(
       // Camino feliz: el facial coincide y hay vida → fichaje normal. Con
       // `revisionTotal` se marca igualmente para revisión (verificador simulado).
       if (facialExitosa(facial)) {
-        const fichaje = await prisma.fichaje.create({
-          data: {
-            empleadoId: empleado.id,
-            kioscoId: kiosco.id,
-            tipo: solicitud.tipo,
-            esExcepcion: false,
-            requiereRevision: revisionTotal,
-            fotoCaptura: solicitud.fotoCaptura,
-          },
-        });
+        const fichaje = await txEmpresa((tx) =>
+          tx.fichaje.create({
+            data: {
+              empleadoId: empleado.id,
+              kioscoId: kiosco.id,
+              tipo: solicitud.tipo,
+              esExcepcion: false,
+              requiereRevision: revisionTotal,
+              fotoCaptura: solicitud.fotoCaptura,
+            },
+          }),
+        );
         // Al cerrar la salida, la jornada se calcula sola.
         if (solicitud.tipo === 'salida') {
           await recalcularJornadaPorSalida(empleado.id, fichaje.momento);
@@ -95,7 +97,9 @@ export function crearServicioFichaje(
       }
 
       // El facial falló → fichaje de excepción según el modo de la sede.
-      const sede = await prisma.sede.findUnique({ where: { id: empleado.sedeId } });
+      const sede = await txEmpresa((tx) =>
+        tx.sede.findUnique({ where: { id: empleado.sedeId } }),
+      );
       const modo = sede?.modoExcepcion ?? 'pin';
       const permitePin = modo === 'pin' || modo === 'ambos';
       const permiteSupervisor = modo === 'supervisor' || modo === 'ambos';
@@ -115,9 +119,10 @@ export function crearServicioFichaje(
         if (!permiteSupervisor) {
           throw new ErrorValidacion('Esta sede no permite excepción por supervisor.');
         }
-        const supervisor = await prisma.usuario.findUnique({
-          where: { email: solicitud.supervisorEmail },
-        });
+        // usuario está EXCLUIDA de RLS (login sin contexto); la lectura es global.
+        const supervisor = await txEmpresa((tx) =>
+          tx.usuario.findUnique({ where: { email: solicitud.supervisorEmail } }),
+        );
         const autorizado =
           supervisor !== null &&
           supervisor.activo &&
@@ -135,17 +140,19 @@ export function crearServicioFichaje(
         return { estado: 'requiere_excepcion' as const, modoExcepcion: modo };
       }
 
-      const fichaje = await prisma.fichaje.create({
-        data: {
-          empleadoId: empleado.id,
-          kioscoId: kiosco.id,
-          tipo: solicitud.tipo,
-          esExcepcion: true,
-          mecanismoExcepcion: mecanismo,
-          requiereRevision: true,
-          fotoCaptura: solicitud.fotoCaptura,
-        },
-      });
+      const fichaje = await txEmpresa((tx) =>
+        tx.fichaje.create({
+          data: {
+            empleadoId: empleado.id,
+            kioscoId: kiosco.id,
+            tipo: solicitud.tipo,
+            esExcepcion: true,
+            mecanismoExcepcion: mecanismo,
+            requiereRevision: true,
+            fotoCaptura: solicitud.fotoCaptura,
+          },
+        }),
+      );
 
       if (solicitud.tipo === 'salida') {
         await recalcularJornadaPorSalida(empleado.id, fichaje.momento);
@@ -154,9 +161,11 @@ export function crearServicioFichaje(
       // Alerta a RRHH si el empleado acumula muchas excepciones recientes
       // (la foto de referencia podría necesitar reemplazo).
       const desde = new Date(Date.now() - 7 * 86_400_000);
-      const excepcionesRecientes = await prisma.fichaje.count({
-        where: { empleadoId: empleado.id, esExcepcion: true, momento: { gte: desde } },
-      });
+      const excepcionesRecientes = await txEmpresa((tx) =>
+        tx.fichaje.count({
+          where: { empleadoId: empleado.id, esExcepcion: true, momento: { gte: desde } },
+        }),
+      );
 
       return {
         estado: 'registrado' as const,
@@ -177,15 +186,17 @@ export function crearServicioFichaje(
  * `requiereRevision = true`.
  */
 export function colaRevision(filtros: { sedeId?: string }) {
-  return prisma.fichaje.findMany({
-    where: {
-      requiereRevision: true,
-      revision: null,
-      ...(filtros.sedeId ? { empleado: { sedeId: filtros.sedeId } } : {}),
-    },
-    orderBy: { momento: 'desc' },
-    include: { empleado: { select: { numero: true, nombre: true } }, kiosco: { select: { nombre: true } } },
-  });
+  return txEmpresa((tx) =>
+    tx.fichaje.findMany({
+      where: {
+        requiereRevision: true,
+        revision: null,
+        ...(filtros.sedeId ? { empleado: { sedeId: filtros.sedeId } } : {}),
+      },
+      orderBy: { momento: 'desc' },
+      include: { empleado: { select: { numero: true, nombre: true } }, kiosco: { select: { nombre: true } } },
+    }),
+  );
 }
 
 /** Registra la decisión del jefe sobre un fichaje de excepción (no muta el fichaje). */
@@ -195,22 +206,24 @@ export async function revisarFichaje(datos: {
   valido: boolean;
   motivo?: string;
 }) {
-  const fichaje = await prisma.fichaje.findUnique({
-    where: { id: datos.fichajeId },
-    include: { revision: true },
-  });
-  if (!fichaje || (!fichaje.esExcepcion && !fichaje.requiereRevision)) {
-    throw new ErrorNoEncontrado('Fichaje pendiente de revisión no encontrado.');
-  }
-  if (fichaje.revision) {
-    throw new ErrorValidacion('Este fichaje ya fue revisado.');
-  }
-  return prisma.revisionFichaje.create({
-    data: {
-      fichajeId: datos.fichajeId,
-      jefeId: datos.jefeId,
-      valido: datos.valido,
-      motivo: datos.motivo ?? null,
-    },
+  return txEmpresa(async (tx) => {
+    const fichaje = await tx.fichaje.findUnique({
+      where: { id: datos.fichajeId },
+      include: { revision: true },
+    });
+    if (!fichaje || (!fichaje.esExcepcion && !fichaje.requiereRevision)) {
+      throw new ErrorNoEncontrado('Fichaje pendiente de revisión no encontrado.');
+    }
+    if (fichaje.revision) {
+      throw new ErrorValidacion('Este fichaje ya fue revisado.');
+    }
+    return tx.revisionFichaje.create({
+      data: {
+        fichajeId: datos.fichajeId,
+        jefeId: datos.jefeId,
+        valido: datos.valido,
+        motivo: datos.motivo ?? null,
+      },
+    });
   });
 }

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { prisma } from '../prisma.js';
+import { txEmpresa } from '../tenant/contexto.js';
 import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../errors.js';
 import { hashearContrasena } from '../auth/contrasena.js';
 
@@ -105,7 +105,7 @@ export async function crearEmpleado(datos: DatosEmpleado) {
   const pinHash = await hashearContrasena(datos.pin);
   const qrToken = generarQrToken();
   try {
-    const empleado = await prisma.empleado.create({
+    const empleado = await txEmpresa((tx) => tx.empleado.create({
       data: {
         numero: datos.numero,
         nombre: datos.nombre,
@@ -119,7 +119,7 @@ export async function crearEmpleado(datos: DatosEmpleado) {
           : {}),
       },
       select: SELECT_EMPLEADO,
-    });
+    }));
     return { ...aEmpleadoDto(empleado), qrToken };
   } catch (error) {
     if (esErrorPrisma(error, 'P2002')) {
@@ -159,7 +159,7 @@ export async function editarEmpleado(id: string, datos: DatosEditarEmpleado) {
     ...(datos.activo !== undefined ? { activo: datos.activo } : {}),
   };
   try {
-    const empleado = await prisma.$transaction(async (tx) => {
+    const empleado = await txEmpresa(async (tx) => {
       await tx.empleado.update({ where: { id }, data });
       if (datos.rolesOperativos !== undefined) {
         await tx.empleadoRolOperativo.deleteMany({ where: { empleadoId: id } });
@@ -197,7 +197,7 @@ export function listarEmpleados(filtros?: {
   sedeId?: string;
   rol?: string;
 }) {
-  return prisma.empleado
+  return txEmpresa((tx) => tx.empleado
     .findMany({
       where: {
         ...(filtros?.incluirInactivos ? {} : { activo: true }),
@@ -209,12 +209,12 @@ export function listarEmpleados(filtros?: {
       orderBy: { numero: 'asc' },
       select: SELECT_EMPLEADO,
     })
-    .then((lista) => lista.map(aEmpleadoDto));
+    .then((lista) => lista.map(aEmpleadoDto)));
 }
 
 /** Devuelve el `qrToken` actual (para reimprimir el QR sin rotarlo). Solo admin. */
 export async function obtenerQrToken(id: string) {
-  const empleado = await prisma.empleado.findUnique({ where: { id }, select: { qrToken: true } });
+  const empleado = await txEmpresa((tx) => tx.empleado.findUnique({ where: { id }, select: { qrToken: true } }));
   if (!empleado) {
     throw new ErrorNoEncontrado('El empleado indicado no existe.');
   }
@@ -224,11 +224,11 @@ export async function obtenerQrToken(id: string) {
 /** Rota el `qrToken`: genera uno nuevo y revoca el anterior (deja de resolver). */
 export async function regenerarQrToken(id: string) {
   try {
-    const empleado = await prisma.empleado.update({
+    const empleado = await txEmpresa((tx) => tx.empleado.update({
       where: { id },
       data: { qrToken: generarQrToken() },
       select: { qrToken: true },
-    });
+    }));
     return { qrToken: empleado.qrToken };
   } catch (error) {
     if (esErrorPrisma(error, 'P2025')) {
@@ -243,7 +243,7 @@ export async function resetearPin(id: string, pin: string): Promise<void> {
   validarPin(pin);
   const pinHash = await hashearContrasena(pin);
   try {
-    await prisma.empleado.update({ where: { id }, data: { pinHash } });
+    await txEmpresa((tx) => tx.empleado.update({ where: { id }, data: { pinHash } }));
   } catch (error) {
     if (esErrorPrisma(error, 'P2025')) {
       throw new ErrorNoEncontrado('El empleado indicado no existe.');

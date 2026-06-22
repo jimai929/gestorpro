@@ -1,4 +1,4 @@
-import { prisma } from '../prisma.js';
+import { txEmpresa } from '../tenant/contexto.js';
 import { ErrorNoEncontrado } from '../errors.js';
 
 function esErrorPrisma(error: unknown, codigo: string): boolean {
@@ -18,12 +18,15 @@ export interface DatosSede {
 }
 
 export function crearSede(datos: DatosSede) {
-  return prisma.sede.create({
-    data: {
-      nombre: datos.nombre,
-      ...(datos.modoExcepcion ? { modoExcepcion: datos.modoExcepcion } : {}),
-    },
-  });
+  // empresa_id lo rellena el DEFAULT desde el GUC que fija txEmpresa (del token).
+  return txEmpresa((tx) =>
+    tx.sede.create({
+      data: {
+        nombre: datos.nombre,
+        ...(datos.modoExcepcion ? { modoExcepcion: datos.modoExcepcion } : {}),
+      },
+    }),
+  );
 }
 
 /**
@@ -44,7 +47,9 @@ export async function editarSede(id: string, datos: DatosEditarSede) {
     ...(datos.activo !== undefined ? { activo: datos.activo } : {}),
   };
   try {
-    return await prisma.sede.update({ where: { id }, data });
+    // Bajo RLS, where {id} solo ve filas del tenant del GUC → un id de otra
+    // empresa da P2025 → 404 (anti cross-tenant).
+    return await txEmpresa((tx) => tx.sede.update({ where: { id }, data }));
   } catch (error) {
     if (esErrorPrisma(error, 'P2025')) {
       throw new ErrorNoEncontrado('La sede indicada no existe.');
@@ -55,8 +60,10 @@ export async function editarSede(id: string, datos: DatosEditarSede) {
 
 /** Lista sedes. Por defecto solo activas (para los selectores); con `incluirInactivas`, todas. */
 export function listarSedes(filtros?: { incluirInactivas?: boolean }) {
-  return prisma.sede.findMany({
-    where: filtros?.incluirInactivas ? {} : { activo: true },
-    orderBy: { nombre: 'asc' },
-  });
+  return txEmpresa((tx) =>
+    tx.sede.findMany({
+      where: filtros?.incluirInactivas ? {} : { activo: true },
+      orderBy: { nombre: 'asc' },
+    }),
+  );
 }

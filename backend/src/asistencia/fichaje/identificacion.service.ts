@@ -1,4 +1,4 @@
-import { prisma } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorNoEncontrado, ErrorValidacion } from '../../core/errors.js';
 
 /**
@@ -10,15 +10,17 @@ export async function identificarEmpleado(criterio: {
   numero?: string;
   qrToken?: string;
 }) {
+  // Bajo RLS (contexto de la empresa del kiosco), un empleado de OTRA empresa no es
+  // visible aunque numero/qrToken sean unicos globales → findUnique da null → 404.
   let empleado = null;
   if (criterio.numero) {
-    empleado = await prisma.empleado.findUnique({
-      where: { numero: criterio.numero },
-    });
+    empleado = await txEmpresa((tx) =>
+      tx.empleado.findUnique({ where: { numero: criterio.numero } }),
+    );
   } else if (criterio.qrToken) {
-    empleado = await prisma.empleado.findUnique({
-      where: { qrToken: criterio.qrToken },
-    });
+    empleado = await txEmpresa((tx) =>
+      tx.empleado.findUnique({ where: { qrToken: criterio.qrToken } }),
+    );
   } else {
     throw new ErrorValidacion('Debe indicar el número de empleado o el QR.');
   }

@@ -1,4 +1,4 @@
-import { prisma } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import { escaparComodinesLike } from './ventas.service.js';
 
 export interface RangoFiltro {
@@ -40,54 +40,58 @@ export async function gananciaDelPeriodo(filtros: RangoFiltro) {
     ...(turno ? { turno: turno as 'manana' | 'tarde' | 'noche' } : {}),
   };
 
-  const compras = await prisma.compra.aggregate({
-    _sum: { montoTotal: true },
-    where: { ...sede, fechaEmision: enRango },
-  });
+  return txEmpresa(async (tx) => {
+    const compras = await tx.compra.aggregate({
+      _sum: { montoTotal: true },
+      where: { ...sede, fechaEmision: enRango },
+    });
 
-  const gastosPos = await prisma.gasto.aggregate({
-    _sum: { monto: true },
-    where: { ...sede, tipo: { in: ['normal', 'correccion'] }, fechaOperacion: enRango },
-  });
-  const gastosRev = await prisma.gasto.aggregate({
-    _sum: { monto: true },
-    where: { ...sede, tipo: 'reverso', fechaOperacion: enRango },
-  });
+    const gastosPos = await tx.gasto.aggregate({
+      _sum: { monto: true },
+      where: { ...sede, tipo: { in: ['normal', 'correccion'] }, fechaOperacion: enRango },
+    });
+    const gastosRev = await tx.gasto.aggregate({
+      _sum: { monto: true },
+      where: { ...sede, tipo: 'reverso', fechaOperacion: enRango },
+    });
 
-  const ventasPos = await prisma.ventaDiaria.aggregate({
-    _sum: { monto: true },
-    where: { ...filtroCierre, tipo: { in: ['normal', 'correccion'] }, fechaOperacion: enRango },
-  });
-  const ventasRev = await prisma.ventaDiaria.aggregate({
-    _sum: { monto: true },
-    where: { ...filtroCierre, tipo: 'reverso', fechaOperacion: enRango },
-  });
+    const ventasPos = await tx.ventaDiaria.aggregate({
+      _sum: { monto: true },
+      where: { ...filtroCierre, tipo: { in: ['normal', 'correccion'] }, fechaOperacion: enRango },
+    });
+    const ventasRev = await tx.ventaDiaria.aggregate({
+      _sum: { monto: true },
+      where: { ...filtroCierre, tipo: 'reverso', fechaOperacion: enRango },
+    });
 
-  const totalCompras = num(compras._sum.montoTotal);
-  const totalGastos = num(gastosPos._sum.monto) - num(gastosRev._sum.monto);
-  const totalVentas = num(ventasPos._sum.monto) - num(ventasRev._sum.monto);
-  const ganancia = totalVentas - totalCompras - totalGastos;
+    const totalCompras = num(compras._sum.montoTotal);
+    const totalGastos = num(gastosPos._sum.monto) - num(gastosRev._sum.monto);
+    const totalVentas = num(ventasPos._sum.monto) - num(ventasRev._sum.monto);
+    const ganancia = totalVentas - totalCompras - totalGastos;
 
-  return {
-    desde,
-    hasta,
-    ventas: redondear(totalVentas),
-    compras: redondear(totalCompras),
-    gastos: redondear(totalGastos),
-    ganancia: redondear(ganancia),
-  };
+    return {
+      desde,
+      hasta,
+      ventas: redondear(totalVentas),
+      compras: redondear(totalCompras),
+      gastos: redondear(totalGastos),
+      ganancia: redondear(ganancia),
+    };
+  });
 }
 
 /** Gastos del período agrupados por categoría (netos de corrección). */
 export async function gastosPorCategoria(filtros: RangoFiltro) {
   const { desde, hasta, sedeId } = filtros;
-  const gastos = await prisma.gasto.findMany({
-    where: {
-      ...(sedeId ? { sedeId } : {}),
-      fechaOperacion: { gte: new Date(desde), lte: new Date(hasta) },
-    },
-    include: { categoria: true },
-  });
+  const gastos = await txEmpresa((tx) =>
+    tx.gasto.findMany({
+      where: {
+        ...(sedeId ? { sedeId } : {}),
+        fechaOperacion: { gte: new Date(desde), lte: new Date(hasta) },
+      },
+      include: { categoria: true },
+    }),
+  );
 
   const acumulado = new Map<string, { categoriaId: string; nombre: string; total: number }>();
   for (const gasto of gastos) {

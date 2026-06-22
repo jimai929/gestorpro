@@ -1,4 +1,4 @@
-import { prisma } from '../prisma.js';
+import { txEmpresa } from '../tenant/contexto.js';
 
 interface RolOperativoFila {
   id: string;
@@ -18,11 +18,13 @@ function aRolDto(r: RolOperativoFila) {
  * del cierre. Con `incluirInactivos`, todos (para una futura pantalla de gestión).
  */
 export function listarRolesOperativos(opciones?: { incluirInactivos?: boolean }) {
-  return prisma.rolOperativo
-    .findMany({
-      where: opciones?.incluirInactivos ? {} : { activo: true },
-      orderBy: { nombre: 'asc' },
-      select: { id: true, clave: true, nombre: true, activo: true },
-    })
-    .then((lista) => lista.map(aRolDto));
+  return txEmpresa((tx) =>
+    tx.rolOperativo
+      .findMany({
+        where: opciones?.incluirInactivos ? {} : { activo: true },
+        orderBy: { nombre: 'asc' },
+        select: { id: true, clave: true, nombre: true, activo: true },
+      })
+      .then((lista) => lista.map(aRolDto)),
+  );
 }

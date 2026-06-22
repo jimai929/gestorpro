@@ -1,4 +1,4 @@
-import { prisma } from '../../core/prisma.js';
+import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorConflicto, ErrorValidacion } from '../../core/errors.js';
 
 function esErrorPrisma(error: unknown, codigo: string): boolean {
@@ -98,24 +98,26 @@ export async function registrarVenta(datos: DatosVenta) {
   const total = redondear(datos.detalles.reduce((acc, d) => acc + d.monto, 0));
 
   try {
-    const venta = await prisma.ventaDiaria.create({
-      data: {
-        sedeId: datos.sedeId,
-        fechaOperacion: new Date(datos.fechaOperacion),
-        turno: datos.turno,
-        cajera: datos.cajera,
-        cerradoPor: datos.cerradoPor,
-        ...(datos.horaApertura ? { horaApertura: datos.horaApertura } : {}),
-        ...(datos.horaCierre ? { horaCierre: datos.horaCierre } : {}),
-        monto: total,
-        tipo: 'normal',
-        usuarioId: datos.usuarioId,
-        detalles: {
-          create: datos.detalles.map((d) => ({ tipoArqueo: d.tipoArqueo, monto: d.monto })),
+    const venta = await txEmpresa((tx) =>
+      tx.ventaDiaria.create({
+        data: {
+          sedeId: datos.sedeId,
+          fechaOperacion: new Date(datos.fechaOperacion),
+          turno: datos.turno,
+          cajera: datos.cajera,
+          cerradoPor: datos.cerradoPor,
+          ...(datos.horaApertura ? { horaApertura: datos.horaApertura } : {}),
+          ...(datos.horaCierre ? { horaCierre: datos.horaCierre } : {}),
+          monto: total,
+          tipo: 'normal',
+          usuarioId: datos.usuarioId,
+          detalles: {
+            create: datos.detalles.map((d) => ({ tipoArqueo: d.tipoArqueo, monto: d.monto })),
+          },
         },
-      },
-      include: { detalles: true },
-    });
+        include: { detalles: true },
+      }),
+    );
     return aVentaDto(venta);
   } catch (error) {
     if (esErrorPrisma(error, 'P2002')) {
@@ -137,29 +139,31 @@ export async function listarVentas(filtros: {
   cajera?: string;
   turno?: string;
 }) {
-  const ventas = await prisma.ventaDiaria.findMany({
-    where: {
-      tipo: 'normal',
-      ...(filtros.sedeId ? { sedeId: filtros.sedeId } : {}),
-      // Filtro de cajera CASE-INSENSITIVE: tolera el texto libre legacy
-      // ('yoany', '9 yon') tecleado antes del catálogo de roles. Se escapan los
-      // comodines de LIKE para que ILIKE haga match EXACTO (insensible a caso).
-      ...(filtros.cajera
-        ? { cajera: { equals: escaparComodinesLike(filtros.cajera), mode: 'insensitive' } }
-        : {}),
-      ...(filtros.turno ? { turno: filtros.turno as 'manana' | 'tarde' | 'noche' } : {}),
-      ...(filtros.desde || filtros.hasta
-        ? {
-            fechaOperacion: {
-              ...(filtros.desde ? { gte: new Date(filtros.desde) } : {}),
-              ...(filtros.hasta ? { lte: new Date(filtros.hasta) } : {}),
-            },
-          }
-        : {}),
-    },
-    orderBy: [{ fechaOperacion: 'desc' }, { turno: 'asc' }, { cajera: 'asc' }],
-    include: { detalles: true },
-  });
+  const ventas = await txEmpresa((tx) =>
+    tx.ventaDiaria.findMany({
+      where: {
+        tipo: 'normal',
+        ...(filtros.sedeId ? { sedeId: filtros.sedeId } : {}),
+        // Filtro de cajera CASE-INSENSITIVE: tolera el texto libre legacy
+        // ('yoany', '9 yon') tecleado antes del catálogo de roles. Se escapan los
+        // comodines de LIKE para que ILIKE haga match EXACTO (insensible a caso).
+        ...(filtros.cajera
+          ? { cajera: { equals: escaparComodinesLike(filtros.cajera), mode: 'insensitive' } }
+          : {}),
+        ...(filtros.turno ? { turno: filtros.turno as 'manana' | 'tarde' | 'noche' } : {}),
+        ...(filtros.desde || filtros.hasta
+          ? {
+              fechaOperacion: {
+                ...(filtros.desde ? { gte: new Date(filtros.desde) } : {}),
+                ...(filtros.hasta ? { lte: new Date(filtros.hasta) } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: [{ fechaOperacion: 'desc' }, { turno: 'asc' }, { cajera: 'asc' }],
+      include: { detalles: true },
+    }),
+  );
   return ventas.map(aVentaDto);
 }
 
@@ -169,10 +173,12 @@ export async function listarVentas(filtros: {
  * '2') que se limpiarán en una fase posterior. Ordenados alfabéticamente.
  */
 export async function listarCajeras(): Promise<string[]> {
-  const filas = await prisma.ventaDiaria.findMany({
-    distinct: ['cajera'],
-    select: { cajera: true },
-    orderBy: { cajera: 'asc' },
-  });
+  const filas = await txEmpresa((tx) =>
+    tx.ventaDiaria.findMany({
+      distinct: ['cajera'],
+      select: { cajera: true },
+      orderBy: { cajera: 'asc' },
+    }),
+  );
   return filas.map((f) => f.cajera);
 }
