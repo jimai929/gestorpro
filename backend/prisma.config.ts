@@ -10,6 +10,13 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // El CLI de Prisma (migrate, db seed) hace DDL/seed: corre como el rol
+    // PRIVILEGIADO (migrador, BYPASSRLS), NUNCA como gestorpro_app (sujeto a RLS,
+    // sin permisos DDL). En dev se fija MIGRATOR_DATABASE_URL en .env; el runtime
+    // de la app lee DATABASE_URL (gestorpro_app) aparte en src/core/prisma.ts. El
+    // fallback a DATABASE_URL conserva el comportamiento de prod (deploy.sh ya fija
+    // DATABASE_URL=migrador en el paso de migración) y de los tests (global-setup
+    // fija MIGRATOR_DATABASE_URL al contenedor efímero).
+    url: process.env["MIGRATOR_DATABASE_URL"] ?? process.env["DATABASE_URL"],
   },
 });

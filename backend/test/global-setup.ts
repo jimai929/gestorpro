@@ -34,8 +34,13 @@ export default async function ({
 
   // migrate deploy aplica los archivos de migración a la base efímera. La URL se
   // pasa por entorno; prisma.config.ts (dotenv) no la sobreescribe si ya existe.
+  // migrate deploy corre como el rol privilegiado del contenedor (owner/super).
+  // Se fijan AMBAS: DATABASE_URL (fallback) y MIGRATOR_DATABASE_URL (lo que ahora
+  // prefiere prisma.config.ts) al contenedor efímero, para que el .env de dev
+  // (MIGRATOR_DATABASE_URL apuntando a localhost) NUNCA filtre y migremos la base
+  // equivocada (dotenv no sobreescribe vars ya presentes).
   execSync('npx prisma migrate deploy', {
-    env: { ...process.env, DATABASE_URL: url },
+    env: { ...process.env, DATABASE_URL: url, MIGRATOR_DATABASE_URL: url },
     stdio: 'inherit',
   });
 
