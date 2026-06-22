@@ -93,6 +93,17 @@ NO requiere confirmación (ver `## Git`).
 * Operaciones de dinero, saldos, pagos o correcciones van en transacción.
 * Migrations: nunca editar una ya aplicada; cambios estructurales en migration
   nueva (additive). Seed idempotente y datos demo separados de los reales.
+* **Operación nivel-hierro = verificar TODOS los entornos reales ANTES de actuar.**
+  Antes de cualquier operación que pueda afectar un entorno persistente —editar una
+  migración ya aplicada, cambiar privilegios/atributos de rol, drop/rename/truncate,
+  o cualquier cosa irreversible— hay que **confirmar el estado real de TODOS los
+  despliegues** (VPS `45.77.198.133`, futura producción, no solo dev + Testcontainers),
+  sin omitir ninguno. NUNCA asumir "producción no existe" ni "ningún entorno lo tiene
+  aplicado" sin haberlo comprobado. Precedente (2026-06-22): se editó la migración
+  aplicada `20260523224500` sobre la premisa FALSA de que no había entorno durable;
+  el VPS sí la tenía aplicada (deploy real, 37 h), y el cambio habría roto su
+  `migrate deploy` por checksum. Se evitó el incidente solo por verificar (ssh al
+  VPS) y revertir a tiempo. La verificación va PRIMERO, no después.
 * Regla laboral panameña no clara: marcar pendiente legal, no inventar.
 
 ---
