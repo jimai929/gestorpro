@@ -21,9 +21,22 @@ export function conContextoTenant<T>(ctx: ContextoTenant, fn: () => T): T {
   return alsTenant.run(ctx, fn);
 }
 
-/** Fija el contexto para el resto del contexto async actual (preHandler Fastify). */
-export function fijarContextoTenant(ctx: ContextoTenant): void {
-  alsTenant.enterWith(ctx);
+/**
+ * Inicia un contexto de tenant VACÍO (fail-closed) para la request actual. Se llama
+ * en el hook `onRequest` —el PUNTO MÁS TEMPRANO del ciclo de la request— para que
+ * cada request tenga su PROPIO store en la raíz de su contexto async. Hacerlo aquí
+ * (y no en un preHandler tardío) evita que `enterWith` se pierda o se cruce entre
+ * requests concurrentes: el store queda en la raíz y lo heredan todos los hooks y el
+ * handler. `autenticar` luego MUTA este store (no re-entra) con el tenant del token.
+ */
+export function iniciarContextoTenant(): void {
+  alsTenant.enterWith({ empresaId: null, esSuperAdmin: false });
+}
+
+/** Muta el store de la request actual (lo llama `autenticar` tras verificar el token). */
+export function actualizarContextoTenant(parcial: Partial<ContextoTenant>): void {
+  const store = alsTenant.getStore();
+  if (store) Object.assign(store, parcial);
 }
 
 /** Contexto actual o uno vacío (fail-closed: empresaId null). */
@@ -76,4 +89,28 @@ export function txEmpresa<T>(
     }
     return fn(tx as ClienteTx);
   }, opc.tx);
+}
+
+/**
+ * Bootstrap de autenticación de DISPOSITIVO (kiosco): resuelve el tenant ANTES de
+ * tener contexto. El dispositivo se identifica con su token (no es un usuario, no
+ * tiene JWT ni super-admin), así que para LEER su propia fila de kiosco —protegida
+ * por RLS— se abre una tx con el bypass de RLS acotado a esa lectura.
+ *
+ * USO INTERNO EXCLUSIVO (solo `resolverContextoKiosco`). Reglas (las 4 acordadas):
+ *  1) Solo para una LECTURA ACOTADA (la fila del kiosco + su sede.empresa_id); jamás
+ *     para servir datos de tenant.
+ *  2) El acceso real a datos del fichaje se hace DESPUÉS, con el empresaId resuelto,
+ *     en `conContextoTenant`/`txEmpresa` bajo RLS normal.
+ *  3) NUNCA alcanzable desde el body de una request de usuario: el único parámetro
+ *     que entra es el kioscoId/token del dispositivo, y solo se usa para resolver
+ *     su empresa, no para abrir el bypass a discreción del llamador.
+ *  4) Auditable: el rastro queda en el propio Fichaje (quién/qué kiosco). No se
+ *     audita cada bootstrap (sería ruido en cada fichaje).
+ */
+export function txBootstrapDispositivo<T>(fn: (tx: ClienteTx) => Promise<T>): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.bypass_tenant', 'on', true)`;
+    return fn(tx as ClienteTx);
+  });
 }

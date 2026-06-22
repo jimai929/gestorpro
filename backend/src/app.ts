@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { authPlugin } from './core/auth/auth.plugin.js';
+import { iniciarContextoTenant } from './core/tenant/contexto.js';
 import { authRoutes } from './core/auth/auth.routes.js';
 import { sedeRoutes } from './core/sede/sede.routes.js';
 import { empleadoRoutes } from './core/empleado/empleado.routes.js';
@@ -24,6 +25,15 @@ import { cobroRoutes } from './asistencia/cobro/cobro.routes.js';
  */
 export function construirApp(): FastifyInstance {
   const app = Fastify({ logger: true });
+
+  // Contexto de tenant (RLS): en el PUNTO MÁS TEMPRANO de cada request, dale su
+  // propio store en la AsyncLocalStorage (fail-closed: empresaId null). `autenticar`
+  // lo mutará con el tenant del token. Hacerlo en onRequest (no en un preHandler
+  // tardío) garantiza que el contexto no se pierda ni se cruce entre requests
+  // concurrentes. Rutas públicas quedan con el store vacío → 0 filas bajo RLS.
+  app.addHook('onRequest', async () => {
+    iniciarContextoTenant();
+  });
 
   // CORS: en desarrollo el frontend (Vite, :5173) consume esta API desde otro
   // origen. Configurable con CORS_ORIGEN (lista separada por comas). Se declaran

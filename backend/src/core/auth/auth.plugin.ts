@@ -2,6 +2,7 @@ import fp from 'fastify-plugin';
 import fastifyJwt from '@fastify/jwt';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ErrorAutorizacion } from '../errors.js';
+import { actualizarContextoTenant } from '../tenant/contexto.js';
 import type { PayloadAccess } from './auth.tipos.js';
 import type { Rol } from '../../generated/prisma/enums.js';
 
@@ -42,7 +43,17 @@ async function pluginAuth(app: FastifyInstance): Promise<void> {
         await request.jwtVerify();
       } catch {
         await reply.code(401).send({ mensaje: 'No autenticado.' });
+        return;
       }
+      // Tras verificar, transportar el contexto de tenant del TOKEN (nunca del
+      // body) al store que `onRequest` (iniciarContextoTenant) ya creó para esta
+      // request: se MUTA, no se re-entra, para no perder el contexto bajo
+      // concurrencia. txEmpresa lo lee al abrir cada transacción y fija el GUC de
+      // RLS. Rutas SIN `autenticar` quedan con el store vacío → fail-closed.
+      actualizarContextoTenant({
+        empresaId: request.user.empresaId,
+        esSuperAdmin: request.user.esSuperAdmin,
+      });
     },
   );
 
