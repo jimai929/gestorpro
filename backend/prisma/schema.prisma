@@ -645,5 +645,9 @@ model ConfiguracionCobro {
   actualizadoEn      DateTime @updatedAt @map("actualizado_en")
   empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
+  // Fase 3 (slice §7.2.4/I3): la config es la fila UNICA por empresa. El unique
+  // a nivel BD lo fuerza fail-closed (una empresa no puede tener dos filas) y
+  // habilita findUnique({where:{empresaId}}) en cobro.service.
+  @@unique([empresaId])
   @@map("configuracion_cobro")
 }

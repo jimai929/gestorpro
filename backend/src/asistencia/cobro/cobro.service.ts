@@ -1,5 +1,5 @@
 import { ErrorNoEncontrado, ErrorValidacion } from '../../core/errors.js';
-import { txEmpresa } from '../../core/tenant/contexto.js';
+import { txEmpresa, contextoTenantActual } from '../../core/tenant/contexto.js';
 import type { EstadoSolicitudCobro } from '../../generated/prisma/enums.js';
 import { debitarSaldo } from './saldo.service.js';
 // Conexión asistencia → finanzas: el cobro usa el servicio de gastos existente.
@@ -13,7 +13,12 @@ import { crearGastoEnTransaccion } from '../../finanzas/gastos/gastos.service.js
  */
 export async function obtenerConfiguracionCobro() {
   return txEmpresa(async (tx) => {
-    const existente = await tx.configuracionCobro.findFirst();
+    const { empresaId } = contextoTenantActual();
+    // findUnique sobre la fila unica por empresa. Sin empresaId (super-admin sin
+    // contexto) -> null, igual que el findFirst bajo RLS sin GUC: fail-closed.
+    const existente = empresaId
+      ? await tx.configuracionCobro.findUnique({ where: { empresaId } })
+      : null;
     if (existente) return existente;
     return tx.configuracionCobro.create({ data: {} });
   });
@@ -48,7 +53,10 @@ export async function definirConfiguracionCobro(datos: {
   };
 
   return txEmpresa(async (tx) => {
-    const actual = await tx.configuracionCobro.findFirst();
+    const { empresaId } = contextoTenantActual();
+    const actual = empresaId
+      ? await tx.configuracionCobro.findUnique({ where: { empresaId } })
+      : null;
     if (actual) {
       return tx.configuracionCobro.update({ where: { id: actual.id }, data });
     }
@@ -80,7 +88,10 @@ export async function solicitarCobro(datos: { empleadoId: string; monto: number 
     });
     const saldo = saldoFila ? Number(saldoFila.saldo) : 0;
 
-    const cfg = await tx.configuracionCobro.findFirst();
+    const { empresaId } = contextoTenantActual();
+    const cfg = empresaId
+      ? await tx.configuracionCobro.findUnique({ where: { empresaId } })
+      : null;
     const porcentaje = cfg?.porcentajeCobrable ?? 80;
     const umbral = cfg ? Number(cfg.umbralAprobacion) : 100;
 
@@ -223,7 +234,10 @@ export async function resumenCobro(empleadoId: string) {
     const saldoFila = await tx.saldoHorasExtra.findUnique({ where: { empleadoId } });
     const saldo = saldoFila ? Number(saldoFila.saldo) : 0;
 
-    const cfg = await tx.configuracionCobro.findFirst();
+    const { empresaId } = contextoTenantActual();
+    const cfg = empresaId
+      ? await tx.configuracionCobro.findUnique({ where: { empresaId } })
+      : null;
     const porcentaje = cfg?.porcentajeCobrable ?? 80;
 
     const pendientes = await tx.solicitudCobro.aggregate({

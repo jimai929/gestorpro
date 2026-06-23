@@ -8,6 +8,7 @@ import {
   pagarCobro,
   rechazarCobro,
   definirConfiguracionCobro,
+  obtenerConfiguracionCobro,
 } from '../../src/asistencia/cobro/cobro.service.js';
 import { ErrorNoEncontrado, ErrorValidacion } from '../../src/core/errors.js';
 
@@ -266,6 +267,34 @@ describe('cobro: guardas de configuración y categoría (B12, B13)', () => {
     expect(despues?.id).toBe(antes?.id);
     expect(despues?.porcentajeCobrable).toBe(antes?.porcentajeCobrable);
     expect(Number(despues?.umbralAprobacion)).toBe(Number(antes?.umbralAprobacion));
+  });
+
+  it('una empresa no puede tener dos filas de configuracion_cobro (@@unique([empresaId]))', async () => {
+    // crearEmpresaConCobro ya siembra UNA fila de config para la empresa.
+    const empresaId = await crearEmpresaConCobro();
+    // Una segunda fila para la MISMA empresa viola @@unique([empresaId]) a nivel BD
+    // (god-view migrador: BYPASSRLS, así que el rechazo viene del unique, no de RLS).
+    const error = await capturarError(
+      semilla().configuracionCobro.create({
+        data: { empresaId, porcentajeCobrable: 50, umbralAprobacion: 200 },
+      }),
+    );
+    expect((error as { code?: string } | null)?.code).toBe('P2002');
+    // Sigue habiendo exactamente una fila (la segunda no se insertó).
+    expect(await semilla().configuracionCobro.count({ where: { empresaId } })).toBe(1);
+  });
+
+  it('obtenerConfiguracionCobro crea la fila única en su primer uso y luego relee la misma (findUnique)', async () => {
+    // Empresa SIN config previa (no usa crearEmpresaConCobro, que ya la siembra).
+    const empresaId = await crearEmpresa();
+    // Primer uso: no existe → crea con los defaults del schema (80 / 100).
+    const creada = await comoEmpresa(empresaId, () => obtenerConfiguracionCobro());
+    expect(creada.porcentajeCobrable).toBe(80);
+    expect(Number(creada.umbralAprobacion)).toBe(100);
+    // Segundo uso: findUnique({where:{empresaId}}) relee la MISMA fila, no crea otra.
+    const releida = await comoEmpresa(empresaId, () => obtenerConfiguracionCobro());
+    expect(releida.id).toBe(creada.id);
+    expect(await semilla().configuracionCobro.count({ where: { empresaId } })).toBe(1);
   });
 
   it('definirConfiguracionCobro acepta los bordes válidos (0 y 100 de porcentaje, umbral 0)', async () => {
