@@ -83,6 +83,47 @@ echo "==> 4/7 Grants post-migración + append-only de auditoría (rol migrador)"
 docker compose exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U gestorpro_migrador -d gestorpro < postgres/post-migrate.sql
 
+echo "==> 4b/7 Verificando aislamiento RLS (la frontera multi-tenant está ARMADA)"
+# Gate de seguridad análogo al append-only: tras post-migrate, la FRONTERA REAL
+# (RLS) debe estar habilitada y FORZADA en TODAS las tablas tenant-scoped. Una
+# tabla nueva sin RLS sería fail-OPEN (fuga cross-tenant) y el deploy NO debe
+# dejarla pasar en silencio. Allowlist EXCLUIDA = la misma de post-migrate.sql y
+# del test rls-cobertura (usuario/sesion_refresco/empresa/membresia + _prisma_migrations).
+faltan_rls="$(docker compose exec -T postgres \
+  psql -tAX -v ON_ERROR_STOP=1 -U gestorpro_migrador -d gestorpro -c \
+  "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relkind = 'r'
+     AND c.relname NOT IN ('usuario','sesion_refresco','empresa','membresia','_prisma_migrations')
+     AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
+   ORDER BY c.relname;" 2>&1 || true)"
+if [[ -n "$faltan_rls" ]]; then
+  echo "ERROR DE SEGURIDAD: tablas tenant SIN RLS habilitada+forzada (fail-OPEN):" >&2
+  printf '%s\n' "$faltan_rls" >&2
+  exit 1
+fi
+
+# La vista cuenta_por_pagar DEBE ejecutar como el invocador (si no, corre como su
+# owner migrador BYPASSRLS y fuga datos cross-tenant a gestorpro_app).
+si_ok="$(docker compose exec -T postgres \
+  psql -tAX -v ON_ERROR_STOP=1 -U gestorpro_migrador -d gestorpro -c \
+  "SELECT count(*) FROM pg_class WHERE relname = 'cuenta_por_pagar'
+     AND 'security_invoker=true' = ANY(COALESCE(reloptions, '{}'));" 2>&1 || true)"
+if [[ "$si_ok" != "1" ]]; then
+  echo "ERROR DE SEGURIDAD: la vista cuenta_por_pagar NO tiene security_invoker=true." >&2
+  exit 1
+fi
+
+# El rol de la app NUNCA debe tener BYPASSRLS (sería saltarse el aislamiento).
+app_bypass="$(docker compose exec -T postgres \
+  psql -tAX -v ON_ERROR_STOP=1 -U gestorpro_migrador -d gestorpro -c \
+  "SELECT rolbypassrls FROM pg_roles WHERE rolname = 'gestorpro_app';" 2>&1 || true)"
+if [[ "$app_bypass" != "f" ]]; then
+  echo "ERROR DE SEGURIDAD: gestorpro_app tiene BYPASSRLS (o no existe). Debe ser NOBYPASSRLS." >&2
+  echo "Valor leído: '${app_bypass}'." >&2
+  exit 1
+fi
+echo "    OK: RLS armada en todas las tablas tenant, vista con security_invoker, app NOBYPASSRLS."
+
 echo "==> 5/7 Seed base de producción (idempotente, rol migrador)"
 # Igual que arriba: secretos por entorno (-e VAR sin valor), no por argv.
 DATABASE_URL="$MIGRATOR_DATABASE_URL" \
