@@ -48,7 +48,10 @@ async function extraPagablesSemanaPrevios(
 }
 
 async function esDiaFestivo(tx: ClienteTx, fecha: Date): Promise<boolean> {
-  return (await tx.diaFestivo.findUnique({ where: { fecha } })) !== null;
+  // Fase 3: dia_festivo.fecha es UNICA POR EMPRESA → findFirst (no findUnique). La RLS
+  // del tenant en curso (txEmpresa) acota a su calendario; el compuesto garantiza a lo
+  // sumo una fila por (empresa, fecha).
+  return (await tx.diaFestivo.findFirst({ where: { fecha } })) !== null;
 }
 
 /** Inserta o sobreescribe la jornada (recalculable) de un empleado, dentro de tx. */

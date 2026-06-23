@@ -236,7 +236,7 @@ model PagoProveedor {
 model CategoriaGasto {
   id             String   @id @default(uuid()) @db.Uuid
   empresaId      String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
-  nombre         String   @unique
+  nombre         String
   esPagoEmpleado Boolean  @default(false) @map("es_pago_empleado")
   activo         Boolean  @default(true)
   creadoEn       DateTime @default(now()) @map("creado_en")
@@ -244,6 +244,9 @@ model CategoriaGasto {
   gastos Gasto[]
   empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
+  // Fase 3 (slice): nombre UNICO POR EMPRESA (antes @unique global), ahora que
+  // categoria_gasto tiene empresa_id. Cada empresa tiene su propio catalogo.
+  @@unique([empresaId, nombre])
   @@map("categoria_gasto")
 }
 
@@ -562,11 +565,14 @@ model Correccion {
 model DiaFestivo {
   id        String   @id @default(uuid()) @db.Uuid
   empresaId String @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
-  fecha     DateTime @unique @db.Date
+  fecha     DateTime @db.Date
   nombre   String
   creadoEn DateTime @default(now()) @map("creado_en")
   empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
+  // Fase 3 (slice): fecha UNICA POR EMPRESA (antes @unique global). Dos empresas
+  // pueden declarar el mismo festivo; cada una gobierna su calendario.
+  @@unique([empresaId, fecha])
   @@map("dia_festivo")
 }
 

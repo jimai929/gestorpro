@@ -146,9 +146,8 @@ async function sembrarCategoriasGasto(empresaId: string): Promise<void> {
   ];
   for (const categoria of categorias) {
     await prisma.categoriaGasto.upsert({
-      // `nombre` sigue @unique GLOBAL (Fase 3 pendiente para esta tabla); el seed de
-      // la empresa default no colisiona. Al hacer Fase 3 será @@unique([empresaId,nombre]).
-      where: { nombre: categoria.nombre },
+      // Fase 3: nombre UNICO POR EMPRESA → upsert por la clave compuesta.
+      where: { empresaId_nombre: { empresaId, nombre: categoria.nombre } },
       update: {},
       create: { ...categoria, empresaId },
     });
@@ -222,12 +221,13 @@ async function sembrarDemoFinanzas(
     },
   });
 
-  // Gastos de demo (categorías sembradas antes).
-  const catServicios = await prisma.categoriaGasto.findUnique({
-    where: { nombre: 'Servicios públicos' },
+  // Gastos de demo (categorías sembradas antes). Fase 3: nombre es UNICO POR EMPRESA
+  // → findFirst con empresaId (findUnique ya no aplica a un campo no-unico).
+  const catServicios = await prisma.categoriaGasto.findFirst({
+    where: { empresaId, nombre: 'Servicios públicos' },
   });
-  const catAlquiler = await prisma.categoriaGasto.findUnique({
-    where: { nombre: 'Alquiler' },
+  const catAlquiler = await prisma.categoriaGasto.findFirst({
+    where: { empresaId, nombre: 'Alquiler' },
   });
   if (catServicios) {
     await prisma.gasto.create({
@@ -408,7 +408,7 @@ async function sembrarDemoAsistencia(empresaId: string, sedeId: string): Promise
     }
   }
 
-  // Días festivos (idempotente: fecha es única, se omiten duplicados).
+  // Días festivos (idempotente: (empresa, fecha) es única, se omiten duplicados).
   await prisma.diaFestivo.createMany({
     data: [
       { fecha: new Date('2026-05-01'), nombre: 'Día del Trabajador', empresaId },
