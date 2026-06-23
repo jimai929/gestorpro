@@ -108,11 +108,12 @@ describe('gestión de empleados', () => {
     const { qrToken: nuevo } = await comoEmpresa(empresaId, () => regenerarQrToken(emp.id));
     expect(nuevo).not.toBe(viejo);
     // El token viejo dejó de resolver (ABSENCIA/revocación) → semilla god-view.
-    expect(await semilla().empleado.findUnique({ where: { qrToken: viejo } })).toBeNull();
+    // Fase 3: qrToken es UNICO POR EMPRESA → findFirst (ya no findUnique standalone).
+    expect(await semilla().empleado.findFirst({ where: { qrToken: viejo } })).toBeNull();
     // El nuevo SÍ resuelve para el tenant (POSITIVO bajo RLS).
     expect(
       await comoEmpresa(empresaId, () =>
-        txEmpresa((tx) => tx.empleado.findUnique({ where: { qrToken: nuevo } })),
+        txEmpresa((tx) => tx.empleado.findFirst({ where: { qrToken: nuevo } })),
       ),
     ).not.toBeNull();
     expect((await comoEmpresa(empresaId, () => obtenerQrToken(emp.id))).qrToken).toBe(nuevo);

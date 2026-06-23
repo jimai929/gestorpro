@@ -24,10 +24,11 @@ async function crearEmpleadoConTurno(empresaId: string) {
   const turno = await semilla().turno.create({
     data: { nombre: `Turno ${s}`, sedeId: sede.id, empresaId, horaInicio: '08:00', horaFin: '17:00', pausaPorDefectoMin: 60 },
   });
-  // kiosco/empleado "heredan" empresa por su FK (sin empresa_id propio).
+  // kiosco "hereda" empresa por su FK; empleado es DIRECTA desde Fase 3 Ola 3c (lleva
+  // empresa_id propio = sede.empresa_id por la FK compuesta).
   const kiosco = await semilla().kiosco.create({ data: { nombre: `K ${s}`, sedeId: sede.id } });
   const empleado = await semilla().empleado.create({
-    data: { numero: `E${s}`, nombre: 'E', sedeId: sede.id, turnoId: turno.id, qrToken: `qr${s}`, pinHash: 'x', salarioFijo: 1200 },
+    data: { empresaId, numero: `E${s}`, nombre: 'E', sedeId: sede.id, turnoId: turno.id, qrToken: `qr${s}`, pinHash: 'x', salarioFijo: 1200 },
   });
   return { sede, turno, kiosco, empleado };
 }

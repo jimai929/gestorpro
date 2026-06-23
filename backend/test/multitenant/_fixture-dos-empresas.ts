@@ -103,6 +103,7 @@ async function sembrarEmpresaCompleta(etiqueta: string): Promise<EmpresaSembrada
   const empleadoQr = `qr-${u}`;
   const empleado = await db.empleado.create({
     data: {
+      empresaId,
       numero: empleadoNumero,
       nombre: `Empleado ${etiqueta}`,
       sedeId: sede.id,

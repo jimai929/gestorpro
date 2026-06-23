@@ -21,7 +21,7 @@ async function crearEmpleado(empresaId: string, salario = 1200, pausaPorDefectoM
   });
   const kiosco = await semilla().kiosco.create({ data: { nombre: `K ${s}`, sedeId: sede.id } });
   const empleado = await semilla().empleado.create({
-    data: { numero: `E${s}`, nombre: 'E', sedeId: sede.id, turnoId: turno.id, qrToken: `qr${s}`, pinHash: 'x', salarioFijo: salario },
+    data: { empresaId, numero: `E${s}`, nombre: 'E', sedeId: sede.id, turnoId: turno.id, qrToken: `qr${s}`, pinHash: 'x', salarioFijo: salario },
   });
   return { empleado, kiosco };
 }

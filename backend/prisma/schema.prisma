@@ -47,6 +47,7 @@ model Empresa {
 
   membresias           Membresia[]
   sedes                Sede[]
+  empleados            Empleado[]
   proveedores          Proveedor[]
   categoriasGasto      CategoriaGasto[]
   rolesOperativos      RolOperativo[]
@@ -92,6 +93,9 @@ model Sede {
   turnos    Turno[]
   empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
+  // Destino de la FK compuesta de empleado(sede_id, empresa_id) (Fase 3 Ola 3c).
+  // sede.id ya es PK; este unique compuesto solo habilita la FK compuesta.
+  @@unique([id, empresaId])
   @@map("sede")
 }
 
@@ -373,11 +377,16 @@ enum MecanismoExcepcion {
 /// `fotoReferencia` es el dato contra el que compara la verificación facial.
 model Empleado {
   id             String   @id @default(uuid()) @db.Uuid
-  numero         String   @unique
+  empresaId      String   @default(dbgenerated("NULLIF(current_setting('app.empresa_id', true), '')::uuid")) @map("empresa_id") @db.Uuid
+  numero         String
   nombre         String
   sedeId         String   @map("sede_id") @db.Uuid
-  sede           Sede     @relation(fields: [sedeId], references: [id])
-  qrToken        String   @unique @map("qr_token")
+  // FK COMPUESTA (Fase 3 Ola 3c): (sede_id, empresa_id) -> sede(id, empresa_id). Como
+  // sede.id es PK, fuerza empleado.empresa_id = sede.empresa_id a nivel motor (sin CHECK
+  // ni trigger). Comparte el escalar empresaId con la relacion a Empresa.
+  sede           Sede     @relation(fields: [sedeId, empresaId], references: [id, empresaId], onDelete: Restrict)
+  empresa        Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  qrToken        String   @map("qr_token")
   pinHash        String   @map("pin_hash")
   fotoReferencia String?  @map("foto_referencia")
   salarioFijo    Decimal  @map("salario_fijo") @db.Decimal(12, 2)
@@ -392,6 +401,9 @@ model Empleado {
   solicitudes     SolicitudCobro[]
   rolesOperativos EmpleadoRolOperativo[]
 
+  // Fase 3: numero/qrToken UNICOS POR EMPRESA (antes @unique global).
+  @@unique([empresaId, numero])
+  @@unique([empresaId, qrToken])
   @@map("empleado")
 }
 

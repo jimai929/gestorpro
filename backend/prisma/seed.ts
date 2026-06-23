@@ -385,9 +385,12 @@ async function sembrarDemoAsistencia(empresaId: string, sedeId: string): Promise
     // El empleado se crea si falta; si ya existe, se reafirman sus datos demo
     // (sin regenerar qr/pin para no invalidar accesos en cada corrida).
     const empleado = await prisma.empleado.upsert({
-      where: { numero: e.numero },
+      // Fase 3: numero UNICO POR EMPRESA → upsert por la clave compuesta. El seed
+      // corre como migrador (BYPASSRLS, sin GUC) → empresa_id explicito en create.
+      where: { empresaId_numero: { empresaId, numero: e.numero } },
       update: { nombre: e.nombre, salarioFijo: e.salario, sedeId, turnoId: turno.id, activo: true },
       create: {
+        empresaId,
         numero: e.numero,
         nombre: e.nombre,
         sedeId,

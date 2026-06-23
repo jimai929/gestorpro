@@ -201,6 +201,7 @@ async function sembrarTenantConSaldo(etiqueta: string, saldo: number) {
   });
   const empleado = await db.empleado.create({
     data: {
+      empresaId,
       numero: `E-${u}`,
       nombre: `Empleado ${etiqueta}`,
       sedeId: sede.id,

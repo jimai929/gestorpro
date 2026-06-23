@@ -132,10 +132,15 @@ DROP POLICY IF EXISTS aislamiento_empresa ON detalle_cierre;
 CREATE POLICY aislamiento_empresa ON detalle_cierre
   USING      (EXISTS (SELECT 1 FROM venta_diaria v JOIN sede s ON s.id = v.sede_id WHERE v.id = detalle_cierre.venta_id AND s.empresa_id = NULLIF(current_setting('app.empresa_id', true), '')::uuid))
   WITH CHECK (EXISTS (SELECT 1 FROM venta_diaria v JOIN sede s ON s.id = v.sede_id WHERE v.id = detalle_cierre.venta_id AND s.empresa_id = NULLIF(current_setting('app.empresa_id', true), '')::uuid));
+-- empleado: tabla DIRECTA desde Fase 3 Ola 3c (tiene empresa_id propio + FK compuesta
+-- (sede_id, empresa_id) que garantiza empresa_id = sede.empresa_id). Politica DIRECTA
+-- (antes era subquery EXISTS via sede). Las tablas que derivan de empleado por sede
+-- (fichaje/jornada/saldo/solicitud/empleado_rol_operativo/...) NO cambian: siguen
+-- usando empleado.sede_id, que se conserva.
 DROP POLICY IF EXISTS aislamiento_empresa ON empleado;
 CREATE POLICY aislamiento_empresa ON empleado
-  USING      (EXISTS (SELECT 1 FROM sede s WHERE s.id = empleado.sede_id AND s.empresa_id = NULLIF(current_setting('app.empresa_id', true), '')::uuid))
-  WITH CHECK (EXISTS (SELECT 1 FROM sede s WHERE s.id = empleado.sede_id AND s.empresa_id = NULLIF(current_setting('app.empresa_id', true), '')::uuid));
+  USING      (empresa_id = NULLIF(current_setting('app.empresa_id', true), '')::uuid)
+  WITH CHECK (empresa_id = NULLIF(current_setting('app.empresa_id', true), '')::uuid);
 DROP POLICY IF EXISTS aislamiento_empresa ON empleado_rol_operativo;
 CREATE POLICY aislamiento_empresa ON empleado_rol_operativo
   USING      (EXISTS (SELECT 1 FROM empleado e JOIN sede s ON s.id = e.sede_id WHERE e.id = empleado_rol_operativo.empleado_id AND s.empresa_id = NULLIF(current_setting('app.empresa_id', true), '')::uuid))

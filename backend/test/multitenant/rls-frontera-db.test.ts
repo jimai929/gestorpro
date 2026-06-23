@@ -224,9 +224,9 @@ async function sembrarEmpresa(admin: pg.Client, sufijo: string): Promise<Sembrad
     [ids.pagoId, ids.compraId, randomUUID()],
   );
   await admin.query(
-    `INSERT INTO empleado (id, numero, nombre, sede_id, qr_token, pin_hash, salario_fijo)
-     VALUES ($1, $2, $3, $4, $5, 'hash', 1200)`,
-    [ids.empleadoId, `E-${u}`, `Empleado ${sufijo}`, ids.sedeId, `qr-${u}`],
+    `INSERT INTO empleado (id, numero, nombre, sede_id, empresa_id, qr_token, pin_hash, salario_fijo)
+     VALUES ($1, $2, $3, $4, $6, $5, 'hash', 1200)`,
+    [ids.empleadoId, `E-${u}`, `Empleado ${sufijo}`, ids.sedeId, `qr-${u}`, ids.empresaId],
   );
   await admin.query(
     `INSERT INTO saldo_horas_extra (id, empleado_id, saldo, actualizado_en)

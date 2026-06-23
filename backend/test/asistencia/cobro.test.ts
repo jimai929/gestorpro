@@ -39,7 +39,7 @@ async function crearEmpleadoConSaldo(empresaId: string, saldo: number) {
   // saldo) lo derivan por su FK a la sede/empleado de esta empresa.
   const sede = await semilla().sede.create({ data: { nombre: `Sede ${s}`, empresaId } });
   const empleado = await semilla().empleado.create({
-    data: { numero: `E${s}`, nombre: 'E', sedeId: sede.id, qrToken: `qr${s}`, pinHash: 'x', salarioFijo: 1200 },
+    data: { empresaId, numero: `E${s}`, nombre: 'E', sedeId: sede.id, qrToken: `qr${s}`, pinHash: 'x', salarioFijo: 1200 },
   });
   if (saldo > 0) {
     // Siembra del saldo (arrange): upsert directo vía semilla, sin pasar por el

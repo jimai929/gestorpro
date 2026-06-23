@@ -19,7 +19,7 @@ async function escenario(modoExcepcion: 'pin' | 'supervisor' | 'ambos') {
   const kiosco = await semilla().kiosco.create({ data: { nombre: `K ${s}`, sedeId: sede.id } });
   const empleado = await semilla().empleado.create({
     data: {
-      numero: `E${s}`, nombre: 'Empleado', sedeId: sede.id,
+      empresaId, numero: `E${s}`, nombre: 'Empleado', sedeId: sede.id,
       qrToken: `qr${s}`, pinHash: await hashearContrasena('1234'), salarioFijo: 1000,
     },
   });

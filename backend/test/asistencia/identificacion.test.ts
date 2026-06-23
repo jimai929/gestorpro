@@ -16,9 +16,11 @@ async function crearEmpleado(empresaId: string) {
   const sede = await semilla().sede.create({
     data: { nombre: `Sede ${sufijo}`, empresaId },
   });
-  // empleado "hereda" empresa por su FK a sede → sin empresaId.
+  // Fase 3 Ola 3c: empleado es tabla DIRECTA → empresa_id explícito (siembra ignora
+  // RLS) y debe coincidir con sede.empresa_id (FK compuesta).
   return semilla().empleado.create({
     data: {
+      empresaId,
       numero: `E${sufijo}`,
       nombre: 'Empleado de prueba',
       sedeId: sede.id,
