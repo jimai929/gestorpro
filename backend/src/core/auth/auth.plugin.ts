@@ -23,6 +23,8 @@ declare module 'fastify' {
     autorizar: (
       ...roles: Rol[]
     ) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    /** preHandler: exige super-admin de plataforma. Responde 404 si no lo es. */
+    soloPlataforma: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
@@ -66,6 +68,20 @@ async function pluginAuth(app: FastifyInstance): Promise<void> {
       }
     };
   });
+
+  // Guard de PLATAFORMA: exige esSuperAdmin (del token). Responde 404 (no 403) para
+  // NO revelar la EXISTENCIA de los endpoints de plataforma a quien no es super-admin
+  // (anti-enumeración, mismo criterio que el aislamiento cross-tenant). Se usa SIEMPRE
+  // después de `autenticar`.
+  app.decorate(
+    'soloPlataforma',
+    async function (request: FastifyRequest, reply: FastifyReply) {
+      if (!request.user?.esSuperAdmin) {
+        await reply.code(404).send({ mensaje: 'No encontrado.' });
+        return;
+      }
+    },
+  );
 }
 
 /**
