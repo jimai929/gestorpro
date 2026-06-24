@@ -30,3 +30,26 @@ export function resolverPasswordAdmin(env: { ADMIN_PASSWORD?: string }, demoOn: 
   }
   return PASSWORD_ADMIN_DEV;
 }
+
+/** Contraseña del super-admin de plataforma SOLO para desarrollo/demo. En prod es obligatoria. */
+export const PASSWORD_SUPER_ADMIN_DEV = 'SuperAdmin1234*';
+
+/**
+ * Resuelve la contraseña del super-admin de plataforma (Fase 4c). Mismo criterio
+ * que el admin: en producción (sin datos demo) DEBE venir de `SUPER_ADMIN_PASSWORD`
+ * — sin default débil; en desarrollo/demo cae al default si no se define. Solo se
+ * invoca cuando `SUPER_ADMIN_EMAIL` está definido (el super-admin es opcional).
+ */
+export function resolverPasswordSuperAdmin(
+  env: { SUPER_ADMIN_PASSWORD?: string },
+  demoOn: boolean,
+): string {
+  if (env.SUPER_ADMIN_PASSWORD) return env.SUPER_ADMIN_PASSWORD;
+  if (!demoOn) {
+    throw new Error(
+      'Falta SUPER_ADMIN_PASSWORD: en modo producción (sin datos demo), si se define ' +
+        'SUPER_ADMIN_EMAIL la contraseña del super-admin debe definirse explícitamente.',
+    );
+  }
+  return PASSWORD_SUPER_ADMIN_DEV;
+}

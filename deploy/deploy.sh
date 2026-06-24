@@ -130,7 +130,10 @@ DATABASE_URL="$MIGRATOR_DATABASE_URL" \
 NODE_ENV=production \
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@gestorpro.local}" \
 ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-  docker compose run --rm -e DATABASE_URL -e NODE_ENV -e ADMIN_EMAIL -e ADMIN_PASSWORD backend npx prisma db seed
+SUPER_ADMIN_EMAIL="${SUPER_ADMIN_EMAIL:-}" \
+SUPER_ADMIN_PASSWORD="${SUPER_ADMIN_PASSWORD:-}" \
+  docker compose run --rm -e DATABASE_URL -e NODE_ENV -e ADMIN_EMAIL -e ADMIN_PASSWORD \
+  -e SUPER_ADMIN_EMAIL -e SUPER_ADMIN_PASSWORD backend npx prisma db seed
 
 echo "==> 6/7 Verificando append-only de auditoria (rol app)"
 # (a) Aserción POSITIVA: el rol app conecta y la tabla existe. Un SELECT debe

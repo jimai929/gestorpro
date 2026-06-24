@@ -3,6 +3,8 @@ import {
   demoHabilitado,
   resolverPasswordAdmin,
   PASSWORD_ADMIN_DEV,
+  resolverPasswordSuperAdmin,
+  PASSWORD_SUPER_ADMIN_DEV,
 } from '../prisma/seed-opciones.js';
 
 // Funciones puras: no tocan la base ni process.env (reciben el entorno).
@@ -37,5 +39,20 @@ describe('seed-opciones — contraseña del admin inicial', () => {
 
   it('en producción sin ADMIN_PASSWORD lanza (no usa un default débil)', () => {
     expect(() => resolverPasswordAdmin({}, false)).toThrow(/ADMIN_PASSWORD/);
+  });
+});
+
+describe('seed-opciones — contraseña del super-admin de plataforma (4c.7)', () => {
+  it('usa SUPER_ADMIN_PASSWORD si está definida (en cualquier modo)', () => {
+    expect(resolverPasswordSuperAdmin({ SUPER_ADMIN_PASSWORD: 'Otra-Fuerte-9' }, false)).toBe('Otra-Fuerte-9');
+    expect(resolverPasswordSuperAdmin({ SUPER_ADMIN_PASSWORD: 'Otra-Fuerte-9' }, true)).toBe('Otra-Fuerte-9');
+  });
+
+  it('en dev/demo sin SUPER_ADMIN_PASSWORD cae a la contraseña por defecto', () => {
+    expect(resolverPasswordSuperAdmin({}, true)).toBe(PASSWORD_SUPER_ADMIN_DEV);
+  });
+
+  it('en producción sin SUPER_ADMIN_PASSWORD lanza (no usa un default débil)', () => {
+    expect(() => resolverPasswordSuperAdmin({}, false)).toThrow(/SUPER_ADMIN_PASSWORD/);
   });
 });

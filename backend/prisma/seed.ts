@@ -5,7 +5,11 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { hashearContrasena } from '../src/core/auth/contrasena.js';
 import { Rol } from '../src/generated/prisma/enums.js';
-import { demoHabilitado, resolverPasswordAdmin } from './seed-opciones.js';
+import {
+  demoHabilitado,
+  resolverPasswordAdmin,
+  resolverPasswordSuperAdmin,
+} from './seed-opciones.js';
 
 // El seed corre como el rol PRIVILEGIADO (migrador, BYPASSRLS), igual que en
 // producción (deploy.sh) y dev: ignora RLS y rellena empresa_id explícito en cada
@@ -85,6 +89,46 @@ async function main(): Promise<void> {
       predeterminada: true,
     },
   });
+
+  // Super-admin de PLATAFORMA (Fase 4c): OPCIONAL, solo si SUPER_ADMIN_EMAIL está
+  // definido. Es un Usuario con esSuperAdmin=true y SIN ninguna membresía (su poder
+  // viene del flag, no de una empresa: invariante §4.2). Idempotente; `update`
+  // CONVERGE a super-admin (sin tocar la contraseña). El correo DEBE ser dedicado:
+  // ese usuario queda PROMOVIDO a super-admin de plataforma. `usuario` está EXCLUIDA
+  // de RLS (no lleva empresa_id).
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
+  if (superAdminEmail) {
+    // GUARDA (revisor I-1): no PROMOVER en silencio una cuenta de uso diario. Si el
+    // correo YA existe con membresías (es admin/empleado de un tenant), promoverlo a
+    // super-admin le daría poder cross-tenant Y violaría el invariante §4.2
+    // (super-admin con 0 membresías). Se exige un correo DEDICADO: abortar el seed.
+    const existente = await prisma.usuario.findUnique({
+      where: { email: superAdminEmail },
+      select: { id: true, _count: { select: { membresias: true } } },
+    });
+    if (existente && existente._count.membresias > 0) {
+      throw new Error(
+        `SUPER_ADMIN_EMAIL (${superAdminEmail}) apunta a un usuario CON membresías ` +
+          '(cuenta de tenant). El super-admin debe ser un correo DEDICADO sin membresías ' +
+          '(invariante §4.2). Usa otro correo.',
+      );
+    }
+    const superAdminHash = await hashearContrasena(
+      resolverPasswordSuperAdmin(process.env, demoOn),
+    );
+    await prisma.usuario.upsert({
+      where: { email: superAdminEmail },
+      update: { esSuperAdmin: true },
+      create: {
+        nombre: 'Super Admin',
+        email: superAdminEmail,
+        rol: Rol.empleado, // mínimo privilegio; su poder viene de esSuperAdmin
+        esSuperAdmin: true,
+        passwordHash: superAdminHash,
+      },
+    });
+    // NO se crea membresía: el super-admin no pertenece a ninguna empresa (§4.2).
+  }
 
   // Base (prod-safe): catálogos y configuración.
   await sembrarRolesOperativos(empresaDefault.id);
