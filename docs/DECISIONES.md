@@ -246,13 +246,32 @@ Firestec no tiene API y no se integra; el operador teclea el arqueo de caja
 debe cuadrar con él. Ya implementado en `FormularioVenta.tsx` — sin cambios de
 código ni de modelo pendientes.
 
-### Endurecimiento de despliegue (no bloqueante, recomendado)
+### Endurecimiento de despliegue
 
-- **Auditoría append‑only:** el `REVOKE` solo es efectivo si la app conecta con
-  un **rol de Postgres NO dueño** de las tablas. Hoy conecta como dueño; en prod,
-  crear un rol de aplicación con privilegios limitados.
-- **Refresh‑on‑401** en el cliente HTTP del frontend (hoy el access token en
-  memoria expira a los 15 min sin reintento automático).
+- **Auditoría append-only / rol de app NO dueño — IMPLEMENTADO y VERIFICADO en
+  DEV; PENDIENTE de activar en el VPS.** Existen dos roles Postgres:
+  `gestorpro_migrador` (dueño de las tablas, BYPASSRLS, solo migrate/seed) y
+  `gestorpro_app` (NO dueño, NOBYPASSRLS), y la app SIEMPRE conecta con
+  `gestorpro_app` (`backend/src/core/prisma.ts` ← `DATABASE_URL`; en prod lo fija
+  `deploy/docker-compose.yml`). El `REVOKE UPDATE/DELETE/TRUNCATE ON auditoria`
+  (`deploy/postgres/post-migrate.sql`) ES EFECTIVO porque la app no es dueña.
+  **Verificado en DEV (2026-06-23), conectado como `gestorpro_app`:** dueño de
+  `auditoria` = `gestorpro_migrador`, `gestorpro_app` con `rolbypassrls = f`, y un
+  `UPDATE auditoria` devuelve `permission denied`. Cubierto por
+  `backend/test/finanzas/auditoria-append-only.test.ts` y por el gate de
+  `deploy/deploy.sh` (paso 6). El texto anterior ("hoy conecta como dueño") quedó
+  **OBSOLETO** con la Fase 5. **NO está activo en el VPS:** el VPS sigue en
+  `20260613120000_kiosco_token` (predata la Fase 5) y aún corre con su rol previo;
+  se activará al desplegar multitenant (el `initdb` crea los roles en un volumen
+  NUEVO, o `ALTER ROLE gestorpro_migrador BYPASSRLS` a mano en un volumen YA
+  existente — operación nivel-hierro, verificar el VPS antes). **Estado real del
+  VPS: pendiente de confirmar por ssh** (ver `deploy/CHECKLIST_PRODUCCION.md`).
+- **Refresh-on-401 — IMPLEMENTADO (código + test).** El cliente HTTP renueva el
+  access token una vez ante un 401 y reintenta, con deduplicación de refrescos
+  concurrentes (`frontend/src/core/api/cliente.ts`, `cliente.test.ts`). No depende
+  del rol de BD; **surtirá efecto en cuanto el frontend se despliegue** (no se
+  afirma "ya activo en producción" porque el frontend aún no está desplegado en el
+  VPS). El texto anterior ("sin reintento automático") quedó **OBSOLETO**.
 
 ### Marca
 

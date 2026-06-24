@@ -121,3 +121,84 @@ Puntos que faltan ANTES (o justo DESPUÉS) de poner la app en producción. Cada
   diurna/nocturna del motor de jornada).
 - Tras cada `git pull` en el VPS: `prisma migrate deploy` (la BD persistente
   puede quedar atrás de las migraciones; verificar con `prisma migrate status`).
+
+---
+
+## Activación de la allowlist de IPs del kiosco (Caddy) — P2
+
+Defensa en profundidad SOBRE el token de dispositivo (que ya es obligatorio).
+La plantilla está **escrita pero COMENTADA** en `Caddyfile:37-49` (matcher
+método-consciente: restringe solo `POST /fichajes` y `GET /kioscos` a las IPs de
+sede, SIN bloquear los endpoints admin con JWT). **No se activa en local** porque
+el bloque allowlist no se puede validar con `caddy validate` sin la imagen/red del
+stack. Flujo de activación, EN EL VPS:
+
+1. **Requisito:** cada sede debe tener **IP de salida FIJA**. Si alguna no la
+   tiene, **dejar la allowlist comentada**: el token de dispositivo sigue
+   protegiendo el fichaje (no degradar la disponibilidad por una sede sin IP fija).
+2. Definir `SEDE_IPS` en `deploy/.env` (IPs separadas por espacio).
+3. Descomentar los DOS bloques de `Caddyfile:37-49`.
+4. Validar ANTES de recargar (stack ya levantado):
+   ```bash
+   docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+   ```
+5. Recargar caddy: `docker compose up -d caddy` (o `caddy reload`).
+6. Verificar: una petición `POST /fichajes` desde una IP de sede pasa; desde una
+   IP externa responde `403`.
+
+Reversible: volver a comentar los bloques + `caddy validate` + recargar. No toca
+datos → **no es nivel-hierro**.
+
+---
+
+## Despliegue multitenant al VPS — checklist nivel-hierro (RLS / roles)
+
+El VPS predata la Fase 5 (sigue en `20260613120000_kiosco_token`): al desplegar
+multitenant se activan los dos roles + RLS. Como toca un entorno persistente,
+**verificar el estado REAL del VPS por ssh ANTES de actuar** (regla nivel-hierro,
+ver `docs/DECISIONES.md` · Integridad de datos). NO asumir nada.
+
+**Trampa clave:** el `initdb` (`01-init-roles.sh`) **solo corre en el primer
+arranque de un volumen NUEVO**. Si el VPS ya tiene volumen `pgdata`, un redeploy
+NO recrea roles ni aplica `BYPASSRLS` — hay que hacerlo a mano.
+
+1. **¿El migrador tiene BYPASSRLS?**
+   ```sql
+   SELECT rolname, rolbypassrls FROM pg_roles
+   WHERE rolname IN ('gestorpro_migrador','gestorpro_app');
+   ```
+   - `gestorpro_migrador` debe ser `t` (si es `f` → falta el ALTER, paso 4).
+   - `gestorpro_app` debe ser `f` (NUNCA `t`: sería saltarse el aislamiento).
+2. **¿En qué migración está el VPS?** `prisma migrate status` (esperado hoy:
+   `20260613120000_kiosco_token`; al desplegar, `migrate deploy` aplicará en orden
+   ola1 → ola2 → … → Fase 3 de una vez).
+3. **¿Existe ya el volumen `pgdata`?** `docker volume ls | grep pgdata`.
+   - **Volumen NUEVO (no existe):** el `initdb` crea los roles con `BYPASSRLS`
+     correctos → NO hace falta el paso 4.
+   - **Volumen YA existente (predata Fase 5):** el `initdb` no se re-ejecuta →
+     correr a mano, como superusuario (**nivel-hierro**):
+     ```sql
+     ALTER ROLE gestorpro_migrador BYPASSRLS;
+     ```
+     (el `GRANT` sobre `auditoria` lo aplica la migración `20260621223903` durante
+     el `migrate deploy`; no hace falta a mano.)
+4. **Pre-check de datos (relajación global→por-empresa) ANTES de migrar.** Estas
+   queries son una debida diligencia: lo que cumple unicidad global cumple la
+   per-empresa, así que en un VPS single-tenant (una sola Empresa Default) deben
+   dar **0 filas**. (Detalle y contexto en `.scratch/fase3/plan.md` §0, nota de
+   trabajo; se reproducen aquí por estar el plan fuera del control de versiones.)
+   Correrlas en el punto correspondiente de la cadena de migración (cuando ya
+   existe `empresa_id`):
+   ```sql
+   SELECT empresa_id, nombre, count(*) FROM categoria_gasto GROUP BY 1,2 HAVING count(*)>1;
+   SELECT empresa_id, fecha,  count(*) FROM dia_festivo     GROUP BY 1,2 HAVING count(*)>1;
+   SELECT s.empresa_id, e.numero,   count(*) FROM empleado e JOIN sede s ON s.id=e.sede_id GROUP BY 1,2 HAVING count(*)>1;
+   SELECT s.empresa_id, e.qr_token, count(*) FROM empleado e JOIN sede s ON s.id=e.sede_id GROUP BY 1,2 HAVING count(*)>1;
+   SELECT count(*) AS empleados_sin_empresa FROM empleado e JOIN sede s ON s.id=e.sede_id WHERE s.empresa_id IS NULL;
+   SELECT empresa_id, count(*) FROM configuracion_cobro GROUP BY 1 HAVING count(*)>1;
+   ```
+   Si alguna da >0 filas: **parar** y resolver el duplicado antes de crear el
+   unique compuesto (la migración fallaría).
+5. **Tras `deploy.sh`:** el paso 4b (verificación RLS armada) y el paso 6
+   (append-only como `gestorpro_app`) son gates automáticos; si algo no quedó
+   aislado, el script aborta. No saltárselos.
