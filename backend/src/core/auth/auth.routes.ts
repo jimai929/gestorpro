@@ -105,11 +105,17 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!usuario || !usuario.activo) {
       return reply.code(401).send({ mensaje: 'No autenticado.' });
     }
+    // rol/empresaId/esSuperAdmin salen del TOKEN (contexto activo resuelto en
+    // login/refresh), NO del registro global: así /me coincide con el contrato de
+    // /login (UsuarioPublico) y refleja la empresa ACTIVA, no el rol global legado
+    // (que diferiría del de la membresía en un usuario multi-empresa).
     return reply.code(200).send({
       id: usuario.id,
       nombre: usuario.nombre,
       email: usuario.email,
-      rol: usuario.rol,
+      rol: request.user.rol,
+      empresaId: request.user.empresaId,
+      esSuperAdmin: request.user.esSuperAdmin,
     });
   });
 }
