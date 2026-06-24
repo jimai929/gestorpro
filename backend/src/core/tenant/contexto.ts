@@ -75,6 +75,15 @@ export function txEmpresa<T>(
   const bypass = opc.bypassPlataforma ?? ctx.bypassPlataforma ?? false;
   const esSuperAdmin = ctx.esSuperAdmin;
 
+  // Fail-LOUD (revisor I-2): pedir bypass de plataforma SIN contexto super-admin es
+  // un error de programación (una ruta no-plataforma no debe pedirlo). Antes esto
+  // degradaba EN SILENCIO a la rama de empresaId (fail-closed solo por accidente, vía
+  // la RLS de auditoría); ahora se rechaza explícito. Defensa en profundidad sobre el
+  // guard soloPlataforma. NO afecta a los llamadores legítimos (que sí son super-admin).
+  if (bypass && !esSuperAdmin) {
+    throw new Error('txEmpresa: bypassPlataforma requiere un contexto super-admin.');
+  }
+
   return prisma.$transaction(async (tx) => {
     if (bypass && esSuperAdmin) {
       // Bypass de plataforma: SOLO si el contexto es super-admin (verificado en

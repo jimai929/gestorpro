@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import { authPlugin } from './core/auth/auth.plugin.js';
 import { iniciarContextoTenant } from './core/tenant/contexto.js';
 import { authRoutes } from './core/auth/auth.routes.js';
+import { empresaRoutes } from './core/empresa/empresa.routes.js';
 import { sedeRoutes } from './core/sede/sede.routes.js';
 import { empleadoRoutes } from './core/empleado/empleado.routes.js';
 import { rolOperativoRoutes } from './core/rol-operativo/rol-operativo.routes.js';
@@ -57,6 +58,7 @@ export function construirApp(): FastifyInstance {
   // Núcleo: autenticación (debe registrarse antes que las rutas que la usan).
   app.register(authPlugin);
   app.register(authRoutes, { prefix: '/auth' });
+  app.register(empresaRoutes);
   app.register(sedeRoutes);
   app.register(empleadoRoutes);
   app.register(rolOperativoRoutes);

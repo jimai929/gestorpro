@@ -7,6 +7,14 @@ export interface AsientoAuditoria {
   entidadId: string;
   accion: string;
   usuarioId: string;
+  /**
+   * Empresa del asiento. Normalmente se OMITE: lo rellena el DEFAULT desde el GUC
+   * `app.empresa_id` que fija txEmpresa. Se pasa EXPLÍCITO solo en operaciones de
+   * PLATAFORMA (bypass de super-admin, Fase 4c), donde el GUC de tenant no está
+   * fijado y el DEFAULT daría NULL → violaría NOT NULL. En ese caso registra el
+   * tenant OBJETO de la acción cross-tenant.
+   */
+  empresaId?: string;
   detalle?: Prisma.InputJsonValue;
 }
 
@@ -28,6 +36,9 @@ export const auditoriaRepo = {
         entidadId: asiento.entidadId,
         accion: asiento.accion,
         usuarioId: asiento.usuarioId,
+        // Solo en operaciones de plataforma (bypass); si se omite, lo rellena el
+        // DEFAULT desde el GUC de tenant (comportamiento de SIEMPRE, sin cambios).
+        ...(asiento.empresaId !== undefined ? { empresaId: asiento.empresaId } : {}),
         ...(asiento.detalle !== undefined ? { detalle: asiento.detalle } : {}),
       },
     });
