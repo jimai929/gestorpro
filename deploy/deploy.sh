@@ -72,6 +72,50 @@ if ! docker compose exec -T postgres \
   exit 1
 fi
 
+echo "==> 2b/7 Prerrequisito: gestorpro_migrador con BYPASSRLS (necesario para el seed bajo RLS+FORCE)"
+# El paso 4 (post-migrate) crea FORCE ROW LEVEL SECURITY; el paso 5 (seed) corre como
+# gestorpro_migrador. Sin BYPASSRLS el FORCE lo sujeta y el seed fallaría con WITH CHECK.
+# Causa típica: VOLUMEN YA EXISTENTE (pre-Fase 5) — el initdb NO se re-ejecuta. Se detecta
+# AQUI (fail-loud antes de migrar), no recién en el paso 5. Defensa pura: solo lee pg_roles.
+mig_bypass="$(docker compose exec -T postgres \
+  psql -tAX -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  -c "SELECT rolbypassrls FROM pg_roles WHERE rolname='gestorpro_migrador';" 2>&1 || true)"
+if [[ "$mig_bypass" != "t" ]]; then
+  echo "ERROR DE PRERREQUISITO: gestorpro_migrador NO tiene BYPASSRLS (valor leido: '${mig_bypass}')." >&2
+  echo "Sin BYPASSRLS, el seed (paso 5) fallaria bajo FORCE ROW LEVEL SECURITY." >&2
+  echo "Causa tipica: volumen ya existente (pre-Fase 5); el initdb no se re-ejecuta." >&2
+  echo "Corrige como superusuario y reintenta:  ALTER ROLE gestorpro_migrador BYPASSRLS;" >&2
+  exit 1
+fi
+echo "    OK: gestorpro_migrador tiene BYPASSRLS."
+
+echo "==> 2c/7 Si hay migraciones pendientes (cambio estructural), exigir backup reciente (<24h)"
+# Un migrate deploy con pendientes es estructural e irreversible; backup.sh es la unica
+# via de rollback y deploy.sh NO lo hace solo. Solo se exige cuando HAY pendientes (un
+# redeploy sin migraciones no se bloquea). Se usa el CODIGO DE SALIDA de migrate status
+# (0 = todo aplicado; !=0 = pendientes O BD inaccesible -> conservador: exigir backup).
+# El backup debe hacerse JUSTO ANTES de desplegar; la ventana de 24h es solo un colchon.
+set +e
+estado_migrate="$(DATABASE_URL="$MIGRATOR_DATABASE_URL" \
+  docker compose run --rm -e DATABASE_URL backend npx prisma migrate status 2>&1)"
+hay_pendientes=$?
+set -e
+if [[ $hay_pendientes -ne 0 ]]; then
+  reciente="$(find backups -name 'gestorpro_*.dump' -mmin -1440 2>/dev/null | head -n1 || true)"
+  if [[ -n "$reciente" ]]; then
+    echo "    OK: hay backup reciente ($reciente)."
+  elif [[ "${CONFIRMAR_SIN_BACKUP:-}" == "1" ]]; then
+    echo "    AVISO: sin backup reciente, pero CONFIRMAR_SIN_BACKUP=1 -> se continua SIN red de rollback." >&2
+  else
+    echo "ERROR: migraciones pendientes (o BD inaccesible) y SIN backup reciente (<24h) en backups/." >&2
+    echo "Haz el backup JUSTO ANTES de desplegar:  ./backup.sh   (y ./restore.sh para verificar)." >&2
+    echo "Salida de 'prisma migrate status' (para distinguir 'hay pendientes' de 'no conecta'):" >&2
+    printf '%s\n' "$estado_migrate" >&2
+    echo "Para saltar deliberadamente (no recomendado):  CONFIRMAR_SIN_BACKUP=1 ./deploy.sh" >&2
+    exit 1
+  fi
+fi
+
 echo "==> 3/7 migrate deploy (rol migrador)"
 # Secretos por ENTORNO, no por argv: el prefijo inline pone la variable en el
 # entorno del proceso docker y '-e VAR' (sin valor) la hereda; así la contraseña
