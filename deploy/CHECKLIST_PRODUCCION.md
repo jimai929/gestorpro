@@ -182,13 +182,16 @@ NO recrea roles ni aplica `BYPASSRLS` — hay que hacerlo a mano.
      ```
      (el `GRANT` sobre `auditoria` lo aplica la migración `20260621223903` durante
      el `migrate deploy`; no hace falta a mano.)
-4. **Pre-check de datos (relajación global→por-empresa) ANTES de migrar.** Estas
-   queries son una debida diligencia: lo que cumple unicidad global cumple la
-   per-empresa, así que en un VPS single-tenant (una sola Empresa Default) deben
-   dar **0 filas**. (Detalle y contexto en `.scratch/fase3/plan.md` §0, nota de
-   trabajo; se reproducen aquí por estar el plan fuera del control de versiones.)
-   Correrlas en el punto correspondiente de la cadena de migración (cuando ya
-   existe `empresa_id`):
+4. **Verificación de unicidad por-empresa — POST-migración (NO antes).** Estas
+   queries usan `empresa_id` / `sede.empresa_id`, columnas que **recién crea la
+   migración (ola1)**: en el VPS actual (kiosco_token) NO existen, así que **no se
+   pueden correr antes de migrar**, y `migrate deploy` es atómico (sin punto
+   intermedio). El **fail-closed real lo da la propia migración**: cada
+   `@unique → @@unique([empresa_id,…])` ejecuta un `CREATE UNIQUE INDEX` que, si
+   hubiera un duplicado, FALLA y aborta toda la transacción. Además, en un VPS
+   single-tenant (una Empresa Default) el global-unique ⊆ per-empresa-unique → 0
+   duplicados por construcción. Por eso estas SQL son **confirmación POST-migración /
+   diagnóstico** (correrlas tras un `migrate deploy` exitoso; esperado 0 filas):
    ```sql
    SELECT empresa_id, nombre, count(*) FROM categoria_gasto GROUP BY 1,2 HAVING count(*)>1;
    SELECT empresa_id, fecha,  count(*) FROM dia_festivo     GROUP BY 1,2 HAVING count(*)>1;
@@ -197,8 +200,9 @@ NO recrea roles ni aplica `BYPASSRLS` — hay que hacerlo a mano.
    SELECT count(*) AS empleados_sin_empresa FROM empleado e JOIN sede s ON s.id=e.sede_id WHERE s.empresa_id IS NULL;
    SELECT empresa_id, count(*) FROM configuracion_cobro GROUP BY 1 HAVING count(*)>1;
    ```
-   Si alguna da >0 filas: **parar** y resolver el duplicado antes de crear el
-   unique compuesto (la migración fallaría).
+   Si en cambio el `migrate deploy` ABORTÓ por conflicto de unique: leer el índice
+   del error → restaurar el backup → limpiar el duplicado → reintentar. (Detalle en
+   `deploy/RUNBOOK_VPS_MULTITENANT.md` §2.)
 5. **Tras `deploy.sh`:** el paso 4b (verificación RLS armada) y el paso 6
    (append-only como `gestorpro_app`) son gates automáticos; si algo no quedó
    aislado, el script aborta. No saltárselos.
