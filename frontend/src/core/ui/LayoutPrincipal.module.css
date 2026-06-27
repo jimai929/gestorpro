@@ -81,7 +81,8 @@
   border: 1px solid #bfdbfe;
 }
 
-.botonSalir {
+.botonSalir,
+.botonAccion {
   padding: 0.4rem 0.875rem;
   border: 1.5px solid #d1d5db;
   border-radius: 8px;
@@ -93,7 +94,8 @@
   transition: background 0.15s, border-color 0.15s;
 }
 
-.botonSalir:hover {
+.botonSalir:hover,
+.botonAccion:hover {
   background: #f9fafb;
   border-color: #9ca3af;
 }

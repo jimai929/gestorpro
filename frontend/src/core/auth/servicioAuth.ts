@@ -27,6 +27,23 @@ export async function logoutApi(refreshToken: string): Promise<void> {
   await api.post<void>('/auth/logout', { refreshToken }, { omitirAuth: true });
 }
 
+/**
+ * Llama a POST /auth/cambiar-contrasena (autoservicio, AUTENTICADO). Responde 204 sin
+ * cuerpo. El backend, al cambiarla, revoca todas las sesiones de refresco del usuario.
+ */
+export async function cambiarContrasenaApi(
+  contrasenaActual: string,
+  contrasenaNueva: string,
+): Promise<void> {
+  // `omitirRefresco`: un 401 aquí significa "contraseña actual incorrecta", no token
+  // expirado; sin esto el cliente lo reintentaría (doble POST, doble rate limit).
+  await api.post<void>(
+    '/auth/cambiar-contrasena',
+    { contrasenaActual, contrasenaNueva },
+    { omitirRefresco: true },
+  );
+}
+
 // ── Gestión del refresh token en localStorage ──────────────────────────────
 
 export function guardarRefreshToken(token: string): void {

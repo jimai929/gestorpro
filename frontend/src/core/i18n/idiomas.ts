@@ -63,6 +63,22 @@ const es: Diccionario = {
   'login.errorContrasena': 'La contraseña es obligatoria.',
   'login.errorGenerico': 'Error al iniciar sesión. Intenta de nuevo.',
 
+  // Cuenta / cambio de contraseña
+  'cuenta.cambiarContrasena': 'Cambiar contraseña',
+  'cuenta.cc.actual': 'Contraseña actual',
+  'cuenta.cc.nueva': 'Nueva contraseña',
+  'cuenta.cc.confirmar': 'Confirmar nueva contraseña',
+  'cuenta.cc.ayudaNueva': 'Mínimo 8 caracteres.',
+  'cuenta.cc.errActual': 'Ingresa tu contraseña actual.',
+  'cuenta.cc.errNuevaCorta': 'La nueva contraseña debe tener al menos 8 caracteres.',
+  'cuenta.cc.errIgual': 'La nueva contraseña debe ser distinta de la actual.',
+  'cuenta.cc.errConfirmar': 'Las contraseñas no coinciden.',
+  'cuenta.cc.errGenerico': 'No se pudo cambiar la contraseña. Intenta de nuevo.',
+  'cuenta.cc.exitoTitulo': 'Contraseña actualizada',
+  'cuenta.cc.exitoMensaje':
+    'Por seguridad cerramos todas tus sesiones. Vuelve a iniciar sesión con tu nueva contraseña.',
+  'cuenta.cc.irLogin': 'Ir a iniciar sesión',
+
   // Inicio
   'inicio.bienvenido': 'Bienvenido, {nombre}',
   'inicio.sesionActivaComo': 'Sesión activa como',
@@ -121,6 +137,21 @@ const en: Diccionario = {
   'login.errorContrasena': 'Password is required.',
   'login.errorGenerico': 'Sign-in failed. Please try again.',
 
+  'cuenta.cambiarContrasena': 'Change password',
+  'cuenta.cc.actual': 'Current password',
+  'cuenta.cc.nueva': 'New password',
+  'cuenta.cc.confirmar': 'Confirm new password',
+  'cuenta.cc.ayudaNueva': 'At least 8 characters.',
+  'cuenta.cc.errActual': 'Enter your current password.',
+  'cuenta.cc.errNuevaCorta': 'The new password must be at least 8 characters.',
+  'cuenta.cc.errIgual': 'The new password must be different from the current one.',
+  'cuenta.cc.errConfirmar': 'Passwords do not match.',
+  'cuenta.cc.errGenerico': 'Could not change the password. Please try again.',
+  'cuenta.cc.exitoTitulo': 'Password updated',
+  'cuenta.cc.exitoMensaje':
+    'For your security we signed out all your sessions. Please sign in again with your new password.',
+  'cuenta.cc.irLogin': 'Go to sign in',
+
   'inicio.bienvenido': 'Welcome, {nombre}',
   'inicio.sesionActivaComo': 'Signed in as',
   'inicio.finanzas': 'Finance',
@@ -176,6 +207,20 @@ const zh: Diccionario = {
   'login.errorCorreo': '邮箱为必填项。',
   'login.errorContrasena': '密码为必填项。',
   'login.errorGenerico': '登录失败，请重试。',
+
+  'cuenta.cambiarContrasena': '修改密码',
+  'cuenta.cc.actual': '当前密码',
+  'cuenta.cc.nueva': '新密码',
+  'cuenta.cc.confirmar': '确认新密码',
+  'cuenta.cc.ayudaNueva': '至少 8 个字符。',
+  'cuenta.cc.errActual': '请输入当前密码。',
+  'cuenta.cc.errNuevaCorta': '新密码至少需要 8 个字符。',
+  'cuenta.cc.errIgual': '新密码必须与当前密码不同。',
+  'cuenta.cc.errConfirmar': '两次输入的密码不一致。',
+  'cuenta.cc.errGenerico': '无法修改密码，请重试。',
+  'cuenta.cc.exitoTitulo': '密码已更新',
+  'cuenta.cc.exitoMensaje': '出于安全考虑，我们已退出你的所有会话。请使用新密码重新登录。',
+  'cuenta.cc.irLogin': '前往登录',
 
   'inicio.bienvenido': '欢迎，{nombre}',
   'inicio.sesionActivaComo': '当前登录身份',

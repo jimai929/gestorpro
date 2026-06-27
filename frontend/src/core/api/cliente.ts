@@ -50,6 +50,13 @@ function refrescarUnaVez(): Promise<string | null> {
 /** Opciones extendidas para las peticiones del cliente. */
 export interface OpcionesPeticion extends RequestInit {
   omitirAuth?: boolean;
+  /**
+   * No intentar el refresh-on-401: el 401 se propaga tal cual como error. Para
+   * endpoints AUTENTICADOS donde un 401 puede significar "credenciales incorrectas"
+   * (no "token expirado") —p. ej. cambiar-contraseña verifica la contraseña actual—,
+   * así no se reintenta la petición (que duplicaría el POST y el consumo del rate limit).
+   */
+  omitirRefresco?: boolean;
 }
 
 /**
@@ -60,7 +67,12 @@ export async function peticion<T>(
   ruta: string,
   opciones: OpcionesPeticion = {},
 ): Promise<T> {
-  const { omitirAuth = false, headers: cabecerasExtra, ...restoOpciones } = opciones;
+  const {
+    omitirAuth = false,
+    omitirRefresco = false,
+    headers: cabecerasExtra,
+    ...restoOpciones
+  } = opciones;
 
   // Se reconstruye en cada intento para releer el access token (cambia tras un refresco).
   const construirCabeceras = (): Record<string, string> => {
@@ -80,9 +92,11 @@ export async function peticion<T>(
   });
 
   // Refresh-on-401: si el access token expiró, renovarlo UNA vez y reintentar.
-  // Las rutas /auth/* usan `omitirAuth`, así que nunca entran aquí: eso evita
-  // el bucle (un 401 del propio refresh no dispara otro refresco).
-  if (respuesta.status === 401 && !omitirAuth && manejadorRefresh) {
+  // Las rutas /auth/ de sesión (login/refresh/logout) usan `omitirAuth`, así que no
+  // entran aquí (eso evita el bucle: un 401 del propio refresh no dispara otro). Un
+  // endpoint /auth/ AUTENTICADO donde un 401 puede ser "credenciales incorrectas" (no
+  // token expirado) —cambiar-contraseña— usa `omitirRefresco` para NO reintentar.
+  if (respuesta.status === 401 && !omitirAuth && !omitirRefresco && manejadorRefresh) {
     const nuevoToken = await refrescarUnaVez();
     if (nuevoToken) {
       respuesta = await fetch(`${URL_BASE}${ruta}`, {
