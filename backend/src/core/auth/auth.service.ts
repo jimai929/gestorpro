@@ -1,7 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { prisma } from '../prisma.js';
-import { ErrorAutenticacion } from '../errors.js';
-import { verificarContrasena } from './contrasena.js';
+import { ErrorAutenticacion, ErrorValidacion } from '../errors.js';
+import { hashearContrasena, verificarContrasena } from './contrasena.js';
+import { txEmpresa } from '../tenant/contexto.js';
+import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
 import { Rol } from '../../generated/prisma/enums.js';
 import type {
   PayloadAccess,
@@ -181,4 +183,66 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
       });
     },
   };
+}
+
+/**
+ * Autoservicio: el usuario autenticado cambia su PROPIA contraseña. El
+ * `usuarioId` SIEMPRE viene del token (request.user.sub), NUNCA del body: es
+ * contexto de seguridad, igual que en el resto de la app.
+ *
+ * Reglas:
+ * - Verifica `contrasenaActual` contra el hash guardado (argon2). Si falla —usuario
+ *   inexistente, inactivo o contraseña incorrecta— lanza un error GENÉRICO
+ *   (`ErrorAutenticacion`, 401) que NO distingue entre esos casos.
+ * - `contrasenaNueva` debe diferir de la actual. La fortaleza (longitud mínima) la
+ *   valida el schema de la ruta, igual que al crear la cuenta: aquí no se re-implementa.
+ * - Actualiza el hash, REVOCA todas las sesiones de refresco del usuario y deja un
+ *   asiento de auditoría `cambiar_contrasena`, todo en la MISMA transacción (todo o
+ *   nada). NUNCA se registra ninguna contraseña en claro.
+ *
+ * No toca `empresaId`, membresías, `rol` ni `esSuperAdmin`.
+ */
+export async function cambiarContrasena(
+  usuarioId: string,
+  contrasenaActual: string,
+  contrasenaNueva: string,
+): Promise<void> {
+  const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+  // Error GENÉRICO: no revelar si el usuario existe ni si la contraseña fue la causa.
+  if (!usuario || !usuario.activo) {
+    throw new ErrorAutenticacion();
+  }
+  const coincide = await verificarContrasena(usuario.passwordHash, contrasenaActual);
+  if (!coincide) {
+    throw new ErrorAutenticacion();
+  }
+  // La nueva no puede ser igual a la actual (verificada arriba): evita "cambios" nulos.
+  if (contrasenaNueva === contrasenaActual) {
+    throw new ErrorValidacion('La nueva contraseña debe ser distinta de la actual.');
+  }
+
+  // argon2 FUERA de la transacción (es costoso; no hay que tener la tx abierta).
+  const nuevoHash = await hashearContrasena(contrasenaNueva);
+  await txEmpresa(async (tx) => {
+    await tx.usuario.update({
+      where: { id: usuarioId },
+      data: { passwordHash: nuevoHash },
+    });
+    // Revoca TODAS las sesiones de refresco del usuario: cambiar la contraseña expulsa
+    // cualquier sesión viva (p. ej. un refresh token robado), no solo la actual. La tabla
+    // sesion_refresco está fuera de RLS de tenant (como usuario), así que el deleteMany
+    // por usuarioId funciona bajo el GUC de la tx.
+    await tx.sesionRefresco.deleteMany({ where: { usuarioId } });
+    await auditoriaRepo.registrar(
+      {
+        entidad: 'usuario',
+        entidadId: usuarioId,
+        accion: 'cambiar_contrasena',
+        usuarioId,
+        // empresa_id lo rellena el DEFAULT desde el GUC de tenant (txEmpresa, del
+        // token). `detalle` se OMITE a propósito: jamás se guarda contraseña alguna.
+      },
+      tx,
+    );
+  });
 }

@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../prisma.js';
 import { ErrorAutenticacion } from '../errors.js';
-import { crearServicioAuth } from './auth.service.js';
+import { responderError } from '../http.js';
+import { cambiarContrasena, crearServicioAuth } from './auth.service.js';
 
 const TTL_ACCESS = process.env.ACCESS_TOKEN_TTL ?? '15m';
 
@@ -28,12 +29,29 @@ const esquemaRefresh = {
   },
 } as const;
 
+const esquemaCambiarContrasena = {
+  body: {
+    type: 'object',
+    required: ['contrasenaActual', 'contrasenaNueva'],
+    // Estricto (como el resto de /auth): con additionalProperties:false, ajv ELIMINA
+    // cualquier campo inesperado del body antes del handler —p. ej. un `usuarioId`
+    // colado para apuntar a OTRO usuario—. De todos modos el usuarioId sale del token.
+    additionalProperties: false,
+    properties: {
+      contrasenaActual: { type: 'string', minLength: 1 },
+      // Misma regla de fortaleza que al crear la cuenta (adminPassword): mínimo 8.
+      contrasenaNueva: { type: 'string', minLength: 8 },
+    },
+  },
+} as const;
+
 /**
  * Rutas de autenticación, montadas bajo el prefijo /auth:
  *   POST /auth/login    email + contraseña  -> access + refresh + usuario
  *   POST /auth/refresh  refresh token       -> nuevo access token
  *   POST /auth/logout   refresh token       -> 204 (invalida la sesión)
  *   GET  /auth/me       (protegida)         -> datos del usuario autenticado
+ *   POST /auth/cambiar-contrasena (protegida) -> 204 (cambia la propia contraseña)
  */
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   const servicio = crearServicioAuth((payload) =>
@@ -118,4 +136,29 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       esSuperAdmin: request.user.esSuperAdmin,
     });
   });
+
+  // Autoservicio: el usuario autenticado cambia su PROPIA contraseña. El usuarioId
+  // sale SIEMPRE del token (request.user.sub), NUNCA del body.
+  app.post<{ Body: { contrasenaActual: string; contrasenaNueva: string } }>(
+    '/cambiar-contrasena',
+    {
+      preHandler: app.autenticar,
+      schema: esquemaCambiarContrasena,
+      // Mismo límite que /login: el handler verifica una contraseña con argon2 (costoso)
+      // y es superficie /auth/* sensible. Acota fuerza bruta de la clave actual y DoS de CPU.
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      try {
+        await cambiarContrasena(
+          request.user.sub,
+          request.body.contrasenaActual,
+          request.body.contrasenaNueva,
+        );
+        return await reply.code(204).send();
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
 }
