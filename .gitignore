@@ -6,6 +6,9 @@ node_modules/
 .env.*
 !.env.example
 
+# Fichero local con secretos (copia de deploy/.env): nunca versionar.
+PAS.txt
+
 # Compilados
 dist/
 build/
