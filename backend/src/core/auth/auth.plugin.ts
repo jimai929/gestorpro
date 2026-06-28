@@ -28,6 +28,29 @@ declare module 'fastify' {
   }
 }
 
+/**
+ * Rutas EXENTAS del bloqueo por `debeCambiarContrasena` (allowlist EXPLÍCITA). Sin el
+ * propio cambio de contraseña el usuario quedaría ENCERRADO (no podría rotar su clave →
+ * deadlock); las de sesión/identidad se eximen por el mismo motivo. Cualquier OTRA ruta
+ * autenticada queda bloqueada por defecto. `/auth/logout` y `/auth/refresh` ni siquiera
+ * pasan por `autenticar`, pero se listan para que la intención quede explícita.
+ */
+const RUTAS_EXENTAS_CAMBIO = new Set<string>([
+  '/auth/cambiar-contrasena',
+  '/auth/me',
+  '/auth/logout',
+  '/auth/refresh',
+]);
+
+/**
+ * Contrato de error del bloqueo por contraseña temporal. El `codigo` es ESTABLE: el
+ * front (Commit 3) lo usa para redirigir al cambio forzado. NO cambiar sin coordinar.
+ */
+const ERROR_DEBE_CAMBIAR = {
+  codigo: 'DEBE_CAMBIAR_CONTRASENA',
+  mensaje: 'Debes cambiar tu contraseña temporal antes de continuar.',
+} as const;
+
 async function pluginAuth(app: FastifyInstance): Promise<void> {
   const secreto = process.env.JWT_ACCESS_SECRET;
   if (!secreto) {
@@ -56,6 +79,18 @@ async function pluginAuth(app: FastifyInstance): Promise<void> {
         empresaId: request.user.empresaId,
         esSuperAdmin: request.user.esSuperAdmin,
       });
+
+      // Cambio de contraseña FORZADO (Commit 2): si la cuenta tiene una contraseña
+      // TEMPORAL (debeCambiarContrasena) y la ruta NO está en la allowlist, se bloquea
+      // TODO con 403 hasta rotarla. Vive aquí —el paso común de TODA ruta autenticada—
+      // para lograr DEFAULT-BLOCK: cualquier endpoint nuevo queda cubierto sin registrarlo;
+      // la única salida es la allowlist /auth/* de autoservicio. Un token viejo SIN el
+      // campo cuenta como `false` (?? false) → no se bloquea (sin lock-out en el despliegue).
+      const ruta = request.url.split('?')[0] ?? request.url;
+      if ((request.user.debeCambiarContrasena ?? false) && !RUTAS_EXENTAS_CAMBIO.has(ruta)) {
+        await reply.code(403).send(ERROR_DEBE_CAMBIAR);
+        return;
+      }
     },
   );
 
