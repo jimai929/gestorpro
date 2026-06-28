@@ -72,7 +72,13 @@ async function resolverContextoActivo(
 }
 
 function aUsuarioPublico(
-  usuario: { id: string; nombre: string; email: string; esSuperAdmin: boolean },
+  usuario: {
+    id: string;
+    nombre: string;
+    email: string;
+    esSuperAdmin: boolean;
+    debeCambiarContrasena: boolean;
+  },
   contexto: ContextoActivo,
 ): UsuarioPublico {
   return {
@@ -82,6 +88,7 @@ function aUsuarioPublico(
     rol: contexto.rol,
     empresaId: contexto.empresaId,
     esSuperAdmin: usuario.esSuperAdmin,
+    debeCambiarContrasena: usuario.debeCambiarContrasena,
   };
 }
 
@@ -118,6 +125,7 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         rol: contexto.rol,
         empresaId: contexto.empresaId,
         esSuperAdmin: usuario.esSuperAdmin,
+        debeCambiarContrasena: usuario.debeCambiarContrasena,
       });
 
       // Refresh token opaco: aleatorio, se guarda hasheado y es revocable. Guarda
@@ -172,6 +180,7 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         rol: contexto.rol,
         empresaId: contexto.empresaId,
         esSuperAdmin: sesion.usuario.esSuperAdmin,
+        debeCambiarContrasena: sesion.usuario.debeCambiarContrasena,
       });
       return { accessToken };
     },
@@ -226,7 +235,8 @@ export async function cambiarContrasena(
   await txEmpresa(async (tx) => {
     await tx.usuario.update({
       where: { id: usuarioId },
-      data: { passwordHash: nuevoHash },
+      // Al rotar la contraseña se limpia la obligación de cambiarla (primer login resuelto).
+      data: { passwordHash: nuevoHash, debeCambiarContrasena: false },
     });
     // Revoca TODAS las sesiones de refresco del usuario: cambiar la contraseña expulsa
     // cualquier sesión viva (p. ej. un refresh token robado), no solo la actual. La tabla

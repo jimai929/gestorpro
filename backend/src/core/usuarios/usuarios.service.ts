@@ -61,6 +61,8 @@ export async function crearUsuarioEnTenant(
             email: datos.email,
             rol,
             passwordHash,
+            // Contraseña temporal fijada por el admin: el nuevo usuario debe rotarla al entrar.
+            debeCambiarContrasena: true,
             // esSuperAdmin NO se toca: queda en su default `false`.
           },
         });

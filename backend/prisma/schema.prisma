@@ -110,6 +110,9 @@ model Usuario {
   passwordHash String   @map("password_hash")
   activo       Boolean  @default(true)
   esSuperAdmin Boolean  @default(false) @map("es_super_admin")
+  // Cuenta creada por un tercero con contraseña temporal (POST /empresas, POST /usuarios):
+  // debe rotarla en el primer login. Se limpia (false) al cambiar la contraseña.
+  debeCambiarContrasena Boolean @default(false) @map("debe_cambiar_contrasena")
   creadoEn     DateTime @default(now()) @map("creado_en")
 
   sesiones   SesionRefresco[]

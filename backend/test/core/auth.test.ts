@@ -52,6 +52,26 @@ describe('auth — empresa activa en el login (multi-tenant)', () => {
     expect(res.usuario.empresaId).toBe(empresa.id);
   });
 
+  it('expone debeCambiarContrasena en el token y en el usuario público del login', async () => {
+    const empresa = await nuevaEmpresa();
+    const usuario = await prisma.usuario.create({
+      data: {
+        nombre: 'U',
+        email: `dc${++n}-${Date.now()}@x.local`,
+        rol: 'administrador',
+        passwordHash: await hashearContrasena(CLAVE),
+        debeCambiarContrasena: true, // contraseña temporal
+      },
+    });
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: empresa.id, rol: 'administrador', predeterminada: true },
+    });
+
+    const res = await servicio.iniciarSesion(usuario.email, CLAVE);
+    expect(JSON.parse(res.accessToken).debeCambiarContrasena).toBe(true); // en el token
+    expect(res.usuario.debeCambiarContrasena).toBe(true); // en el UsuarioPublico
+  });
+
   it('usuario normal SIN membresía: NO puede iniciar sesión', async () => {
     const usuario = await nuevoUsuario();
     await expect(servicio.iniciarSesion(usuario.email, CLAVE)).rejects.toThrow(

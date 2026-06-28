@@ -29,7 +29,13 @@ describe('4c.5 — GET /auth/me', () => {
     });
   }
 
-  type RespMe = { id: string; rol: string; empresaId: string | null; esSuperAdmin: boolean };
+  type RespMe = {
+    id: string;
+    rol: string;
+    empresaId: string | null;
+    esSuperAdmin: boolean;
+    debeCambiarContrasena: boolean;
+  };
 
   it('usuario normal: /me refleja el rol y empresaId del TOKEN, no el rol global', async () => {
     const u = await nuevoUsuario(false); // rol global = empleado (default del schema)
@@ -46,6 +52,25 @@ describe('4c.5 — GET /auth/me', () => {
     expect(body.rol).toBe('administrador'); // del token (membresía), NO el global 'empleado'
     expect(body.empresaId).toBe(empresaId);
     expect(body.esSuperAdmin).toBe(false);
+    expect(body.debeCambiarContrasena).toBe(false); // token sin el campo → false (?? false)
+  });
+
+  it('/me refleja debeCambiarContrasena=true del token', async () => {
+    const u = await nuevoUsuario(false);
+    const token = app.jwt.sign({
+      sub: u.id,
+      rol: 'administrador',
+      empresaId: randomUUID(),
+      esSuperAdmin: false,
+      debeCambiarContrasena: true,
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/me',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as RespMe).debeCambiarContrasena).toBe(true);
   });
 
   it('super-admin: /me devuelve empresaId=null y esSuperAdmin=true', async () => {

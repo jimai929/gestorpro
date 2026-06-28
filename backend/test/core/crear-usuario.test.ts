@@ -71,6 +71,8 @@ describe('Fase 4c — POST /usuarios (alta de usuarios en el tenant)', () => {
     const u = await semilla().usuario.findUniqueOrThrow({ where: { id: body.id } });
     expect(u.passwordHash.startsWith('$argon2')).toBe(true);
     expect(u.passwordHash).not.toContain('Clave123*');
+    // Contraseña temporal: el nuevo usuario debe cambiarla en el primer login.
+    expect(u.debeCambiarContrasena).toBe(true);
 
     // Asiento de auditoría: 1, crear_usuario, del admin (token), en el tenant A, SIN clave.
     const asientos = await semilla().auditoria.findMany({

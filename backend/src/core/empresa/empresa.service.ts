@@ -59,6 +59,8 @@ export async function crearEmpresa(
             email: datos.adminEmail,
             rol: Rol.administrador,
             passwordHash,
+            // Contraseña temporal fijada por el super-admin: el admin debe rotarla al entrar.
+            debeCambiarContrasena: true,
           },
         });
         await tx.membresia.create({

@@ -33,13 +33,14 @@ describe('auth — POST /auth/cambiar-contrasena (autoservicio)', () => {
 
   // Usuario con contraseña conocida y membresía en la empresa de prueba: la membresía
   // es necesaria para que el login resuelva contexto y para el empresa_id de la auditoría.
-  async function nuevoUsuario(clave = CLAVE) {
+  async function nuevoUsuario(clave = CLAVE, debeCambiarContrasena = false) {
     const usuario = await semilla().usuario.create({
       data: {
         nombre: 'U',
         email: `cc-${randomUUID()}@x.local`,
         rol: 'administrador',
         passwordHash: await hashearContrasena(clave),
+        debeCambiarContrasena,
       },
     });
     await semilla().membresia.create({
@@ -174,6 +175,17 @@ describe('auth — POST /auth/cambiar-contrasena (autoservicio)', () => {
       payload: { refreshToken: viejoRefresh },
     });
     expect(refresh.statusCode).toBe(401);
+  });
+
+  it('cambiar la contraseña LIMPIA debeCambiarContrasena (de true a false)', async () => {
+    const u = await nuevoUsuario(CLAVE, true); // contraseña temporal: flag = true
+    expect((await semilla().usuario.findUniqueOrThrow({ where: { id: u.id } })).debeCambiarContrasena).toBe(true);
+
+    const res = await cambiar(u.id, { contrasenaActual: CLAVE, contrasenaNueva: NUEVA });
+    expect(res.statusCode).toBe(204);
+
+    // Tras rotar la clave, ya no está obligado a cambiarla.
+    expect((await semilla().usuario.findUniqueOrThrow({ where: { id: u.id } })).debeCambiarContrasena).toBe(false);
   });
 
   it('usuarioId en el body NO cambia la contraseña de otro: solo cuenta el token', async () => {

@@ -134,6 +134,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       rol: request.user.rol,
       empresaId: request.user.empresaId,
       esSuperAdmin: request.user.esSuperAdmin,
+      debeCambiarContrasena: request.user.debeCambiarContrasena ?? false,
     });
   });
 

@@ -87,6 +87,10 @@ describe('4c.3 — POST /empresas', () => {
     expect(membresias[0]?.empresaId).toBe(creada.id);
     expect(membresias[0]?.rol).toBe('administrador');
 
+    // El admin nace con contraseña TEMPORAL: debe cambiarla en el primer login.
+    const admin = await semilla().usuario.findUniqueOrThrow({ where: { id: creada.adminId } });
+    expect(admin.debeCambiarContrasena).toBe(true);
+
     // Asiento de auditoría: crear_empresa, empresa_id = nueva, usuario_id = super-admin REAL.
     const asientos = await semilla().auditoria.findMany({
       where: { entidad: 'empresa', entidadId: creada.id },
