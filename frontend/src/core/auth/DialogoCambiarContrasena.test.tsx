@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DialogoCambiarContrasena } from './DialogoCambiarContrasena';
+import { ErrorHttp } from '../api';
 import * as servicio from './servicioAuth';
 
 // El contexto i18n cae a español sin proveedor, así que las etiquetas son en español.
@@ -104,5 +105,23 @@ describe('DialogoCambiarContrasena', () => {
 
     await user.click(screen.getByRole('button', { name: 'Ir a iniciar sesión' }));
     expect(onExito).toHaveBeenCalled();
+  });
+
+  it('error 429 (rate limit) → muestra un mensaje DISTINTO "espera y reintenta" (no el texto crudo)', async () => {
+    vi.mocked(servicio.cambiarContrasenaApi).mockRejectedValue(new ErrorHttp(429, 'Rate limit exceeded'));
+    renderModal();
+    await llenar(CLAVE, NUEVA, NUEVA);
+
+    expect(
+      await screen.findByText('Demasiados intentos. Espera un momento e inténtalo de nuevo.'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Rate limit exceeded')).toBeNull(); // no se muestra el texto crudo
+  });
+
+  it('modo forzado: SIN botón Cancelar ni cerrar (×), con aviso de contraseña temporal', () => {
+    render(<DialogoCambiarContrasena forzado onExito={vi.fn()} />);
+    expect(screen.getByText('Tu contraseña es temporal. Debes cambiarla para continuar.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Cancelar' })).toBeNull();
+    expect(screen.queryByLabelText('Cerrar')).toBeNull();
   });
 });

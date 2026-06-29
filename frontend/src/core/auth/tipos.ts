@@ -10,6 +10,8 @@ export interface Usuario {
   nombre: string;
   email: string;
   rol: Rol;
+  /** true si la cuenta tiene una contraseña temporal y debe cambiarla antes de operar. */
+  debeCambiarContrasena: boolean;
 }
 
 /** Respuesta de POST /auth/login */

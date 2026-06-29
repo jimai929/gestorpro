@@ -8,6 +8,20 @@
 
 const URL_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
+/**
+ * Error de una respuesta HTTP no-2xx. Conserva el `status` para que la UI distinga
+ * casos (p. ej. 429 limitado vs 401/403). Extiende Error: `err.message` sigue funcionando.
+ */
+export class ErrorHttp extends Error {
+  constructor(
+    readonly status: number,
+    mensaje: string,
+  ) {
+    super(mensaje);
+    this.name = 'ErrorHttp';
+  }
+}
+
 /** Token de acceso almacenado en memoria (no persiste entre recargas). */
 let accessTokenEnMemoria: string | null = null;
 
@@ -35,6 +49,19 @@ let refrescoEnCurso: Promise<string | null> | null = null;
 /** Registra (o limpia con null) el manejador de refresco del access token. */
 export function fijarManejadorRefresh(fn: ManejadorRefresh | null): void {
   manejadorRefresh = fn;
+}
+
+/**
+ * Manejador que la capa de auth registra para reaccionar a un 403 con codigo
+ * DEBE_CAMBIAR_CONTRASENA (contraseña temporal): redirige al cambio forzado. Es el
+ * FALLBACK pasivo de la intercepción activa del login; rama independiente del refresh-on-401.
+ */
+type ManejadorDebeCambiar = () => void;
+let manejadorDebeCambiar: ManejadorDebeCambiar | null = null;
+
+/** Registra (o limpia con null) el manejador de "debe cambiar contraseña". */
+export function fijarManejadorDebeCambiar(fn: ManejadorDebeCambiar | null): void {
+  manejadorDebeCambiar = fn;
 }
 
 /** Llama al manejador de refresco deduplicando llamadas concurrentes. */
@@ -108,13 +135,26 @@ export async function peticion<T>(
 
   if (!respuesta.ok) {
     let mensajeError = `Error ${respuesta.status}`;
+    let codigo: string | undefined;
     try {
-      const cuerpo = await respuesta.json() as { mensaje?: string; message?: string; error?: string };
+      const cuerpo = await respuesta.json() as {
+        mensaje?: string;
+        message?: string;
+        error?: string;
+        codigo?: string;
+      };
       mensajeError = cuerpo.mensaje ?? cuerpo.message ?? cuerpo.error ?? mensajeError;
+      codigo = cuerpo.codigo;
     } catch {
       // El cuerpo no es JSON — mantener el mensaje genérico
     }
-    throw new Error(mensajeError);
+    // Contraseña temporal: el backend bloquea con 403 + codigo DEBE_CAMBIAR_CONTRASENA. Rama
+    // INDEPENDIENTE del refresh-on-401 (no se refresca el token): se avisa a la capa de auth
+    // para redirigir al cambio forzado. El 429 (rate limit) NO entra aquí → no hay bucle.
+    if (respuesta.status === 403 && codigo === 'DEBE_CAMBIAR_CONTRASENA') {
+      manejadorDebeCambiar?.();
+    }
+    throw new ErrorHttp(respuesta.status, mensajeError);
   }
 
   // 204 No Content — no intentar parsear JSON

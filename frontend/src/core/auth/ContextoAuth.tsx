@@ -16,7 +16,12 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { api, fijarAccessToken, fijarManejadorRefresh } from '../api';
+import {
+  api,
+  fijarAccessToken,
+  fijarManejadorRefresh,
+  fijarManejadorDebeCambiar,
+} from '../api';
 import {
   eliminarRefreshToken,
   guardarRefreshToken,
@@ -74,6 +79,20 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
       }
     });
     return () => fijarManejadorRefresh(null);
+  }, []);
+
+  /**
+   * Manejador del 403 DEBE_CAMBIAR_CONTRASENA (fallback pasivo): marca al usuario para
+   * que `RutaProtegida` muestre el cambio forzado. La ruta principal es la activa (login
+   * devuelve debeCambiarContrasena), esto cubre el caso de un token aún con el flag.
+   */
+  useEffect(() => {
+    fijarManejadorDebeCambiar(() => {
+      // Idempotente: si ya está marcado (o no hay usuario), no se crea un objeto nuevo
+      // → evita re-render redundante ante varios 403 en paralelo.
+      setUsuario((u) => (u && !u.debeCambiarContrasena ? { ...u, debeCambiarContrasena: true } : u));
+    });
+    return () => fijarManejadorDebeCambiar(null);
   }, []);
 
   /** Rehidratar sesión al arrancar si existe un refresh token guardado. */

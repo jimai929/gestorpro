@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { api, peticion, fijarAccessToken, fijarManejadorRefresh } from './cliente';
+import {
+  api,
+  peticion,
+  fijarAccessToken,
+  fijarManejadorRefresh,
+  fijarManejadorDebeCambiar,
+  ErrorHttp,
+} from './cliente';
 
 // Respuesta fetch mínima simulada.
 function respuesta(status: number, cuerpo: unknown = {}): Response {
@@ -93,5 +100,54 @@ describe('cliente HTTP — refresh-on-401', () => {
     expect(b).toEqual({ ok: true });
     expect(c).toEqual({ ok: true });
     expect(manejador).toHaveBeenCalledTimes(1); // un único refresco compartido para las 3
+  });
+});
+
+describe('cliente HTTP — 403 DEBE_CAMBIAR_CONTRASENA y 429', () => {
+  beforeEach(() => {
+    fijarAccessToken('viejo');
+    fijarManejadorRefresh(null);
+    fijarManejadorDebeCambiar(null);
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    fijarAccessToken(null);
+    fijarManejadorRefresh(null);
+    fijarManejadorDebeCambiar(null);
+  });
+
+  it('403 + codigo DEBE_CAMBIAR_CONTRASENA → avisa al manejador, NO refresca y lanza ErrorHttp(403)', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(respuesta(403, { codigo: 'DEBE_CAMBIAR_CONTRASENA', mensaje: 'temporal' }));
+    const refrescar = vi.fn(async () => 'nuevo');
+    fijarManejadorRefresh(refrescar);
+    const debeCambiar = vi.fn();
+    fijarManejadorDebeCambiar(debeCambiar);
+
+    await expect(api.get('/sedes')).rejects.toMatchObject({ status: 403 });
+    expect(debeCambiar).toHaveBeenCalledTimes(1); // dispara la redirección al cambio forzado
+    expect(refrescar).not.toHaveBeenCalled(); // rama independiente: 403 NO refresca el token
+    expect(fetchMock).toHaveBeenCalledTimes(1); // sin reintento
+  });
+
+  it('429 (rate limit) → NO avisa al manejador (sin bucle) y lanza ErrorHttp con status 429', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(respuesta(429, { message: 'Rate limit exceeded' }));
+    const debeCambiar = vi.fn();
+    fijarManejadorDebeCambiar(debeCambiar);
+
+    const err = await api.get('/auth/cambiar-contrasena').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ErrorHttp);
+    expect((err as ErrorHttp).status).toBe(429);
+    expect(debeCambiar).not.toHaveBeenCalled(); // 429 no redirige → el front lo trata aparte
+  });
+
+  it('un 403 SIN el codigo (otro 403, p. ej. autorizar) NO avisa al manejador', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(respuesta(403, { mensaje: 'No tiene permiso.' }));
+    const debeCambiar = vi.fn();
+    fijarManejadorDebeCambiar(debeCambiar);
+
+    await expect(api.get('/sedes')).rejects.toBeInstanceOf(ErrorHttp);
+    expect(debeCambiar).not.toHaveBeenCalled();
   });
 });

@@ -74,6 +74,8 @@ const es: Diccionario = {
   'cuenta.cc.errIgual': 'La nueva contraseña debe ser distinta de la actual.',
   'cuenta.cc.errConfirmar': 'Las contraseñas no coinciden.',
   'cuenta.cc.errGenerico': 'No se pudo cambiar la contraseña. Intenta de nuevo.',
+  'cuenta.cc.err429': 'Demasiados intentos. Espera un momento e inténtalo de nuevo.',
+  'cuenta.cc.forzadoIntro': 'Tu contraseña es temporal. Debes cambiarla para continuar.',
   'cuenta.cc.exitoTitulo': 'Contraseña actualizada',
   'cuenta.cc.exitoMensaje':
     'Por seguridad cerramos todas tus sesiones. Vuelve a iniciar sesión con tu nueva contraseña.',
@@ -147,6 +149,8 @@ const en: Diccionario = {
   'cuenta.cc.errIgual': 'The new password must be different from the current one.',
   'cuenta.cc.errConfirmar': 'Passwords do not match.',
   'cuenta.cc.errGenerico': 'Could not change the password. Please try again.',
+  'cuenta.cc.err429': 'Too many attempts. Please wait a moment and try again.',
+  'cuenta.cc.forzadoIntro': 'Your password is temporary. You must change it to continue.',
   'cuenta.cc.exitoTitulo': 'Password updated',
   'cuenta.cc.exitoMensaje':
     'For your security we signed out all your sessions. Please sign in again with your new password.',
@@ -218,6 +222,8 @@ const zh: Diccionario = {
   'cuenta.cc.errIgual': '新密码必须与当前密码不同。',
   'cuenta.cc.errConfirmar': '两次输入的密码不一致。',
   'cuenta.cc.errGenerico': '无法修改密码，请重试。',
+  'cuenta.cc.err429': '尝试次数过多，请稍后再试。',
+  'cuenta.cc.forzadoIntro': '你的密码是临时的，必须修改后才能继续。',
   'cuenta.cc.exitoTitulo': '密码已更新',
   'cuenta.cc.exitoMensaje': '出于安全考虑，我们已退出你的所有会话。请使用新密码重新登录。',
   'cuenta.cc.irLogin': '前往登录',

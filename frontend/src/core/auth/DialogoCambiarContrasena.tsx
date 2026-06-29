@@ -13,6 +13,7 @@
 import { useState, type FormEvent } from 'react';
 import { Boton } from '../ui/Boton';
 import { Entrada } from '../ui/Entrada';
+import { ErrorHttp } from '../api';
 import { useTraduccion } from '../i18n/ContextoIdioma';
 import { cambiarContrasenaApi } from './servicioAuth';
 import styles from './DialogoCambiarContrasena.module.css';
@@ -21,13 +22,15 @@ import styles from './DialogoCambiarContrasena.module.css';
 const LONGITUD_MINIMA = 8;
 
 interface Propiedades {
-  /** Cierra el diálogo sin cambiar (solo disponible antes del éxito). */
-  onCerrar: () => void;
+  /** Cierra el diálogo sin cambiar (solo en modo NO forzado, antes del éxito). */
+  onCerrar?: () => void;
   /** Se invoca tras un cambio exitoso; el padre cierra la sesión local para reingresar. */
   onExito: () => void;
+  /** Modo OBLIGATORIO (primer login): sin cancelar/cerrar, con aviso de contraseña temporal. */
+  forzado?: boolean;
 }
 
-export function DialogoCambiarContrasena({ onCerrar, onExito }: Propiedades) {
+export function DialogoCambiarContrasena({ onCerrar, onExito, forzado = false }: Propiedades) {
   const { t } = useTraduccion();
   const [actual, setActual] = useState('');
   const [nueva, setNueva] = useState('');
@@ -65,8 +68,13 @@ export function DialogoCambiarContrasena({ onCerrar, onExito }: Propiedades) {
       // Solo tras el 204 real pasamos al estado de éxito (no antes).
       setExito(true);
     } catch (err) {
-      // El mensaje del backend ya viene en español (convención del proyecto).
-      setError(err instanceof Error ? err.message : t('cuenta.cc.errGenerico'));
+      // 429 (rate limit) → mensaje distinto "espera y reintenta"; NO redirige ni hace bucle.
+      if (err instanceof ErrorHttp && err.status === 429) {
+        setError(t('cuenta.cc.err429'));
+      } else {
+        // El mensaje del backend ya viene en español (convención del proyecto).
+        setError(err instanceof Error ? err.message : t('cuenta.cc.errGenerico'));
+      }
     } finally {
       setGuardando(false);
     }
@@ -102,16 +110,21 @@ export function DialogoCambiarContrasena({ onCerrar, onExito }: Propiedades) {
               <h2 className={styles.titulo} id="titulo-cambiar-contrasena">
                 {t('cuenta.cambiarContrasena')}
               </h2>
-              <button
-                type="button"
-                className={styles.botonCerrar}
-                onClick={onCerrar}
-                aria-label={t('comun.cerrar')}
-                disabled={guardando}
-              >
-                ×
-              </button>
+              {/* En modo forzado NO hay escape: sin botón de cerrar. */}
+              {!forzado && (
+                <button
+                  type="button"
+                  className={styles.botonCerrar}
+                  onClick={onCerrar}
+                  aria-label={t('comun.cerrar')}
+                  disabled={guardando}
+                >
+                  ×
+                </button>
+              )}
             </div>
+
+            {forzado && <p className={styles.mensaje}>{t('cuenta.cc.forzadoIntro')}</p>}
 
             <form className={styles.formulario} onSubmit={(e) => { void manejarEnvio(e); }}>
               <div className={styles.campos}>
@@ -146,9 +159,11 @@ export function DialogoCambiarContrasena({ onCerrar, onExito }: Propiedades) {
               {error && <p className={styles.error} role="alert">{error}</p>}
 
               <div className={styles.acciones}>
-                <Boton type="button" variante="secundario" onClick={onCerrar} disabled={guardando}>
-                  {t('comun.cancelar')}
-                </Boton>
+                {!forzado && (
+                  <Boton type="button" variante="secundario" onClick={onCerrar} disabled={guardando}>
+                    {t('comun.cancelar')}
+                  </Boton>
+                )}
                 <Boton
                   type="submit"
                   cargando={guardando}

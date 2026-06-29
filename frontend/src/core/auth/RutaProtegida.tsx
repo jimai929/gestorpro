@@ -7,6 +7,7 @@
 
 import { Navigate, Outlet } from 'react-router';
 import { useAuth } from './ContextoAuth';
+import { PantallaCambioForzado } from './PantallaCambioForzado';
 import { Cargando } from '../ui/Cargando';
 
 /**
@@ -18,7 +19,7 @@ import { Cargando } from '../ui/Cargando';
  * ```
  */
 export function RutaProtegida() {
-  const { estaAutenticado, cargando } = useAuth();
+  const { estaAutenticado, cargando, usuario } = useAuth();
 
   if (cargando) {
     return <Cargando />;
@@ -26,6 +27,12 @@ export function RutaProtegida() {
 
   if (!estaAutenticado) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Contraseña temporal: se BLOQUEA todo el app y se obliga a cambiarla antes de entrar
+  // (no escapable). El backend además bloquea con 403 cada endpoint; esto es la cara de UI.
+  if (usuario?.debeCambiarContrasena) {
+    return <PantallaCambioForzado />;
   }
 
   return <Outlet />;
