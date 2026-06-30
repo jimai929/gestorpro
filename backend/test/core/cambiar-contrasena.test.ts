@@ -208,4 +208,56 @@ describe('auth — POST /auth/cambiar-contrasena (autoservicio)', () => {
     expect(await hashDe(victima.id)).toBe(hashVictimaAntes); // la VÍCTIMA, intacta
     expect(await hashDe(atacante.id)).not.toBe(hashAtacanteAntes); // solo cambió el atacante
   });
+
+  // ── Guard B1: cuentas de PLATAFORMA (super-admin) ──────────────────────────
+  // Un super-admin no tiene empresa (empresaId null). Su auto-cambio reventaba más
+  // adentro al auditar (empresa_id NOT NULL + RLS) → 500 opaco. El guard lo rechaza
+  // en la ENTRADA con 403 de dominio, ANTES de abrir transacción: cero efectos.
+
+  // Super-admin REAL: esSuperAdmin=true y SIN membresía (no pertenece a ninguna empresa).
+  async function nuevoSuperAdmin(clave = CLAVE) {
+    return semilla().usuario.create({
+      data: {
+        nombre: 'Plataforma',
+        email: `sa-${randomUUID()}@x.local`,
+        rol: 'empleado', // mínimo privilegio; su poder viene de esSuperAdmin
+        esSuperAdmin: true,
+        passwordHash: await hashearContrasena(clave),
+      },
+    });
+  }
+
+  // Token con la forma exacta de un super-admin sin empresa activa: empresaId null.
+  function tokenSuperAdmin(usuarioId: string): string {
+    return app.jwt.sign({ sub: usuarioId, rol: 'empleado', empresaId: null, esSuperAdmin: true });
+  }
+
+  it('super-admin (esSuperAdmin=true, empresaId=null) → 403 de dominio (NO 500); hash intacto y SIN auditoría', async () => {
+    const sa = await nuevoSuperAdmin();
+    const antes = await hashDe(sa.id);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/cambiar-contrasena',
+      headers: { authorization: `Bearer ${tokenSuperAdmin(sa.id)}` },
+      payload: { contrasenaActual: CLAVE, contrasenaNueva: NUEVA },
+    });
+
+    // Rechazo claro en la entrada: 403, NO el 500 opaco que daba antes.
+    expect(res.statusCode).toBe(403);
+    const cuerpo = res.json() as { mensaje?: string; codigo?: string };
+    expect(cuerpo.mensaje).toMatch(/plataforma/i);
+    // No se reutiliza el contrato del cambio forzado.
+    expect(cuerpo.codigo).toBeUndefined();
+
+    // Cero efectos: el guard corta ANTES de la transacción.
+    expect(await hashDe(sa.id)).toBe(antes); // hash intacto
+    expect(await auditoriasDe(sa.id)).toBe(0); // sin asiento de auditoría
+  });
+
+  it('regresión: usuario normal (esSuperAdmin=false) NO se ve afectado por el guard B1 → sigue 204', async () => {
+    const u = await nuevoUsuario();
+    const res = await cambiar(u.id, { contrasenaActual: CLAVE, contrasenaNueva: NUEVA });
+    expect(res.statusCode).toBe(204);
+  });
 });

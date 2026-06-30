@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../prisma.js';
-import { ErrorAutenticacion } from '../errors.js';
+import { ErrorAutenticacion, ErrorAutorizacion } from '../errors.js';
 import { responderError } from '../http.js';
 import { cambiarContrasena, crearServicioAuth } from './auth.service.js';
 
@@ -151,6 +151,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       try {
+        // Guard B1 (cuentas de PLATAFORMA): un super-admin no pertenece a ninguna
+        // empresa (empresaId null), así que su auto-cambio de contraseña reventaría
+        // más adentro al escribir el asiento de auditoría —empresa_id es NOT NULL y su
+        // DEFAULT sale del GUC de tenant, que aquí no está fijado→ 500 opaco—. Se
+        // rechaza en la ENTRADA, ANTES de abrir transacción alguna (cero efectos: ni
+        // toca el hash ni audita), con un error de dominio claro. Se discrimina por la
+        // ESENCIA (esSuperAdmin), no por el síntoma (empresaId null). NO se usa el
+        // codigo DEBE_CAMBIAR_CONTRASENA: ese es el contrato del cambio forzado, ajeno
+        // a este caso. La rotación de la clave de una cuenta de plataforma va por otra vía.
+        if (request.user.esSuperAdmin === true) {
+          throw new ErrorAutorizacion(
+            'Las cuentas de plataforma no cambian su contraseña por este endpoint.',
+          );
+        }
         await cambiarContrasena(
           request.user.sub,
           request.body.contrasenaActual,
