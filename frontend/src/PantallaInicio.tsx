@@ -98,6 +98,20 @@ export function PantallaInicio() {
               </Link>
             </div>
           </div>
+
+          {/* Plataforma — solo super-admin. La frontera real es el backend; esto es UI. */}
+          {usuario.esSuperAdmin && (
+            <div className={styles.tarjeta}>
+              <div className={styles.iconoModulo}>🛠</div>
+              <h2 className={styles.tituloModulo}>{t('inicio.plataforma')}</h2>
+              <p className={styles.descripcionModulo}>{t('inicio.plataformaDesc')}</p>
+              <div className={styles.enlacesModulo}>
+                <Link to="/plataforma" className={styles.enlaceModulo}>
+                  {t('nav.plataforma')} →
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </LayoutPrincipal>

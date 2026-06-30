@@ -10,6 +10,11 @@ export interface Usuario {
   nombre: string;
   email: string;
   rol: Rol;
+  /**
+   * Operador de PLATAFORMA (super-admin). Lo envía el backend en login/refresh y /auth/me.
+   * Solo EXPERIENCIA de UI: la frontera real de seguridad es el backend (soloPlataforma → 404).
+   */
+  esSuperAdmin: boolean;
   /** true si la cuenta tiene una contraseña temporal y debe cambiarla antes de operar. */
   debeCambiarContrasena: boolean;
 }

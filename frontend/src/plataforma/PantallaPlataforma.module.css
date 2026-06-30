@@ -1,0 +1,36 @@
+/* ── Pantalla de plataforma (super-admin) ────────────────────────── */
+
+.contenedor {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.encabezado {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.titulo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.subtitulo {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.tarjeta {
+  background: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.5rem;
+}

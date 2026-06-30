@@ -14,6 +14,7 @@
 import { finanzas } from './modulos/finanzas';
 import { administracion } from './modulos/administracion';
 import { asistencia } from './modulos/asistencia';
+import { plataforma } from './modulos/plataforma';
 
 export type Idioma = 'es' | 'en' | 'zh';
 
@@ -251,7 +252,7 @@ const zh: Diccionario = {
 
 // Diccionario final: base (común/login/inicio/nav) + diccionarios por módulo.
 export const traducciones: Record<Idioma, Diccionario> = {
-  es: { ...es, ...finanzas.es, ...administracion.es, ...asistencia.es },
-  en: { ...en, ...finanzas.en, ...administracion.en, ...asistencia.en },
-  zh: { ...zh, ...finanzas.zh, ...administracion.zh, ...asistencia.zh },
+  es: { ...es, ...finanzas.es, ...administracion.es, ...asistencia.es, ...plataforma.es },
+  en: { ...en, ...finanzas.en, ...administracion.en, ...asistencia.en, ...plataforma.en },
+  zh: { ...zh, ...finanzas.zh, ...administracion.zh, ...asistencia.zh, ...plataforma.zh },
 };

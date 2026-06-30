@@ -1,0 +1,1 @@
+export { PantallaPlataforma } from './PantallaPlataforma';

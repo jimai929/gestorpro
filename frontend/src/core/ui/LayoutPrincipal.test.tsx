@@ -18,7 +18,7 @@ const NUEVA = 'NuevaClave1*';
 
 function montar(cerrarSesion: () => Promise<void>) {
   vi.mocked(auth.useAuth).mockReturnValue({
-    usuario: { id: 'u1', nombre: 'Ana', email: 'ana@x.local', rol: 'administrador', debeCambiarContrasena: false },
+    usuario: { id: 'u1', nombre: 'Ana', email: 'ana@x.local', rol: 'administrador', esSuperAdmin: false, debeCambiarContrasena: false },
     estaAutenticado: true,
     cargando: false,
     iniciarSesion: vi.fn(),

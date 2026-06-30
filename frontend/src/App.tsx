@@ -7,8 +7,10 @@ import { createBrowserRouter, RouterProvider } from 'react-router';
 import { ProveedorIdioma } from './core/i18n/ContextoIdioma';
 import { ProveedorAuth } from './core/auth/ContextoAuth';
 import { RutaProtegida } from './core/auth/RutaProtegida';
+import { RutaSoloPlataforma } from './core/auth/RutaSoloPlataforma';
 import { PantallaLogin } from './core/auth/PantallaLogin';
 import { PantallaInicio } from './PantallaInicio';
+import { PantallaPlataforma } from './plataforma';
 import { PantallaCuentasPorPagar, PantallaProveedores } from './finanzas/cuentas-por-pagar';
 import { PantallaSedes } from './administracion/sedes';
 import { PantallaEmpleados } from './administracion/empleado';
@@ -95,6 +97,16 @@ const router = createBrowserRouter([
       {
         path: '/asistencia/cobros',
         element: <PantallaCobros />,
+      },
+      // ── Plataforma (solo super-admin; el backend lo refuerza con soloPlataforma) ──
+      {
+        element: <RutaSoloPlataforma />,
+        children: [
+          {
+            path: '/plataforma',
+            element: <PantallaPlataforma />,
+          },
+        ],
       },
     ],
   },
