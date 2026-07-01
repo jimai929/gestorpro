@@ -28,6 +28,8 @@ function hashearToken(token: string): string {
  */
 interface ContextoActivo {
   empresaId: string | null;
+  /** Nombre de la empresa activa (para el front); null si no hay empresa (super-admin). */
+  empresaNombre: string | null;
   rol: Rol;
 }
 
@@ -56,7 +58,7 @@ async function resolverContextoActivo(
       : undefined) ?? membresias[0];
 
   const sinTenant = (): ContextoActivo => {
-    if (usuario.esSuperAdmin) return { empresaId: null, rol: Rol.empleado };
+    if (usuario.esSuperAdmin) return { empresaId: null, empresaNombre: null, rol: Rol.empleado };
     throw new ErrorAutenticacion();
   };
 
@@ -68,7 +70,9 @@ async function resolverContextoActivo(
   // Empresa inexistente o dada de baja (`activo=false`): no se entra a ese tenant.
   if (!empresa || !empresa.activo) return sinTenant();
 
-  return { empresaId: activa.empresaId, rol: activa.rol };
+  // Se REUTILIZA el `empresa` ya consultado arriba (para validar `activo`): el nombre
+  // está a mano, sin una segunda consulta a la BD.
+  return { empresaId: activa.empresaId, empresaNombre: empresa.nombre, rol: activa.rol };
 }
 
 function aUsuarioPublico(
@@ -87,6 +91,7 @@ function aUsuarioPublico(
     email: usuario.email,
     rol: contexto.rol,
     empresaId: contexto.empresaId,
+    empresaNombre: contexto.empresaNombre,
     esSuperAdmin: usuario.esSuperAdmin,
     debeCambiarContrasena: usuario.debeCambiarContrasena,
   };

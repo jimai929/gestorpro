@@ -13,6 +13,12 @@ export interface UsuarioPublico {
    * (misma regla que `usuarioId`).
    */
   empresaId: string | null;
+  /**
+   * Nombre de la empresa activa, SOLO para mostrar en el front (junto a `empresaId`).
+   * `null` si no hay empresa activa (p. ej. super-admin). NO viaja en el token (se
+   * mantiene pequeño y sin datos que puedan quedar stale): lo resuelven login/refresh/me.
+   */
+  empresaNombre: string | null;
   esSuperAdmin: boolean;
   /** true si la cuenta tiene una contraseña temporal y debe rotarla antes de operar. */
   debeCambiarContrasena: boolean;

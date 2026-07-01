@@ -123,6 +123,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!usuario || !usuario.activo) {
       return reply.code(401).send({ mensaje: 'No autenticado.' });
     }
+    // El NOMBRE de la empresa activa NO viaja en el token (se mantiene pequeño y sin datos
+    // que puedan quedar stale): se resuelve aquí desde el `empresaId` del token. Super-admin
+    // (empresaId=null) → sin empresa activa → empresaNombre=null, sin consulta. `empresa` no
+    // tiene RLS, así que este findUnique no requiere contexto de tenant.
+    const empresa = request.user.empresaId
+      ? await prisma.empresa.findUnique({
+          where: { id: request.user.empresaId },
+          select: { nombre: true },
+        })
+      : null;
     // rol/empresaId/esSuperAdmin salen del TOKEN (contexto activo resuelto en
     // login/refresh), NO del registro global: así /me coincide con el contrato de
     // /login (UsuarioPublico) y refleja la empresa ACTIVA, no el rol global legado
@@ -133,6 +143,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       email: usuario.email,
       rol: request.user.rol,
       empresaId: request.user.empresaId,
+      empresaNombre: empresa?.nombre ?? null,
       esSuperAdmin: request.user.esSuperAdmin,
       debeCambiarContrasena: request.user.debeCambiarContrasena ?? false,
     });

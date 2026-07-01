@@ -50,6 +50,8 @@ describe('auth — empresa activa en el login (multi-tenant)', () => {
     expect(payload.rol).toBe('administrador'); // rol de la membresía, no el global
     expect(payload.esSuperAdmin).toBe(false);
     expect(res.usuario.empresaId).toBe(empresa.id);
+    expect(res.usuario.empresaNombre).toBe(empresa.nombre); // nombre de la empresa activa
+    expect(payload.empresaNombre).toBeUndefined(); // el nombre NO va en el token
   });
 
   it('expone debeCambiarContrasena en el token y en el usuario público del login', async () => {
@@ -87,6 +89,7 @@ describe('auth — empresa activa en el login (multi-tenant)', () => {
     expect(payload.empresaId).toBeNull();
     expect(payload.esSuperAdmin).toBe(true);
     expect(payload.rol).toBe('empleado'); // su poder viene de esSuperAdmin, no del rol
+    expect(res.usuario.empresaNombre).toBeNull(); // sin empresa activa → sin nombre
   });
 
   it('con varias membresías, el login elige la marcada predeterminada', async () => {

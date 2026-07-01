@@ -33,6 +33,7 @@ describe('4c.5 — GET /auth/me', () => {
     id: string;
     rol: string;
     empresaId: string | null;
+    empresaNombre: string | null;
     esSuperAdmin: boolean;
     debeCambiarContrasena: boolean;
   };
@@ -85,5 +86,28 @@ describe('4c.5 — GET /auth/me', () => {
     const body = res.json() as RespMe;
     expect(body.empresaId).toBeNull();
     expect(body.esSuperAdmin).toBe(true);
+    expect(body.empresaNombre).toBeNull(); // sin empresa activa → sin nombre
+  });
+
+  it('usuario normal: /me devuelve empresaNombre de la empresa del token', async () => {
+    const u = await nuevoUsuario(false);
+    const empresa = await semilla().empresa.create({
+      data: { nombre: 'Acme SA', slug: `me-emp-${randomUUID()}` },
+    });
+    const token = app.jwt.sign({
+      sub: u.id,
+      rol: 'administrador',
+      empresaId: empresa.id,
+      esSuperAdmin: false,
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/me',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as RespMe;
+    expect(body.empresaId).toBe(empresa.id);
+    expect(body.empresaNombre).toBe('Acme SA'); // resuelto desde el empresaId del token
   });
 });
