@@ -24,8 +24,9 @@ const esquemaUsuario = {
 /**
  * Alta de usuarios DENTRO del tenant (Fase 4c). Un administrador del tenant crea cuentas
  * (administrador|empleado) en su PROPIA empresa, con su membresía. El `empresaId` sale
- * del token (request.user.empresaId), NUNCA del body. Guard: autenticar + administrador
- * (un super-admin de plataforma —rol empleado— queda fuera, no es esta su vía).
+ * del token (request.user.empresaId), NUNCA del body. Guard: autenticar + administrador.
+ * Un super-admin EN PLATAFORMA (empresaId=null) queda fuera; si ENTRÓ a una empresa vía
+ * cambiar-empresa, `autorizar` lo deja pasar y crea usuarios en ESA empresa (soporte §4.4).
  */
 export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
   app.post<{

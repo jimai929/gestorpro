@@ -1,8 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { prisma } from '../../src/core/prisma.js';
 import { crearServicioAuth } from '../../src/core/auth/auth.service.js';
 import { hashearContrasena } from '../../src/core/auth/contrasena.js';
-import { ErrorAutenticacion } from '../../src/core/errors.js';
+import { ErrorAutenticacion, ErrorAutorizacion } from '../../src/core/errors.js';
+import { semilla, cerrarSemilla } from '../helpers/db.js';
+
+afterAll(async () => {
+  await cerrarSemilla();
+});
 
 /**
  * Resolución de la empresa activa en el login (multi-tenant, Fase 4a). El
@@ -185,5 +191,185 @@ describe('auth — refrescarAcceso re-resuelve el estado actual (multi-tenant)',
 
     const ref = await servicio.refrescarAcceso(login.refreshToken);
     expect(JSON.parse(ref.accessToken).rol).toBe('empleado'); // rol nuevo, no el del login
+  });
+});
+
+/**
+ * `cambiarEmpresa` (Fase 4c, §3.5): cambio de la empresa activa de la sesión. El
+ * destino viene del body como petición SUJETA A AUTORIZACIÓN (membresía o
+ * super-admin, verificada en BD); la denegación usa un mensaje ÚNICO (inexistente =
+ * inactiva = sin membresía) para no revelar la existencia de otros tenants.
+ */
+describe('auth — cambiarEmpresa (Fase 4c)', () => {
+  it('con membresía en la destino: emite access de la destino y TODAS las sesiones apuntan ahí', async () => {
+    const e1 = await nuevaEmpresa();
+    const e2 = await nuevaEmpresa();
+    const usuario = await nuevoUsuario();
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: e1.id, rol: 'administrador', predeterminada: true },
+    });
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: e2.id, rol: 'supervisor', predeterminada: false },
+    });
+
+    // Dos sesiones (dos dispositivos): el cambio es preferencia de USUARIO, afecta ambas.
+    const login1 = await servicio.iniciarSesion(usuario.email, CLAVE);
+    await servicio.iniciarSesion(usuario.email, CLAVE);
+
+    const res = await servicio.cambiarEmpresa(usuario.id, e2.id, e1.id);
+    const payload = JSON.parse(res.accessToken);
+    expect(payload.empresaId).toBe(e2.id);
+    expect(payload.rol).toBe('supervisor'); // rol de la membresía DESTINO
+    expect(res.usuario.empresaId).toBe(e2.id);
+    expect(res.usuario.empresaNombre).toBe(e2.nombre);
+
+    const sesiones = await prisma.sesionRefresco.findMany({ where: { usuarioId: usuario.id } });
+    expect(sesiones).toHaveLength(2);
+    expect(sesiones.every((s) => s.empresaIdActiva === e2.id)).toBe(true);
+
+    // El refresh posterior CONSERVA la empresa cambiada (la sesión ya apunta a e2).
+    const ref = await servicio.refrescarAcceso(login1.refreshToken);
+    expect(JSON.parse(ref.accessToken).empresaId).toBe(e2.id);
+  });
+
+  it('sin membresía en la destino: ErrorAutorizacion y la sesión NO cambia', async () => {
+    const e1 = await nuevaEmpresa();
+    const ajena = await nuevaEmpresa();
+    const usuario = await nuevoUsuario();
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: e1.id, rol: 'administrador', predeterminada: true },
+    });
+    await servicio.iniciarSesion(usuario.email, CLAVE);
+
+    await expect(servicio.cambiarEmpresa(usuario.id, ajena.id, e1.id)).rejects.toThrow(
+      ErrorAutorizacion,
+    );
+    const sesiones = await prisma.sesionRefresco.findMany({ where: { usuarioId: usuario.id } });
+    expect(sesiones.every((s) => s.empresaIdActiva === e1.id)).toBe(true);
+  });
+
+  it('empresa inexistente o dada de baja: el MISMO error genérico (anti-enumeración)', async () => {
+    const e1 = await nuevaEmpresa();
+    const baja = await prisma.empresa.create({
+      data: { nombre: `baja-${Date.now()}`, slug: `ce-baja-${Date.now()}`, activo: false },
+    });
+    const usuario = await nuevoUsuario();
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: e1.id, rol: 'administrador', predeterminada: true },
+    });
+    // CON membresía en la dada de baja: aun así no se entra.
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: baja.id, rol: 'administrador', predeterminada: false },
+    });
+
+    await expect(servicio.cambiarEmpresa(usuario.id, randomUUID(), e1.id)).rejects.toThrow(
+      'No tienes acceso a esa empresa.',
+    );
+    await expect(servicio.cambiarEmpresa(usuario.id, baja.id, e1.id)).rejects.toThrow(
+      'No tienes acceso a esa empresa.',
+    );
+  });
+
+  it('usuario normal NO puede "volver a plataforma" (empresaId null)', async () => {
+    const e1 = await nuevaEmpresa();
+    const usuario = await nuevoUsuario();
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: e1.id, rol: 'administrador', predeterminada: true },
+    });
+
+    await expect(servicio.cambiarEmpresa(usuario.id, null, e1.id)).rejects.toThrow(
+      ErrorAutorizacion,
+    );
+  });
+
+  it('usuario inactivo: ErrorAutenticacion', async () => {
+    const e1 = await nuevaEmpresa();
+    const usuario = await nuevoUsuario();
+    await prisma.usuario.update({ where: { id: usuario.id }, data: { activo: false } });
+
+    await expect(servicio.cambiarEmpresa(usuario.id, e1.id, null)).rejects.toThrow(
+      ErrorAutenticacion,
+    );
+  });
+
+  it('super-admin: entra SIN membresía con rol empleado y el refresh CONSERVA la empresa', async () => {
+    const e1 = await nuevaEmpresa();
+    const superAdmin = await nuevoUsuario(true);
+    const login = await servicio.iniciarSesion(superAdmin.email, CLAVE);
+    expect(JSON.parse(login.accessToken).empresaId).toBeNull();
+
+    const res = await servicio.cambiarEmpresa(superAdmin.id, e1.id, null);
+    const payload = JSON.parse(res.accessToken);
+    expect(payload.empresaId).toBe(e1.id);
+    expect(payload.rol).toBe('empleado'); // mínimo privilegio: su poder viene de esSuperAdmin
+    expect(payload.esSuperAdmin).toBe(true);
+    expect(res.usuario.empresaNombre).toBe(e1.nombre);
+
+    // La sesión de soporte sobrevive al refresh (resolverContextoActivo honra la
+    // preferida del super-admin aunque no tenga membresía).
+    const ref = await servicio.refrescarAcceso(login.refreshToken);
+    expect(JSON.parse(ref.accessToken).empresaId).toBe(e1.id);
+  });
+
+  it('super-admin: la baja de la empresa lo expulsa al siguiente refresh (vuelve a plataforma)', async () => {
+    const e1 = await nuevaEmpresa();
+    const superAdmin = await nuevoUsuario(true);
+    const login = await servicio.iniciarSesion(superAdmin.email, CLAVE);
+    await servicio.cambiarEmpresa(superAdmin.id, e1.id, null);
+
+    await semilla().empresa.update({ where: { id: e1.id }, data: { activo: false } });
+
+    const ref = await servicio.refrescarAcceso(login.refreshToken);
+    expect(JSON.parse(ref.accessToken).empresaId).toBeNull(); // expulsado, sin lock-out
+  });
+
+  it('super-admin: empresaId null lo devuelve a la plataforma y audita bajo la empresa que deja', async () => {
+    const e1 = await nuevaEmpresa();
+    const superAdmin = await nuevoUsuario(true);
+    await servicio.iniciarSesion(superAdmin.email, CLAVE);
+    await servicio.cambiarEmpresa(superAdmin.id, e1.id, null);
+
+    const res = await servicio.cambiarEmpresa(superAdmin.id, null, e1.id);
+    const payload = JSON.parse(res.accessToken);
+    expect(payload.empresaId).toBeNull();
+    expect(payload.rol).toBe('empleado');
+    expect(res.usuario.empresaNombre).toBeNull();
+
+    const sesiones = await prisma.sesionRefresco.findMany({
+      where: { usuarioId: superAdmin.id },
+    });
+    expect(sesiones.every((s) => s.empresaIdActiva === null)).toBe(true);
+
+    // Asiento del "salir" bajo la empresa que se DEJA (la auditoría exige empresa).
+    const asientos = await semilla().auditoria.findMany({
+      where: { accion: 'cambiar_empresa', usuarioId: superAdmin.id },
+      orderBy: { creadoEn: 'asc' },
+    });
+    expect(asientos).toHaveLength(2); // entrar + salir
+    expect(asientos[1]?.empresaId).toBe(e1.id);
+    expect(asientos[1]?.detalle).toMatchObject({ desde: e1.id, hacia: null });
+  });
+
+  it('deja asiento de auditoría cambiar_empresa bajo la empresa DESTINO con el usuario real', async () => {
+    const e1 = await nuevaEmpresa();
+    const e2 = await nuevaEmpresa();
+    const usuario = await nuevoUsuario();
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: e1.id, rol: 'administrador', predeterminada: true },
+    });
+    await prisma.membresia.create({
+      data: { usuarioId: usuario.id, empresaId: e2.id, rol: 'empleado', predeterminada: false },
+    });
+
+    await servicio.cambiarEmpresa(usuario.id, e2.id, e1.id);
+
+    const asientos = await semilla().auditoria.findMany({
+      where: { accion: 'cambiar_empresa', usuarioId: usuario.id },
+    });
+    expect(asientos).toHaveLength(1);
+    expect(asientos[0]?.entidad).toBe('empresa');
+    expect(asientos[0]?.entidadId).toBe(e2.id);
+    expect(asientos[0]?.empresaId).toBe(e2.id); // bajo la DESTINO
+    expect(asientos[0]?.detalle).toMatchObject({ desde: e1.id, hacia: e2.id });
   });
 });

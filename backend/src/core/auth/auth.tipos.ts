@@ -47,3 +47,12 @@ export interface ResultadoLogin {
   refreshToken: string;
   usuario: UsuarioPublico;
 }
+
+/**
+ * Resultado de un cambio de empresa activa (Fase 4c). SIN refreshToken: el refresh
+ * es agnóstico de empresa y la sesión se conserva (solo cambia su empresa activa).
+ */
+export interface ResultadoCambioEmpresa {
+  accessToken: string;
+  usuario: UsuarioPublico;
+}

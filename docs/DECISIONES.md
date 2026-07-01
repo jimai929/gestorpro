@@ -210,6 +210,37 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
 - Consentimiento biométrico: anexo firmado al contrato, gestionado por RRHH
   fuera de la app.
 
+### Cambiar-empresa (Fase 4c) ✅ DECIDIDO (2026-07-01)
+
+Huecos que `ARQUITECTURA_MULTITENANT.md` §3.5 dejaba abiertos, cerrados así
+(implementado en `POST /auth/cambiar-empresa`):
+
+- **Respuesta:** `{ accessToken, usuario }` (UsuarioPublico con la empresa nueva);
+  el refresh token NO se rota (la sesión se conserva, solo cambia su empresa).
+- **Sesiones:** se actualiza `empresaIdActiva` de TODAS las sesiones del usuario
+  (`updateMany` por `usuarioId`): la empresa activa es preferencia de USUARIO, no
+  de dispositivo — el access token no lleva claim de sesión, no puede identificar
+  una fila concreta.
+- **Denegación:** 403 con mensaje ÚNICO para inexistente / inactiva / sin
+  membresía (anti-enumeración: no confirma la existencia de otros tenants). El
+  formato del uuid se corta en el schema (400) antes de llegar a Prisma.
+- **Super-admin:** entra a cualquier empresa ACTIVA sin membresía con rol
+  `empleado` (mínimo privilegio); su poder DENTRO del tenant viene de que
+  `autorizar` deja pasar `esSuperAdmin` **solo si `empresaId != null`** (en la
+  vista plataforma, con `empresaId=null`, NO pasa guards de rol: fail-closed).
+  `resolverContextoActivo` honra la empresa preferida de la sesión para el
+  super-admin aunque no tenga membresía (si la empresa sigue activa): la sesión
+  de soporte sobrevive al refresh; la baja del tenant lo expulsa al siguiente
+  refresh. `empresaId: null` en el body = "volver a plataforma" (solo
+  super-admin; a un usuario normal se le niega).
+- **Auditoría:** asiento `cambiar_empresa` (entidad `empresa`) bajo la empresa
+  DESTINO al entrar, o bajo la que se DEJA al volver a plataforma, con el
+  `usuarioId` real del token y `detalle {desde, hacia}` — rastro del §4.4 modo 1.
+- **`Membresia.predeterminada` NO se toca:** solo elige la empresa del login;
+  la activa de la sesión vive en `SesionRefresco.empresaIdActiva`.
+- La ruta NO está exenta del cambio forzado de contraseña: con contraseña
+  temporal responde 403 `DEBE_CAMBIAR_CONTRASENA` (default-block).
+
 ## Pendientes abiertos
 
 > El código de las 7 fases (24 tareas) está construido y probado. Los puntos de

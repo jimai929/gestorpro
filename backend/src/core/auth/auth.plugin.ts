@@ -98,6 +98,14 @@ async function pluginAuth(app: FastifyInstance): Promise<void> {
   app.decorate('autorizar', function (...roles: Rol[]) {
     return async function (request: FastifyRequest, reply: FastifyReply) {
       const usuario = request.user;
+      // Super-admin DENTRO de una empresa (entró vía cambiar-empresa, §4.4 modo 1):
+      // pasa cualquier guard de rol — su poder viene de `esSuperAdmin`, no del rol
+      // del token (que viaja como `empleado`, mínimo privilegio). Con empresaId=null
+      // NO pasa: fuera de un tenant no opera rutas de tenant (fail-closed, igual que
+      // la RLS); sus rutas propias van por `soloPlataforma`.
+      if (usuario?.esSuperAdmin === true && usuario.empresaId != null) {
+        return;
+      }
       if (!usuario || !roles.includes(usuario.rol)) {
         await reply.code(403).send({ mensaje: new ErrorAutorizacion().message });
       }

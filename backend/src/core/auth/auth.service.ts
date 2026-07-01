@@ -1,12 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { prisma } from '../prisma.js';
-import { ErrorAutenticacion, ErrorValidacion } from '../errors.js';
+import { ErrorAutenticacion, ErrorAutorizacion, ErrorValidacion } from '../errors.js';
 import { hashearContrasena, verificarContrasena } from './contrasena.js';
 import { txEmpresa } from '../tenant/contexto.js';
 import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
 import { Rol } from '../../generated/prisma/enums.js';
 import type {
   PayloadAccess,
+  ResultadoCambioEmpresa,
   ResultadoLogin,
   UsuarioPublico,
 } from './auth.tipos.js';
@@ -40,6 +41,9 @@ interface ContextoActivo {
  *   marcada `predeterminada` (orden: predeterminada primero, luego la más antigua).
  * - Super-admin sin membresía válida: `empresaId = null`, `rol = empleado`
  *   (mínimo privilegio; su poder viene de `esSuperAdmin`, no del rol).
+ * - Super-admin con `preferidaEmpresaId` (entró a esa empresa vía cambiar-empresa,
+ *   §4.4 modo 1): se honra AUNQUE no tenga membresía —nunca la tiene—, para que la
+ *   sesión de soporte sobreviva al refresh; mismo mínimo privilegio (`empleado`).
  * - Usuario normal sin membresía válida: NO puede operar → `ErrorAutenticacion`.
  * Valida que la empresa activa esté `activo`: a un tenant dado de baja no se entra.
  */
@@ -62,7 +66,20 @@ async function resolverContextoActivo(
     throw new ErrorAutenticacion();
   };
 
-  if (!activa) return sinTenant();
+  if (!activa) {
+    // Super-admin "dentro" de una empresa (sesión de soporte): sin membresía, pero la
+    // sesión trae la empresa preferida. Se honra solo si la empresa sigue activa (la
+    // baja del tenant lo expulsa al siguiente refresh, igual que a un usuario normal).
+    if (usuario.esSuperAdmin && preferidaEmpresaId != null) {
+      const preferida = await prisma.empresa.findUnique({
+        where: { id: preferidaEmpresaId },
+      });
+      if (preferida?.activo) {
+        return { empresaId: preferida.id, empresaNombre: preferida.nombre, rol: Rol.empleado };
+      }
+    }
+    return sinTenant();
+  }
 
   const empresa = await prisma.empresa.findUnique({
     where: { id: activa.empresaId },
@@ -188,6 +205,108 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         debeCambiarContrasena: sesion.usuario.debeCambiarContrasena,
       });
       return { accessToken };
+    },
+
+    /**
+     * Cambia la EMPRESA ACTIVA de la sesión (Fase 4c, §3.5). Aquí `empresaIdDestino`
+     * SÍ viene del body, pero como *petición de cambio de contexto sujeta a
+     * autorización*: se verifica contra las membresías en la BD (o `esSuperAdmin`),
+     * y el aislamiento sigue saliendo del TOKEN emitido, nunca de lo que pida el
+     * cliente. `usuarioId` y `empresaIdAnterior` salen del token (request.user).
+     *
+     * Reglas:
+     * - Usuario normal: necesita membresía en la destino; `null` (plataforma) le está
+     *   vedado. Super-admin: entra a cualquier empresa activa SIN membresía (§4.4
+     *   modo 1) con rol `empleado` (mínimo privilegio; `autorizar` respeta
+     *   `esSuperAdmin` dentro de un tenant), y `null` lo devuelve a la plataforma.
+     * - Denegación con mensaje ÚNICO (inexistente = inactiva = sin membresía): no
+     *   revela la existencia de otros tenants (anti-enumeración, §6).
+     * - Actualiza `empresaIdActiva` de TODAS las sesiones del usuario: la empresa
+     *   activa es preferencia de USUARIO, no de dispositivo (el access token no
+     *   identifica una sesión concreta: no lleva claim de sesión).
+     * - Asiento `cambiar_empresa` bajo la empresa DESTINO (o la que se deja, al
+     *   volver a plataforma), con el usuarioId real — rastro del §4.4 modo 1.
+     */
+    async cambiarEmpresa(
+      usuarioId: string,
+      empresaIdDestino: string | null,
+      empresaIdAnterior: string | null,
+    ): Promise<ResultadoCambioEmpresa> {
+      const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+      if (!usuario || !usuario.activo) {
+        throw new ErrorAutenticacion();
+      }
+
+      let contexto: ContextoActivo;
+      if (empresaIdDestino === null) {
+        // "Volver a plataforma": solo super-admin (un usuario normal SIEMPRE opera
+        // dentro de una empresa; sin tenant no tendría nada que ver ni hacer).
+        if (!usuario.esSuperAdmin) {
+          throw new ErrorAutorizacion('No tienes acceso a esa empresa.');
+        }
+        contexto = { empresaId: null, empresaNombre: null, rol: Rol.empleado };
+      } else {
+        const membresia = await prisma.membresia.findUnique({
+          where: { usuarioId_empresaId: { usuarioId, empresaId: empresaIdDestino } },
+        });
+        if (!membresia && !usuario.esSuperAdmin) {
+          throw new ErrorAutorizacion('No tienes acceso a esa empresa.');
+        }
+        const empresa = await prisma.empresa.findUnique({
+          where: { id: empresaIdDestino },
+        });
+        // Mismo mensaje que "sin membresía": no confirma si la empresa existe.
+        if (!empresa || !empresa.activo) {
+          throw new ErrorAutorizacion('No tienes acceso a esa empresa.');
+        }
+        contexto = {
+          empresaId: empresa.id,
+          empresaNombre: empresa.nombre,
+          // Super-admin sin membresía: mínimo privilegio (su poder viene de esSuperAdmin).
+          rol: membresia?.rol ?? Rol.empleado,
+        };
+      }
+
+      // Empresa del asiento: la destino al entrar; la que se DEJA al volver a
+      // plataforma. Ambas null (plataforma → plataforma) = no-op sin auditar.
+      const empresaAsiento = contexto.empresaId ?? empresaIdAnterior;
+
+      await txEmpresa(
+        async (tx) => {
+          await tx.sesionRefresco.updateMany({
+            where: { usuarioId },
+            data: { empresaIdActiva: contexto.empresaId },
+          });
+          if (empresaAsiento) {
+            await auditoriaRepo.registrar(
+              {
+                entidad: 'empresa',
+                entidadId: empresaAsiento,
+                accion: 'cambiar_empresa',
+                usuarioId,
+                // Explícito (patrón crear_empresa): el GUC del override lo cubriría,
+                // pero así el asiento no depende de cómo se abrió la transacción.
+                empresaId: empresaAsiento,
+                detalle: { desde: empresaIdAnterior, hacia: contexto.empresaId },
+              },
+              tx,
+            );
+          }
+        },
+        // GUC = empresa del asiento (validada arriba): la RLS de auditoria exige que
+        // el GUC coincida con el empresa_id insertado. sesion_refresco está fuera de
+        // RLS, así que el updateMany funciona con o sin GUC.
+        { empresaId: empresaAsiento },
+      );
+
+      const accessToken = firmarAccess({
+        sub: usuario.id,
+        rol: contexto.rol,
+        empresaId: contexto.empresaId,
+        esSuperAdmin: usuario.esSuperAdmin,
+        debeCambiarContrasena: usuario.debeCambiarContrasena,
+      });
+      return { accessToken, usuario: aUsuarioPublico(usuario, contexto) };
     },
 
     /** Invalida el refresh token borrando su sesión. Idempotente. */

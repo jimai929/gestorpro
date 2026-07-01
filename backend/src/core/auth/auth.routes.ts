@@ -29,6 +29,24 @@ const esquemaRefresh = {
   },
 } as const;
 
+const esquemaCambiarEmpresa = {
+  body: {
+    type: 'object',
+    required: ['empresaId'],
+    additionalProperties: false,
+    properties: {
+      // uuid de la empresa destino, o null = "volver a plataforma" (solo super-admin).
+      // El patrón corta ids malformados en la puerta (400) para que jamás lleguen a
+      // Prisma como uuid inválido (que reventaría con un error opaco).
+      empresaId: {
+        type: ['string', 'null'],
+        pattern:
+          '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      },
+    },
+  },
+} as const;
+
 const esquemaCambiarContrasena = {
   body: {
     type: 'object',
@@ -52,6 +70,7 @@ const esquemaCambiarContrasena = {
  *   POST /auth/logout   refresh token       -> 204 (invalida la sesión)
  *   GET  /auth/me       (protegida)         -> datos del usuario autenticado
  *   POST /auth/cambiar-contrasena (protegida) -> 204 (cambia la propia contraseña)
+ *   POST /auth/cambiar-empresa    (protegida) -> nuevo access + usuario (Fase 4c)
  */
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   const servicio = crearServicioAuth((payload) =>
@@ -148,6 +167,34 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       debeCambiarContrasena: request.user.debeCambiarContrasena ?? false,
     });
   });
+
+  // Cambio de empresa ACTIVA (Fase 4c, §3.5). `empresaId` SÍ viene en el body, pero
+  // como petición de cambio de contexto SUJETA A AUTORIZACIÓN (membresía en BD o
+  // super-admin): el aislamiento sigue saliendo del TOKEN que se emite aquí, nunca
+  // de lo que diga el cliente. usuarioId y empresa anterior salen del token. NO está
+  // en la allowlist del cambio forzado de contraseña: con contraseña temporal, 403.
+  app.post<{ Body: { empresaId: string | null } }>(
+    '/cambiar-empresa',
+    {
+      preHandler: app.autenticar,
+      schema: esquemaCambiarEmpresa,
+      // Autenticado y barato, pero acota el sondeo de empresaIds ajenos (la denegación
+      // es un 403 de mensaje único, aun así no se regala volumen de intentos).
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      try {
+        const resultado = await servicio.cambiarEmpresa(
+          request.user.sub,
+          request.body.empresaId,
+          request.user.empresaId,
+        );
+        return await reply.code(200).send(resultado);
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
 
   // Autoservicio: el usuario autenticado cambia su PROPIA contraseña. El usuarioId
   // sale SIEMPRE del token (request.user.sub), NUNCA del body.

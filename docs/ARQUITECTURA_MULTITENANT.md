@@ -409,7 +409,11 @@ await registrarPago({ ...request.body,
   `SesionRefresco.empresaIdActiva` y emite un access nuevo. Aquí `empresaId` SÍ
   viene en el body, pero **no viola la regla**: es una *petición de cambio de
   contexto sujeta a autorización* (se verifica contra la BD); el filtro sigue
-  saliendo del token resultante.
+  saliendo del token resultante. **IMPLEMENTADO (2026-07-01)**: contrato y
+  decisiones cerradas en `DECISIONES.md` → "Cambiar-empresa (Fase 4c)"
+  (respuesta `{accessToken, usuario}`, updateMany de sesiones por usuario, 403
+  de mensaje único, super-admin con rol `empleado` + `autorizar` que respeta
+  `esSuperAdmin` solo dentro de un tenant, asiento `cambiar_empresa`).
 - **Hueco a resolver (I5):** revocar `esSuperAdmin` o `Empresa.activo=false` NO
   surte efecto hasta el refresh (token vivo 15m). Para la baja de tenant hay que
   **invalidar sesiones** (borrar `SesionRefresco`) y/o chequear `Empresa.activo`
