@@ -19,11 +19,12 @@ const NUEVA = 'NuevaClave1*';
 
 function montar(cerrarSesion: () => Promise<void>) {
   vi.mocked(auth.useAuth).mockReturnValue({
-    usuario: { id: 'u1', nombre: 'Ana', email: 'ana@x.local', rol: 'administrador', esSuperAdmin: false, empresaNombre: 'Mi Empresa', debeCambiarContrasena: false },
+    usuario: { id: 'u1', nombre: 'Ana', email: 'ana@x.local', rol: 'administrador', esSuperAdmin: false, empresaId: 'e1', empresaNombre: 'Mi Empresa', debeCambiarContrasena: false },
     estaAutenticado: true,
     cargando: false,
     iniciarSesion: vi.fn(),
     cerrarSesion,
+    cambiarEmpresa: vi.fn(),
   });
   render(
     <MemoryRouter>
@@ -64,13 +65,14 @@ describe('LayoutPrincipal — cambio de contraseña (integración)', () => {
 });
 
 describe('LayoutPrincipal — empresa activa en la barra superior', () => {
-  function renderConUsuario(usuario: Usuario) {
+  function renderConUsuario(usuario: Usuario, cambiarEmpresa = vi.fn()) {
     vi.mocked(auth.useAuth).mockReturnValue({
       usuario,
       estaAutenticado: true,
       cargando: false,
       iniciarSesion: vi.fn(),
       cerrarSesion: vi.fn().mockResolvedValue(undefined),
+      cambiarEmpresa,
     });
     render(
       <MemoryRouter>
@@ -79,29 +81,78 @@ describe('LayoutPrincipal — empresa activa en la barra superior', () => {
     );
   }
 
-  it('usuario normal: muestra el nombre de su empresa', () => {
+  it('usuario normal: muestra el nombre de su empresa (sin botón de volver)', () => {
     renderConUsuario({
       id: 'u1',
       nombre: 'Ana',
       email: 'a@x.local',
       rol: 'administrador',
       esSuperAdmin: false,
+      empresaId: 'e1',
       empresaNombre: 'Acme Panamá',
       debeCambiarContrasena: false,
     });
     expect(screen.getByText('Acme Panamá')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Volver a plataforma' })).toBeNull();
   });
 
-  it('super-admin (empresaNombre=null): muestra "Plataforma"', () => {
+  it('super-admin (sin empresa activa): muestra "Plataforma" y no el botón de volver', () => {
     renderConUsuario({
       id: 'sa',
       nombre: 'Super Admin',
       email: 'sa@x.local',
       rol: 'empleado',
       esSuperAdmin: true,
+      empresaId: null,
       empresaNombre: null,
       debeCambiarContrasena: false,
     });
     expect(screen.getByText('Plataforma')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Volver a plataforma' })).toBeNull();
+  });
+
+  it('super-admin DENTRO de una empresa: muestra su nombre y "Volver a plataforma" llama a cambiarEmpresa(null)', async () => {
+    const cambiarEmpresa = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderConUsuario(
+      {
+        id: 'sa',
+        nombre: 'Super Admin',
+        email: 'sa@x.local',
+        rol: 'empleado',
+        esSuperAdmin: true,
+        empresaId: 'e1',
+        empresaNombre: 'Acme Panamá',
+        debeCambiarContrasena: false,
+      },
+      cambiarEmpresa,
+    );
+    // La empresa a la que ENTRÓ gana sobre el badge "Plataforma".
+    expect(screen.getByText('Acme Panamá')).toBeTruthy();
+    expect(screen.queryByText('Plataforma')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Volver a plataforma' }));
+    expect(cambiarEmpresa).toHaveBeenCalledWith(null);
+  });
+
+  it('si "Volver a plataforma" falla, el error queda VISIBLE en la barra', async () => {
+    const cambiarEmpresa = vi.fn().mockRejectedValue(new Error('Sesión expirada'));
+    const user = userEvent.setup();
+    renderConUsuario(
+      {
+        id: 'sa',
+        nombre: 'Super Admin',
+        email: 'sa@x.local',
+        rol: 'empleado',
+        esSuperAdmin: true,
+        empresaId: 'e1',
+        empresaNombre: 'Acme Panamá',
+        debeCambiarContrasena: false,
+      },
+      cambiarEmpresa,
+    );
+    await user.click(screen.getByRole('button', { name: 'Volver a plataforma' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText('Sesión expirada')).toBeTruthy();
   });
 });

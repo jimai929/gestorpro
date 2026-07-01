@@ -14,9 +14,20 @@ interface PropiedadesLista {
   cargando: boolean;
   error: string | null;
   onReintentar: () => void;
+  /** "Entrar" a una empresa (cambiar-empresa). El padre hace la llamada y navega. */
+  onEntrar: (empresaId: string) => void;
+  /** Empresa cuyo "Entrar" está en curso (deshabilita los botones mientras tanto). */
+  entrandoId?: string | null;
 }
 
-export function ListaEmpresas({ empresas, cargando, error, onReintentar }: PropiedadesLista) {
+export function ListaEmpresas({
+  empresas,
+  cargando,
+  error,
+  onReintentar,
+  onEntrar,
+  entrandoId = null,
+}: PropiedadesLista) {
   const { t } = useTraduccion();
 
   return (
@@ -49,6 +60,7 @@ export function ListaEmpresas({ empresas, cargando, error, onReintentar }: Propi
               <th>{t('plataforma.colAdmin')}</th>
               <th>{t('plataforma.colCreada')}</th>
               <th>{t('plataforma.colEstado')}</th>
+              <th>{t('plataforma.colAcciones')}</th>
             </tr>
           </thead>
           <tbody>
@@ -59,6 +71,18 @@ export function ListaEmpresas({ empresas, cargando, error, onReintentar }: Propi
                 <td>{e.adminEmail ?? '—'}</td>
                 <td>{new Date(e.creadoEn).toLocaleDateString()}</td>
                 <td>{e.activo ? t('plataforma.estadoActiva') : t('plataforma.estadoInactiva')}</td>
+                <td>
+                  {/* A una empresa dada de baja no se entra (el backend también lo veta). */}
+                  <Boton
+                    variante="secundario"
+                    type="button"
+                    onClick={() => onEntrar(e.id)}
+                    disabled={!e.activo || entrandoId !== null}
+                    cargando={entrandoId === e.id}
+                  >
+                    {t('plataforma.entrar')}
+                  </Boton>
+                </td>
               </tr>
             ))}
           </tbody>

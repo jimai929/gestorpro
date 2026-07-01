@@ -6,6 +6,7 @@
 import { api } from '../api';
 import type {
   CredencialesLogin,
+  RespuestaCambioEmpresa,
   RespuestaLogin,
   RespuestaRefresh,
 } from './tipos';
@@ -42,6 +43,18 @@ export async function cambiarContrasenaApi(
     { contrasenaActual, contrasenaNueva },
     { omitirRefresco: true },
   );
+}
+
+/**
+ * Llama a POST /auth/cambiar-empresa (AUTENTICADO). `empresaId` es la empresa destino
+ * (el backend valida la membresía — o super-admin —); `null` = volver a la vista
+ * plataforma (solo super-admin). Devuelve el access nuevo y el usuario con la empresa
+ * activa nueva; el refresh token guardado sigue siendo válido (la sesión se conserva).
+ */
+export async function cambiarEmpresaApi(
+  empresaId: string | null,
+): Promise<RespuestaCambioEmpresa> {
+  return api.post<RespuestaCambioEmpresa>('/auth/cambiar-empresa', { empresaId });
 }
 
 // ── Gestión del refresh token en localStorage ──────────────────────────────

@@ -50,8 +50,15 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.colAdmin': 'Administrador',
     'plataforma.colCreada': 'Creada',
     'plataforma.colEstado': 'Estado',
+    'plataforma.colAcciones': 'Acciones',
     'plataforma.estadoActiva': 'Activa',
     'plataforma.estadoInactiva': 'Inactiva',
+
+    // Entrar a una empresa (cambiar-empresa) y volver a la plataforma
+    'plataforma.entrar': 'Entrar',
+    'plataforma.errEntrar': 'No se pudo entrar a la empresa.',
+    'plataforma.volver': 'Volver a plataforma',
+    'plataforma.errVolver': 'No se pudo volver a la plataforma.',
   },
   en: {
     'inicio.plataforma': 'Platform',
@@ -92,8 +99,14 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.colAdmin': 'Administrator',
     'plataforma.colCreada': 'Created',
     'plataforma.colEstado': 'Status',
+    'plataforma.colAcciones': 'Actions',
     'plataforma.estadoActiva': 'Active',
     'plataforma.estadoInactiva': 'Inactive',
+
+    'plataforma.entrar': 'Enter',
+    'plataforma.errEntrar': 'Could not enter the company.',
+    'plataforma.volver': 'Back to platform',
+    'plataforma.errVolver': 'Could not return to the platform.',
   },
   zh: {
     'inicio.plataforma': '平台',
@@ -132,7 +145,13 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.colAdmin': '管理员',
     'plataforma.colCreada': '创建时间',
     'plataforma.colEstado': '状态',
+    'plataforma.colAcciones': '操作',
     'plataforma.estadoActiva': '启用',
     'plataforma.estadoInactiva': '停用',
+
+    'plataforma.entrar': '进入',
+    'plataforma.errEntrar': '无法进入该公司。',
+    'plataforma.volver': '返回平台',
+    'plataforma.errVolver': '无法返回平台。',
   },
 };

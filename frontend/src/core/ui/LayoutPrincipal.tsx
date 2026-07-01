@@ -4,7 +4,7 @@
  */
 
 import { ReactNode, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../auth/ContextoAuth';
 import { DialogoCambiarContrasena } from '../auth/DialogoCambiarContrasena';
 import { useTraduccion } from '../i18n/ContextoIdioma';
@@ -16,18 +16,39 @@ interface PropiedadesLayout {
 }
 
 export function LayoutPrincipal({ children }: PropiedadesLayout) {
-  const { usuario, cerrarSesion } = useAuth();
+  const { usuario, cerrarSesion, cambiarEmpresa } = useAuth();
   const { t } = useTraduccion();
+  const navigate = useNavigate();
   const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false);
+  const [volviendo, setVolviendo] = useState(false);
+  const [errorVolver, setErrorVolver] = useState<string | null>(null);
 
-  // Empresa activa a mostrar en la barra: el super-admin (sin empresa) muestra
-  // "Plataforma"; un usuario normal, el nombre de su empresa. Si no hay nombre (y no es
-  // super-admin) no se muestra nada (evita un hueco vacío/undefined).
+  // Empresa activa a mostrar en la barra: si hay empresa activa se muestra su nombre
+  // (también para el super-admin que ENTRÓ a una empresa); el super-admin sin empresa
+  // muestra "Plataforma". Un usuario normal sin nombre no muestra nada (evita un
+  // hueco vacío/undefined).
   const etiquetaEmpresa = usuario
-    ? usuario.esSuperAdmin
-      ? t('plataforma.badge')
-      : usuario.empresaNombre
+    ? (usuario.empresaNombre ?? (usuario.esSuperAdmin ? t('plataforma.badge') : null))
     : null;
+
+  // Super-admin DENTRO de una empresa: botón para soltar el contexto del tenant.
+  const puedeVolverAPlataforma =
+    usuario !== null && usuario.esSuperAdmin && usuario.empresaId !== null;
+
+  const manejarVolverAPlataforma = async () => {
+    setVolviendo(true);
+    setErrorVolver(null);
+    try {
+      await cambiarEmpresa(null);
+      // Sin empresa activa, la página de tenant actual solo daría 403/datos huérfanos:
+      // se lleva al super-admin a su pantalla (simétrico al "Entrar", que navega a /).
+      navigate('/plataforma');
+    } catch (err) {
+      setErrorVolver(err instanceof Error ? err.message : t('plataforma.errVolver'));
+    } finally {
+      setVolviendo(false);
+    }
+  };
 
   const manejarCerrarSesion = () => {
     void cerrarSesion();
@@ -62,6 +83,16 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
               </span>
             </div>
           )}
+          {puedeVolverAPlataforma && (
+            <button
+              type="button"
+              className={styles.botonAccion}
+              onClick={() => void manejarVolverAPlataforma()}
+              disabled={volviendo}
+            >
+              {t('plataforma.volver')}
+            </button>
+          )}
           <SelectorIdioma />
           {usuario && (
             <button
@@ -79,6 +110,13 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
       </header>
 
       {/* Contenido principal */}
+      {/* Error del "volver a plataforma" VISIBLE (regla de mutaciones): bajo la barra. */}
+      {errorVolver && (
+        <p className={styles.errorBarra} role="alert">
+          {errorVolver}
+        </p>
+      )}
+
       <main className={styles.principal}>{children}</main>
 
       {mostrarCambioContrasena && (

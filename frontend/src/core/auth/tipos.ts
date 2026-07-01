@@ -16,6 +16,12 @@ export interface Usuario {
    */
   esSuperAdmin: boolean;
   /**
+   * Empresa activa de la sesión. `null` si no hay (super-admin en la vista plataforma).
+   * SOLO experiencia de UI (marcar la empresa actual, mostrar "volver a plataforma"):
+   * el aislamiento real sale del token en el backend, nunca de este campo.
+   */
+  empresaId: string | null;
+  /**
    * Nombre de la empresa activa (para mostrar en la barra superior). `null` si no hay
    * empresa activa (p. ej. super-admin). Lo envía el backend en login/refresh y /auth/me.
    */
@@ -34,6 +40,15 @@ export interface RespuestaLogin {
 /** Respuesta de POST /auth/refresh */
 export interface RespuestaRefresh {
   accessToken: string;
+}
+
+/**
+ * Respuesta de POST /auth/cambiar-empresa. SIN refreshToken: la sesión se conserva
+ * (solo cambia su empresa activa); el refresh guardado sigue siendo válido.
+ */
+export interface RespuestaCambioEmpresa {
+  accessToken: string;
+  usuario: Usuario;
 }
 
 /** Body de POST /auth/login */

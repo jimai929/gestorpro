@@ -109,6 +109,17 @@
   border-color: #9ca3af;
 }
 
+/* Error del "volver a plataforma": banda visible bajo la barra (mutación fallida). */
+.errorBarra {
+  margin: 0;
+  padding: 0.5rem 1.5rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-bottom: 1px solid #fecaca;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
 /* ── Contenido principal ── */
 
 .principal {

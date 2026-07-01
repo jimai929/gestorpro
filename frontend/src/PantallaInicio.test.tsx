@@ -16,6 +16,7 @@ function montar(esSuperAdmin: boolean) {
       email: 'a@x.local',
       rol: 'administrador',
       esSuperAdmin,
+      empresaId: null,
       empresaNombre: null,
       debeCambiarContrasena: false,
     },
@@ -23,6 +24,7 @@ function montar(esSuperAdmin: boolean) {
     cargando: false,
     iniciarSesion: vi.fn(),
     cerrarSesion: vi.fn().mockResolvedValue(undefined),
+    cambiarEmpresa: vi.fn(),
   });
   render(
     <MemoryRouter>

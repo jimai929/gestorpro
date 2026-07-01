@@ -23,6 +23,7 @@ import {
   fijarManejadorDebeCambiar,
 } from '../api';
 import {
+  cambiarEmpresaApi,
   eliminarRefreshToken,
   guardarRefreshToken,
   loginApi,
@@ -45,6 +46,13 @@ interface ValorContextoAuth {
   iniciarSesion: (email: string, password: string) => Promise<void>;
   /** Cierra la sesión actual e invalida el refresh token. */
   cerrarSesion: () => Promise<void>;
+  /**
+   * Cambia la empresa activa de la sesión (membresía propia, o super-admin entrando a
+   * un tenant; `null` = volver a plataforma). Reemplaza el access token y el usuario
+   * en caliente — la sesión (refresh token) se conserva. Lanza Error si el backend
+   * deniega el cambio (el llamador debe mostrarlo en UI).
+   */
+  cambiarEmpresa: (empresaId: string | null) => Promise<void>;
 }
 
 // ── Contexto ───────────────────────────────────────────────────────────────
@@ -69,6 +77,17 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
       try {
         const { accessToken } = await refrescarTokenApi(refreshToken);
         fijarAccessToken(accessToken);
+        // El token renovado puede venir con OTRA empresa activa: cambiar-empresa
+        // actualiza TODAS las sesiones del usuario, así que otra pestaña/dispositivo
+        // pudo cambiarla. Se re-sincroniza `usuario` en segundo plano (sin retrasar el
+        // reintento que espera este token) para que la UI nunca muestre datos de una
+        // empresa bajo la etiqueta de otra. Best-effort: si /me falla se conserva el
+        // usuario actual (la frontera de seguridad sigue siendo el backend). `omitirRefresco`
+        // evita re-entrar en el refresh ante un 401 de /me (p. ej. cuenta desactivada).
+        void api
+          .get<Usuario>('/auth/me', { omitirRefresco: true })
+          .then((usuarioActual) => setUsuario(usuarioActual))
+          .catch(() => undefined);
         return accessToken;
       } catch {
         // El refresh token expiró o es inválido: sesión muerta.
@@ -145,12 +164,21 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const cambiarEmpresa = useCallback(async (empresaId: string | null) => {
+    const respuesta = await cambiarEmpresaApi(empresaId);
+    // El backend ya persistió la empresa activa en la sesión (el refresh la conserva);
+    // aquí solo se reemplazan el access token y el usuario en memoria.
+    fijarAccessToken(respuesta.accessToken);
+    setUsuario(respuesta.usuario);
+  }, []);
+
   const valor: ValorContextoAuth = {
     usuario,
     estaAutenticado: usuario !== null,
     cargando,
     iniciarSesion,
     cerrarSesion,
+    cambiarEmpresa,
   };
 
   return <ContextoAuth.Provider value={valor}>{children}</ContextoAuth.Provider>;

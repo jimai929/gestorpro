@@ -17,6 +17,7 @@ function montar(estado: EstadoAuth) {
     cargando: false,
     iniciarSesion: vi.fn(),
     cerrarSesion: vi.fn().mockResolvedValue(undefined),
+    cambiarEmpresa: vi.fn(),
     ...estado,
   });
   render(
@@ -37,6 +38,7 @@ const usuario = (esSuperAdmin: boolean) => ({
   email: 'a@x.local',
   rol: 'administrador' as const,
   esSuperAdmin,
+  empresaId: null,
   empresaNombre: null,
   debeCambiarContrasena: false,
 });
