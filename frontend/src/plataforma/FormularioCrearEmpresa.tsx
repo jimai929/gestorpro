@@ -26,7 +26,9 @@ interface ResultadoExito {
   adminEmail: string;
 }
 
-export function FormularioCrearEmpresa() {
+/** `onCreada` (opcional): se llama tras crear con éxito, para que el contenedor
+ *  refresque la lista de empresas. Opcional → el formulario sigue usándose suelto. */
+export function FormularioCrearEmpresa({ onCreada }: { onCreada?: () => void } = {}) {
   const { t } = useTraduccion();
 
   const [nombre, setNombre] = useState('');
@@ -83,6 +85,7 @@ export function FormularioCrearEmpresa() {
       // Éxito SOLO tras el await: mostramos el resultado (no se navega ni se limpia
       // a ciegas, para que el super-admin vea la empresa y el correo del admin).
       setExito({ empresa, adminEmail: adminEmail.trim() });
+      onCreada?.(); // refresca la lista de empresas del contenedor (si la hay)
     } catch (err) {
       // Muestra el mensaje real del backend. cliente.ts ya normaliza ambos shapes a
       // err.message: dominio { mensaje } (409) y validación de schema { message } (400).

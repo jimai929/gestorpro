@@ -3,6 +3,7 @@ import { ErrorConflicto } from '../errors.js';
 import { hashearContrasena } from '../auth/contrasena.js';
 import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
 import { Rol } from '../../generated/prisma/enums.js';
+import { prisma } from '../prisma.js';
 
 function esErrorPrisma(error: unknown, codigo: string): boolean {
   return (
@@ -26,6 +27,19 @@ export interface EmpresaCreada {
   nombre: string;
   slug: string;
   adminId: string;
+}
+
+/**
+ * Fila del listado de empresas (plataforma). `creadoEn` en ISO; `adminEmail` puede ser
+ * null si (excepcionalmente) la empresa no tuviera admin predeterminado.
+ */
+export interface EmpresaListada {
+  id: string;
+  nombre: string;
+  slug: string;
+  activo: boolean;
+  creadoEn: string;
+  adminEmail: string | null;
 }
 
 /**
@@ -99,4 +113,40 @@ export async function crearEmpresa(
     }
     throw error;
   }
+}
+
+/**
+ * Lista todas las empresas (tenants) para el super-admin, con el correo del primer admin
+ * de cada una (la membresía `predeterminada` de rol `administrador` que crea `crearEmpresa`).
+ * Orden: más reciente primero.
+ *
+ * NO usa txEmpresa/bypass: `empresa`, `membresia` y `usuario` están EXCLUIDAS de RLS, así
+ * que `gestorpro_app` las lee y hace el join directamente. El aislamiento de este listado
+ * cross-tenant lo garantiza el guard de RUTA `soloPlataforma` (solo super-admin), NO la RLS.
+ * (El bypass de `crearEmpresa` era para ESCRIBIR en `auditoria`, que sí tiene RLS.)
+ */
+export async function listarEmpresas(): Promise<EmpresaListada[]> {
+  const empresas = await prisma.empresa.findMany({
+    orderBy: { creadoEn: 'desc' },
+    select: {
+      id: true,
+      nombre: true,
+      slug: true,
+      activo: true,
+      creadoEn: true,
+      membresias: {
+        where: { predeterminada: true, rol: Rol.administrador },
+        select: { usuario: { select: { email: true } } },
+        take: 1,
+      },
+    },
+  });
+  return empresas.map((e) => ({
+    id: e.id,
+    nombre: e.nombre,
+    slug: e.slug,
+    activo: e.activo,
+    creadoEn: e.creadoEn.toISOString(),
+    adminEmail: e.membresias[0]?.usuario.email ?? null,
+  }));
 }

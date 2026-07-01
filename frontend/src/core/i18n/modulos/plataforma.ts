@@ -40,6 +40,18 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.exitoAviso':
       'La contraseña inicial quedó configurada. El administrador deberá cambiarla la primera vez que inicie sesión.',
     'plataforma.crearOtra': 'Crear otra empresa',
+
+    // Listado de empresas (tabla)
+    'plataforma.listaTitulo': 'Empresas',
+    'plataforma.listaVacia': 'Aún no hay empresas. Crea la primera arriba.',
+    'plataforma.listaError': 'No se pudo cargar la lista de empresas.',
+    'plataforma.colNombre': 'Empresa',
+    'plataforma.colSlug': 'Identificador',
+    'plataforma.colAdmin': 'Administrador',
+    'plataforma.colCreada': 'Creada',
+    'plataforma.colEstado': 'Estado',
+    'plataforma.estadoActiva': 'Activa',
+    'plataforma.estadoInactiva': 'Inactiva',
   },
   en: {
     'inicio.plataforma': 'Platform',
@@ -71,6 +83,17 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.exitoAviso':
       'The initial password is set. The administrator will be asked to change it on first sign-in.',
     'plataforma.crearOtra': 'Create another company',
+
+    'plataforma.listaTitulo': 'Companies',
+    'plataforma.listaVacia': 'No companies yet. Create the first one above.',
+    'plataforma.listaError': 'Could not load the company list.',
+    'plataforma.colNombre': 'Company',
+    'plataforma.colSlug': 'Identifier',
+    'plataforma.colAdmin': 'Administrator',
+    'plataforma.colCreada': 'Created',
+    'plataforma.colEstado': 'Status',
+    'plataforma.estadoActiva': 'Active',
+    'plataforma.estadoInactiva': 'Inactive',
   },
   zh: {
     'inicio.plataforma': '平台',
@@ -100,5 +123,16 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.empresa': '公司',
     'plataforma.exitoAviso': '初始密码已设置。管理员首次登录时将被要求修改密码。',
     'plataforma.crearOtra': '再创建一家公司',
+
+    'plataforma.listaTitulo': '公司',
+    'plataforma.listaVacia': '还没有公司。在上方创建第一家。',
+    'plataforma.listaError': '无法加载公司列表。',
+    'plataforma.colNombre': '公司',
+    'plataforma.colSlug': '标识符',
+    'plataforma.colAdmin': '管理员',
+    'plataforma.colCreada': '创建时间',
+    'plataforma.colEstado': '状态',
+    'plataforma.estadoActiva': '启用',
+    'plataforma.estadoInactiva': '停用',
   },
 };

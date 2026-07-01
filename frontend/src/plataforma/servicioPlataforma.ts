@@ -3,7 +3,7 @@
  */
 
 import { api } from '../core/api';
-import type { DatosNuevaEmpresa, EmpresaCreada } from './tipos';
+import type { DatosNuevaEmpresa, EmpresaCreada, EmpresaListada } from './tipos';
 
 /**
  * Crea una empresa (tenant) con su primer administrador (POST /empresas).
@@ -12,4 +12,12 @@ import type { DatosNuevaEmpresa, EmpresaCreada } from './tipos';
  */
 export function crearEmpresaApi(cuerpo: DatosNuevaEmpresa): Promise<EmpresaCreada> {
   return api.post<EmpresaCreada>('/empresas', cuerpo);
+}
+
+/**
+ * Lista todas las empresas (tenants). Solo super-admin: el backend responde 404 a
+ * quien no lo es (soloPlataforma). Cada fila incluye el correo de su primer admin.
+ */
+export function listarEmpresasApi(): Promise<EmpresaListada[]> {
+  return api.get<EmpresaListada[]>('/empresas');
 }

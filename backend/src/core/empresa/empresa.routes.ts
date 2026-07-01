@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { responderError } from '../http.js';
-import { crearEmpresa } from './empresa.service.js';
+import { crearEmpresa, listarEmpresas } from './empresa.service.js';
 
 const esquemaEmpresa = {
   body: {
@@ -20,8 +20,8 @@ const esquemaEmpresa = {
 
 /**
  * Rutas de PLATAFORMA (SaaS): gestión de tenants. SOLO super-admin (`soloPlataforma`
- * responde 404 a cualquier otro, no revela el endpoint). Fase 4c, alcance mínimo:
- * solo el alta de empresa (crear tenant + su primer admin). No hay listar/baja aún.
+ * responde 404 a cualquier otro, no revela el endpoint). Alcance: alta de empresa
+ * (crear tenant + su primer admin) y listado de tenants. No hay baja/edición aún.
  */
 export async function empresaRoutes(app: FastifyInstance): Promise<void> {
   const soloSuper = { preHandler: [app.autenticar, app.soloPlataforma] };
@@ -43,5 +43,14 @@ export async function empresaRoutes(app: FastifyInstance): Promise<void> {
     } catch (error) {
       return responderError(error, request, reply);
     }
+  });
+
+  // Listar tenants (solo super-admin). Lectura cross-tenant PROTEGIDA por el guard de
+  // RUTA (soloPlataforma → 404 al resto), NO por RLS: empresa/membresia/usuario no tienen
+  // RLS, así que gestorpro_app hace el SELECT+join directo (sin bypass; el bypass de POST
+  // era solo para escribir en auditoria).
+  app.get('/empresas', soloSuper, async (_request, reply) => {
+    const empresas = await listarEmpresas();
+    return reply.code(200).send(empresas);
   });
 }

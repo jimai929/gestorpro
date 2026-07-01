@@ -21,3 +21,13 @@ export interface EmpresaCreada {
   slug: string;
   adminId: string;
 }
+
+/** Fila de GET /empresas (listado de tenants). `creadoEn` ISO; `adminEmail` puede ser null. */
+export interface EmpresaListada {
+  id: string;
+  nombre: string;
+  slug: string;
+  activo: boolean;
+  creadoEn: string;
+  adminEmail: string | null;
+}
