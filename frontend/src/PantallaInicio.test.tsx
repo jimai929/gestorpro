@@ -16,6 +16,7 @@ function montar(esSuperAdmin: boolean) {
       email: 'a@x.local',
       rol: 'administrador',
       esSuperAdmin,
+      empresaNombre: null,
       debeCambiarContrasena: false,
     },
     estaAutenticado: true,

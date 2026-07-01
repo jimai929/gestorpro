@@ -9,6 +9,8 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'inicio.plataforma': 'Plataforma',
     'inicio.plataformaDesc': 'Crear empresas (clientes) y su primer administrador.',
     'nav.plataforma': 'Plataforma',
+    // Barra superior: etiqueta de contexto para super-admin (sin empresa activa)
+    'plataforma.badge': 'Plataforma',
 
     // Pantalla de plataforma
     'plataforma.titulo': 'Crear empresa',
@@ -43,6 +45,7 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'inicio.plataforma': 'Platform',
     'inicio.plataformaDesc': 'Create companies (customers) and their first administrator.',
     'nav.plataforma': 'Platform',
+    'plataforma.badge': 'Platform',
 
     'plataforma.titulo': 'Create company',
     'plataforma.subtitulo': 'Register a new customer (company) with its first administrator.',
@@ -73,6 +76,7 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'inicio.plataforma': '平台',
     'inicio.plataformaDesc': '创建公司（客户）及其首位管理员。',
     'nav.plataforma': '平台',
+    'plataforma.badge': '平台',
 
     'plataforma.titulo': '创建公司',
     'plataforma.subtitulo': '新增一个客户（公司）及其首位管理员。',

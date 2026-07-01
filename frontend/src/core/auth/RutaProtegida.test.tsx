@@ -40,6 +40,7 @@ const usuario = (debeCambiarContrasena: boolean) => ({
   email: 'a@x.local',
   rol: 'administrador' as const,
   esSuperAdmin: false,
+  empresaNombre: null,
   debeCambiarContrasena,
 });
 

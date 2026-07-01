@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router';
 import { LayoutPrincipal } from './LayoutPrincipal';
 import * as auth from '../auth/ContextoAuth';
 import * as servicioAuth from '../auth/servicioAuth';
+import type { Usuario } from '../auth/tipos';
 
 // Integración del flujo de cambio de contraseña desde el header: abrir el modal,
 // cambiar la contraseña con éxito y verificar que se cierra la sesión (el backend ya
@@ -18,7 +19,7 @@ const NUEVA = 'NuevaClave1*';
 
 function montar(cerrarSesion: () => Promise<void>) {
   vi.mocked(auth.useAuth).mockReturnValue({
-    usuario: { id: 'u1', nombre: 'Ana', email: 'ana@x.local', rol: 'administrador', esSuperAdmin: false, debeCambiarContrasena: false },
+    usuario: { id: 'u1', nombre: 'Ana', email: 'ana@x.local', rol: 'administrador', esSuperAdmin: false, empresaNombre: 'Mi Empresa', debeCambiarContrasena: false },
     estaAutenticado: true,
     cargando: false,
     iniciarSesion: vi.fn(),
@@ -59,5 +60,48 @@ describe('LayoutPrincipal — cambio de contraseña (integración)', () => {
     await user.click(screen.getByRole('button', { name: 'Ir a iniciar sesión' }));
     expect(servicioAuth.cambiarContrasenaApi).toHaveBeenCalledWith(CLAVE, NUEVA);
     expect(cerrarSesion).toHaveBeenCalled();
+  });
+});
+
+describe('LayoutPrincipal — empresa activa en la barra superior', () => {
+  function renderConUsuario(usuario: Usuario) {
+    vi.mocked(auth.useAuth).mockReturnValue({
+      usuario,
+      estaAutenticado: true,
+      cargando: false,
+      iniciarSesion: vi.fn(),
+      cerrarSesion: vi.fn().mockResolvedValue(undefined),
+    });
+    render(
+      <MemoryRouter>
+        <LayoutPrincipal>contenido</LayoutPrincipal>
+      </MemoryRouter>,
+    );
+  }
+
+  it('usuario normal: muestra el nombre de su empresa', () => {
+    renderConUsuario({
+      id: 'u1',
+      nombre: 'Ana',
+      email: 'a@x.local',
+      rol: 'administrador',
+      esSuperAdmin: false,
+      empresaNombre: 'Acme Panamá',
+      debeCambiarContrasena: false,
+    });
+    expect(screen.getByText('Acme Panamá')).toBeTruthy();
+  });
+
+  it('super-admin (empresaNombre=null): muestra "Plataforma"', () => {
+    renderConUsuario({
+      id: 'sa',
+      nombre: 'Super Admin',
+      email: 'sa@x.local',
+      rol: 'empleado',
+      esSuperAdmin: true,
+      empresaNombre: null,
+      debeCambiarContrasena: false,
+    });
+    expect(screen.getByText('Plataforma')).toBeTruthy();
   });
 });

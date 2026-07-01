@@ -15,6 +15,11 @@ export interface Usuario {
    * Solo EXPERIENCIA de UI: la frontera real de seguridad es el backend (soloPlataforma → 404).
    */
   esSuperAdmin: boolean;
+  /**
+   * Nombre de la empresa activa (para mostrar en la barra superior). `null` si no hay
+   * empresa activa (p. ej. super-admin). Lo envía el backend en login/refresh y /auth/me.
+   */
+  empresaNombre: string | null;
   /** true si la cuenta tiene una contraseña temporal y debe cambiarla antes de operar. */
   debeCambiarContrasena: boolean;
 }

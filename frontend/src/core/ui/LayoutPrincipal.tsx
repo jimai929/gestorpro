@@ -20,6 +20,15 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
   const { t } = useTraduccion();
   const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false);
 
+  // Empresa activa a mostrar en la barra: el super-admin (sin empresa) muestra
+  // "Plataforma"; un usuario normal, el nombre de su empresa. Si no hay nombre (y no es
+  // super-admin) no se muestra nada (evita un hueco vacío/undefined).
+  const etiquetaEmpresa = usuario
+    ? usuario.esSuperAdmin
+      ? t('plataforma.badge')
+      : usuario.empresaNombre
+    : null;
+
   const manejarCerrarSesion = () => {
     void cerrarSesion();
   };
@@ -44,6 +53,9 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
         <div className={styles.acciones}>
           {usuario && (
             <div className={styles.infoUsuario}>
+              {etiquetaEmpresa && (
+                <span className={styles.empresaActual}>{etiquetaEmpresa}</span>
+              )}
               <span className={styles.nombreUsuario}>{usuario.nombre}</span>
               <span className={styles.badgeRol}>
                 {t(`rol.${usuario.rol}`)}

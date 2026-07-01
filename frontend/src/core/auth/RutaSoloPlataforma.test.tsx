@@ -37,6 +37,7 @@ const usuario = (esSuperAdmin: boolean) => ({
   email: 'a@x.local',
   rol: 'administrador' as const,
   esSuperAdmin,
+  empresaNombre: null,
   debeCambiarContrasena: false,
 });
 
