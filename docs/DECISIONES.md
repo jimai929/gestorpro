@@ -241,6 +241,32 @@ Huecos que `ARQUITECTURA_MULTITENANT.md` §3.5 dejaba abiertos, cerrados así
 - La ruta NO está exenta del cambio forzado de contraseña: con contraseña
   temporal responde 403 `DEBE_CAMBIAR_CONTRASENA` (default-block).
 
+### Restablecer contraseña (dos niveles) ✅ DECIDIDO (2026-07-02)
+
+`POST /usuarios/:usuarioId/restablecer-contrasena` (guard
+`[autenticar, autorizar('administrador')]`):
+
+- **Dos niveles SIN endpoint de plataforma:** un admin del tenant restablece
+  SOLO usuarios con membresía en SU empresa (`empresaId` del token, comparado
+  con `membresia @@unique([usuarioId, empresaId])`); el super-admin obtiene el
+  mismo poder ENTRANDO a la empresa vía cambiar-empresa (en plataforma,
+  `empresaId=null`, `autorizar` lo rechaza — probado).
+- **Mecanismo = el born-true del alta:** contraseña TEMPORAL del body
+  (minLength 8) + `debeCambiarContrasena=true` + `deleteMany` de TODAS las
+  sesiones del objetivo + asiento `restablecer_contrasena` (usuarioId = el
+  operador real del token; empresa por GUC del override), en una transacción;
+  argon2 fuera de la tx; `detalle` OMITIDO (jamás contraseñas). El primer
+  login con la temporal cae en el cambio forzado (default-block existente).
+- **Denegación 404 ÚNICA e indistinguible:** objetivo inexistente = de otro
+  tenant = cuenta de plataforma (`esSuperAdmin`) → mismo cuerpo exacto
+  (anti-enumeración). Las cuentas de plataforma NO se restablecen por aquí
+  (rotación por mantenimiento, mismo criterio que el guard B1).
+- **Auto-restablecimiento prohibido (400):** la propia cuenta va por
+  `/auth/cambiar-contrasena` (exige la contraseña actual); permitirlo dejaría
+  que una sesión robada de admin tome la cuenta sin conocer la clave.
+- Sin rate limit propio (como su hermana `POST /usuarios`, que también hashea);
+  `usuario.activo` NO se toca (restablecer no revive cuentas dadas de baja).
+
 ## Pendientes abiertos
 
 > El código de las 7 fases (24 tareas) está construido y probado. Los puntos de

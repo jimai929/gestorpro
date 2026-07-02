@@ -1,5 +1,6 @@
+import { prisma } from '../prisma.js';
 import { txEmpresa } from '../tenant/contexto.js';
-import { ErrorConflicto } from '../errors.js';
+import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../errors.js';
 import { hashearContrasena } from '../auth/contrasena.js';
 import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
 import type { Rol } from '../../generated/prisma/enums.js';
@@ -98,4 +99,87 @@ export async function crearUsuarioEnTenant(
     }
     throw error;
   }
+}
+
+/**
+ * RESTABLECE la contraseña de un usuario del tenant (soporte): fija una contraseña
+ * TEMPORAL (born-true, mismo mecanismo que el alta), revoca TODAS sus sesiones y
+ * audita — todo en una transacción. La ejecuta un administrador del tenant; el
+ * super-admin la obtiene ENTRANDO a la empresa vía cambiar-empresa (dos niveles:
+ * `autorizar` lo deja pasar solo dentro de un tenant).
+ *
+ * Reglas de seguridad:
+ * - `empresaId` y `adminId` SIEMPRE del token (ver ruta), NUNCA del body.
+ * - Denegación con 404 ÚNICO e indistinguible (usuario inexistente = de otro tenant
+ *   = cuenta de plataforma): no revela la existencia de cuentas ajenas.
+ * - El objetivo NO puede ser una cuenta de plataforma (esSuperAdmin): su rotación va
+ *   por mantenimiento (mismo criterio que el guard B1 de cambiar-contrasena).
+ * - El admin NO puede restablecerse a SÍ MISMO: para la propia cuenta existe
+ *   /auth/cambiar-contrasena, que exige la contraseña actual — permitir el
+ *   auto-restablecimiento dejaría que una sesión robada tome la cuenta sin conocerla.
+ * - La contraseña temporal jamás se guarda ni audita en claro; el usuario deberá
+ *   rotarla en su primer login (debeCambiarContrasena=true → default-block).
+ */
+export async function restablecerContrasena(
+  usuarioObjetivoId: string,
+  empresaId: string,
+  adminId: string,
+  contrasenaTemporal: string,
+): Promise<void> {
+  // Normaliza el uuid del path a minúsculas ANTES de compararlo: el patrón de la ruta
+  // admite hex en MAYÚSCULAS, pero el `id`/`sub` que emite Postgres es minúsculas. Sin
+  // esto, un admin que enviara su PROPIO id en mayúsculas evadiría el guard `===` de
+  // auto-restablecimiento (comparación de string sensible a mayúsculas) mientras Prisma/
+  // Postgres resuelven el uuid case-insensitive a su propia fila → tomaría su cuenta sin
+  // conocer la contraseña actual. Se usa el valor normalizado en TODO el resto.
+  const objetivoId = usuarioObjetivoId.toLowerCase();
+  if (objetivoId === adminId.toLowerCase()) {
+    throw new ErrorValidacion(
+      'Para tu propia cuenta usa el cambio de contraseña (requiere la actual).',
+    );
+  }
+
+  // Mensaje ÚNICO para todo camino de denegación (anti-enumeración). `usuario` y
+  // `membresia` están fuera de RLS: se leen con el cliente plano, sin contexto.
+  const noEncontrado = () => new ErrorNoEncontrado('Usuario no encontrado.');
+
+  const objetivo = await prisma.usuario.findUnique({ where: { id: objetivoId } });
+  if (!objetivo || objetivo.esSuperAdmin) {
+    throw noEncontrado();
+  }
+  const membresia = await prisma.membresia.findUnique({
+    where: { usuarioId_empresaId: { usuarioId: objetivoId, empresaId } },
+  });
+  if (!membresia) {
+    throw noEncontrado();
+  }
+
+  // argon2 FUERA de la transacción (es costoso; no hay que tener la tx abierta).
+  const passwordHash = await hashearContrasena(contrasenaTemporal);
+  await txEmpresa(
+    async (tx) => {
+      await tx.usuario.update({
+        where: { id: objetivoId },
+        // Contraseña temporal (born-true, como el alta): debe rotarla al entrar.
+        data: { passwordHash, debeCambiarContrasena: true },
+      });
+      // Expulsa TODAS las sesiones vivas del objetivo (p. ej. la de quien perdió el
+      // acceso o un token robado): tras el reset solo entra quien tenga la temporal.
+      await tx.sesionRefresco.deleteMany({ where: { usuarioId: objetivoId } });
+      await auditoriaRepo.registrar(
+        {
+          entidad: 'usuario',
+          entidadId: objetivoId,
+          accion: 'restablecer_contrasena',
+          usuarioId: adminId,
+          // empresa_id lo rellena el DEFAULT desde el GUC (override de txEmpresa).
+          // `detalle` se OMITE a propósito: jamás se guarda contraseña alguna.
+        },
+        tx,
+      );
+    },
+    // FUENTE ÚNICA del tenant (mismo patrón que crearUsuarioEnTenant): el GUC de la
+    // auditoría deriva del empresaId del token, sin depender de la ALS.
+    { empresaId },
+  );
 }
