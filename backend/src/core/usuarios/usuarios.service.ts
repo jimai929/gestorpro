@@ -102,6 +102,65 @@ export async function crearUsuarioEnTenant(
 }
 
 /**
+ * Fila del listado de usuarios del tenant. `rol` es el de la MEMBRESÍA en ESTA empresa
+ * (per-tenant), NUNCA el `Usuario.rol` global legado. `creadoEn` en ISO.
+ */
+export interface UsuarioListado {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: Rol;
+  activo: boolean;
+  debeCambiarContrasena: boolean;
+  creadoEn: string;
+}
+
+/**
+ * Lista los usuarios del tenant (los que tienen MEMBRESÍA en la empresa del token).
+ * La ejecuta un administrador del tenant; el super-admin la obtiene ENTRANDO a la
+ * empresa vía cambiar-empresa (dos niveles, igual que restablecer-contrasena).
+ *
+ * Reglas de seguridad:
+ * - `empresaId` SIEMPRE del token (ver ruta), NUNCA de query/body: un admin solo ve
+ *   su propia empresa. `usuario`/`membresia` están fuera de RLS y se leen con el
+ *   cliente plano; el aislamiento de este listado lo garantiza el guard de RUTA +
+ *   el filtro por `empresaId` del token (mismo criterio que `listarEmpresas`).
+ * - Las cuentas de PLATAFORMA (esSuperAdmin) son INVISIBLES dentro del tenant aunque
+ *   (estado corrupto, invariante §4.2) tuvieran membresía: mismo criterio que el 404
+ *   anti-enumeración de restablecer-contrasena.
+ * - No expone hash ni secreto alguno; `debeCambiarContrasena` sí viaja (la UI marca
+ *   "contraseña temporal pendiente" para soporte).
+ */
+export async function listarUsuariosDelTenant(empresaId: string): Promise<UsuarioListado[]> {
+  const membresias = await prisma.membresia.findMany({
+    where: { empresaId, usuario: { esSuperAdmin: false } },
+    orderBy: { usuario: { nombre: 'asc' } },
+    select: {
+      rol: true,
+      usuario: {
+        select: {
+          id: true,
+          nombre: true,
+          email: true,
+          activo: true,
+          debeCambiarContrasena: true,
+          creadoEn: true,
+        },
+      },
+    },
+  });
+  return membresias.map((m) => ({
+    id: m.usuario.id,
+    nombre: m.usuario.nombre,
+    email: m.usuario.email,
+    rol: m.rol,
+    activo: m.usuario.activo,
+    debeCambiarContrasena: m.usuario.debeCambiarContrasena,
+    creadoEn: m.usuario.creadoEn.toISOString(),
+  }));
+}
+
+/**
  * RESTABLECE la contraseña de un usuario del tenant (soporte): fija una contraseña
  * TEMPORAL (born-true, mismo mecanismo que el alta), revoca TODAS sus sesiones y
  * audita — todo en una transacción. La ejecuta un administrador del tenant; el

@@ -1,7 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { ErrorAutorizacion } from '../errors.js';
 import { responderError } from '../http.js';
-import { crearUsuarioEnTenant, restablecerContrasena } from './usuarios.service.js';
+import {
+  crearUsuarioEnTenant,
+  listarUsuariosDelTenant,
+  restablecerContrasena,
+} from './usuarios.service.js';
 
 const PATRON_UUID =
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
@@ -52,10 +56,33 @@ const esquemaRestablecer = {
  * Un super-admin EN PLATAFORMA (empresaId=null) queda fuera; si ENTRÓ a una empresa vía
  * cambiar-empresa, `autorizar` lo deja pasar y opera en ESA empresa (soporte §4.4).
  *
+ *   GET  /usuarios                                    -> 200 (listado del tenant)
  *   POST /usuarios                                    -> 201 (alta con membresía)
  *   POST /usuarios/:usuarioId/restablecer-contrasena  -> 204 (contraseña temporal)
  */
 export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
+  // Listar los usuarios del tenant (los de membresía en la empresa del token). Las
+  // cuentas de plataforma NO aparecen (invisibles en el tenant, anti-enumeración).
+  app.get(
+    '/usuarios',
+    { preHandler: [app.autenticar, app.autorizar('administrador')] },
+    async (request, reply) => {
+      try {
+        // empresaId SIEMPRE del token (request.user), NUNCA de query/body.
+        const { empresaId } = request.user;
+        if (empresaId === null) {
+          // Defensa en profundidad (misma que el alta): `autorizar` ya exige empresa
+          // activa. Inalcanzable en la práctica.
+          throw new ErrorAutorizacion();
+        }
+        const usuarios = await listarUsuariosDelTenant(empresaId);
+        return await reply.code(200).send(usuarios);
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
   app.post<{
     Body: { nombre: string; email: string; password: string; rol: 'administrador' | 'empleado' };
   }>(
