@@ -197,3 +197,14 @@ export function useAuth(): ValorContextoAuth {
   }
   return contexto;
 }
+
+/**
+ * Variante TOLERANTE de useAuth: devuelve null si no hay proveedor en vez de lanzar.
+ * Para componentes que solo AJUSTAN su UI según el usuario (p. ej. mostrar u ocultar
+ * un enlace por rol) y cuyos tests los montan sueltos sin <ProveedorAuth>: sin
+ * proveedor simplemente no muestran el extra. NO usarla donde la sesión sea
+ * imprescindible — ahí va useAuth, que falla fuerte.
+ */
+export function useAuthOpcional(): ValorContextoAuth | null {
+  return useContext(ContextoAuth);
+}

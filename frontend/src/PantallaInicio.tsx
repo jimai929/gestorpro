@@ -69,6 +69,15 @@ export function PantallaInicio() {
               <Link to="/kioscos" className={styles.enlaceModulo}>
                 {t('nav.kioscos')} →
               </Link>
+              {/* Gestión de usuarios: solo admin (o super-admin DENTRO de una empresa:
+                  en plataforma, empresaId null, el backend responde 403 — sería un
+                  enlace muerto). Solo UI: la frontera real es el backend. */}
+              {usuario.empresaId !== null &&
+                (usuario.rol === 'administrador' || usuario.esSuperAdmin) && (
+                  <Link to="/usuarios" className={styles.enlaceModulo}>
+                    {t('nav.usuarios')} →
+                  </Link>
+                )}
             </div>
           </div>
 

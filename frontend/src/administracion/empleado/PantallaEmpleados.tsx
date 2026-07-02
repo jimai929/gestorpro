@@ -17,6 +17,7 @@ import QRCode from 'qrcode';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useAuthOpcional } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioEmpleado } from './FormularioEmpleado';
 import { obtenerSedes } from '../sedes/servicioSedes';
@@ -38,6 +39,14 @@ interface EstadoQr {
 
 export function PantallaEmpleados() {
   const { t } = useTraduccion();
+  // GET /usuarios exige administrador incluso para LEER (a diferencia del resto de la
+  // nav): el enlace se oculta a quien solo vería un 403. Hook tolerante: sin proveedor
+  // (tests de la pantalla) simplemente no se muestra. La frontera real es el backend.
+  const usuarioSesion = useAuthOpcional()?.usuario ?? null;
+  const puedeGestionarUsuarios =
+    usuarioSesion !== null &&
+    usuarioSesion.empresaId !== null &&
+    (usuarioSesion.rol === 'administrador' || usuarioSesion.esSuperAdmin);
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [sedes, setSedes] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(true);
@@ -230,6 +239,9 @@ export function PantallaEmpleados() {
           <NavLink to="/sedes" className={claseNav}>{t('nav.sedes')}</NavLink>
           <NavLink to="/empleados" className={claseNav}>{t('nav.empleados')}</NavLink>
           <NavLink to="/kioscos" className={claseNav}>{t('nav.kioscos')}</NavLink>
+          {puedeGestionarUsuarios && (
+            <NavLink to="/usuarios" className={claseNav}>{t('nav.usuarios')}</NavLink>
+          )}
         </nav>
 
         <div className={styles.encabezado}>

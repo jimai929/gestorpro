@@ -15,6 +15,7 @@ import { PantallaCuentasPorPagar, PantallaProveedores } from './finanzas/cuentas
 import { PantallaSedes } from './administracion/sedes';
 import { PantallaEmpleados } from './administracion/empleado';
 import { PantallaKioscos } from './administracion/kioscos';
+import { PantallaUsuarios } from './administracion/usuarios';
 import { PantallaGastos } from './finanzas/gastos';
 import { PantallaDashboard } from './finanzas/dashboard';
 import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
@@ -35,6 +36,7 @@ import { PantallaCobros } from './asistencia/cobro/PantallaCobros';
  *   /dashboard             → Dashboard de ganancias (protegida)
  *   /sedes                 → Administración de sedes (protegida — admin para escribir)
  *   /empleados             → Administración de empleados (protegida — admin para escribir)
+ *   /usuarios              → Gestión de usuarios del tenant (protegida — solo admin, lo refuerza el backend)
  *   /asistencia/revision   → Cola de revisión de fichajes (protegida — supervisor/admin)
  *   /asistencia/jornadas   → Consulta y corrección de jornadas (protegida — supervisor/admin)
  *   /asistencia/cobros     → Cobro anticipado de horas extra (protegida)
@@ -84,6 +86,10 @@ const router = createBrowserRouter([
       {
         path: '/kioscos',
         element: <PantallaKioscos />,
+      },
+      {
+        path: '/usuarios',
+        element: <PantallaUsuarios />,
       },
       // ── Asistencia (Fases 4-6) ──
       {

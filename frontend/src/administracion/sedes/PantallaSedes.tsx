@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useAuthOpcional } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioSede } from './FormularioSede';
 import { obtenerSedes, editarSede } from './servicioSedes';
@@ -22,6 +23,15 @@ import styles from './PantallaSedes.module.css';
 
 export function PantallaSedes() {
   const { t } = useTraduccion();
+  // A diferencia del resto de la nav (legible por todo rol), GET /usuarios exige
+  // administrador incluso para LEER: el enlace se oculta a quien solo vería un 403.
+  // Gating solo de UI (la frontera real es el backend); hook tolerante: sin proveedor
+  // (tests de la pantalla) simplemente no se muestra.
+  const usuarioSesion = useAuthOpcional()?.usuario ?? null;
+  const puedeGestionarUsuarios =
+    usuarioSesion !== null &&
+    usuarioSesion.empresaId !== null &&
+    (usuarioSesion.rol === 'administrador' || usuarioSesion.esSuperAdmin);
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -87,6 +97,11 @@ export function PantallaSedes() {
           <NavLink to="/kioscos" className={claseNav}>
             {t('nav.kioscos')}
           </NavLink>
+          {puedeGestionarUsuarios && (
+            <NavLink to="/usuarios" className={claseNav}>
+              {t('nav.usuarios')}
+            </NavLink>
+          )}
         </nav>
 
         {/* Encabezado */}
