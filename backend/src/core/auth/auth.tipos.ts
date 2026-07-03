@@ -1,5 +1,15 @@
 import type { Rol } from '../../generated/prisma/enums.js';
 
+/**
+ * Membresía visible para el front (SOLO de empresas activas): alimenta el selector
+ * de empresa de la barra. `rol` es el de esa membresía (per-tenant).
+ */
+export interface MembresiaPublica {
+  empresaId: string;
+  empresaNombre: string;
+  rol: Rol;
+}
+
 /** Datos del usuario que viajan al cliente. Sin hash ni secretos. */
 export interface UsuarioPublico {
   id: string;
@@ -22,6 +32,13 @@ export interface UsuarioPublico {
   esSuperAdmin: boolean;
   /** true si la cuenta tiene una contraseña temporal y debe rotarla antes de operar. */
   debeCambiarContrasena: boolean;
+  /**
+   * Membresías del usuario en empresas ACTIVAS (orden: predeterminada primero). El
+   * front muestra el selector de empresa solo con más de una. Super-admin: [] (su
+   * "selector" es la pantalla de plataforma). SOLO para UI: el cambio real pasa por
+   * POST /auth/cambiar-empresa, que valida contra la BD.
+   */
+  membresias: MembresiaPublica[];
 }
 
 /** Contenido firmado dentro del access token. No lleva datos sensibles. */

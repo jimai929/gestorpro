@@ -361,6 +361,41 @@ verifica en CADA request autenticada, además del JWT:
   extra) — un tenant dado de baja deja de aceptar fichajes de inmediato, y al
   reactivarlo el mismo token de dispositivo vuelve a operar sin reconfigurar.
 
+### Selector multi-membresía (cierre de Fase 4c) ✅ DECIDIDO (2026-07-03)
+
+Cierra el último sub-item de la Fase 4c. Alcance deliberado: NO se crea ningún
+endpoint que añada membresías a usuarios existentes (eso es una feature futura
+de plataforma con su precondición TOCTOU ya registrada arriba); este slice hace
+usable el estado multi-membresía que el modelo ya soporta.
+
+- **Fallback sobre empresas ACTIVAS SOLO en LOGIN** (`resolverContextoActivo`):
+  si la predeterminada cayó, el login entra a la SIGUIENTE activa — cierra el
+  lockout de `BUGS_PREEXISTENTES.md`. El REFRESH deliberadamente NO hace
+  fallback (hallazgo del revisor): si conmutara de empresa en silencio, el
+  retry-on-401 del cliente re-ejecutaría la mutación EN VUELO contra la otra
+  empresa (dinero al tenant equivocado, invisible) — el refresh falla (401),
+  el usuario re-loguea y el login (acto explícito y visible) hace el fallback.
+  Un usuario cuya ÚNICA empresa cayó sigue en 401 (nada inventa acceso). De
+  paso se eliminó la segunda consulta (estado/nombre de la empresa viajan en
+  el include de las membresías).
+- **`UsuarioPublico.membresias`** (login, /me y cambiar-empresa): SOLO empresas
+  activas, orden predeterminada-primero, forma `{empresaId, empresaNombre, rol}`.
+  Super-admin: `[]` (invariante §4.2; su "selector" es la plataforma). SOLO para
+  UI: el cambio real lo valida `POST /auth/cambiar-empresa` contra la BD.
+- **Selector en la barra** (LayoutPrincipal): la etiqueta de empresa se vuelve
+  un `<select>` solo con >1 membresía; al elegir, `cambiarEmpresa` + navegar a
+  `/` (la pantalla actual puede no existir bajo el rol de la otra empresa).
+  Error visible en la barra; en fallo el selector conserva la empresa real.
+- **Carreras del cliente en `cambiarEmpresa` — cobertura HONESTA**: (1) espera
+  al refresco EN CURSO antes del POST (sin disparar uno nuevo); (2) tras el
+  POST espera de nuevo y RE-IMPONE el token del cambio (cubre un refresh que
+  arrancó durante el POST); un refresh posterior ya lee la sesión con la
+  empresa nueva persistida → token equivalente, inofensivo. (3) GUARD de
+  versión de sesión en `ContextoAuth`: login/logout/cambio la incrementan; el
+  /me best-effort del refresh y un cambio en vuelo solo aplican su resultado
+  si la versión no cambió — un /me tardío no pisa al usuario recién cambiado
+  y un logout durante el cambio no resucita la sesión. Todo con tests.
+
 ## Pendientes abiertos
 
 > El código de las 7 fases (24 tareas) está construido y probado. Los puntos de

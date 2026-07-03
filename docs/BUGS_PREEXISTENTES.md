@@ -62,4 +62,10 @@ qué un cambio "menor" formó parte de otra parte del trabajo.
   que quedaba (usar el access token residual ≤15 min para `cambiar-empresa`
   hacia la empresa B activa). El lockout de este estado manual ahora es total
   hasta intervención en BD — una razón más para resolverlo con el selector.
-- **Estado:** PENDIENTE (documentado; sin camino de producto que lo dispare).
+- **Estado: RESUELTO (2026-07-03, slice del selector multi-membresía).**
+  `resolverContextoActivo` hace FALLBACK a la siguiente membresía activa en el
+  LOGIN (acto explícito): la baja de la predeterminada ya no bloquea al usuario
+  de sus otras empresas. El REFRESH deliberadamente NO conmuta (falla y fuerza
+  re-login: un fallback ahí dejaría que el retry-on-401 re-ejecutara mutaciones
+  contra la otra empresa — ver DECISIONES "Selector multi-membresía"). Probado
+  en `backend/test/core/multi-membresia.test.ts`.

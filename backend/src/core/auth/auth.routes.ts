@@ -136,36 +136,58 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.get('/me', { preHandler: app.autenticar }, async (request, reply) => {
-    const usuario = await prisma.usuario.findUnique({
-      where: { id: request.user.sub },
-    });
-    if (!usuario || !usuario.activo) {
-      return reply.code(401).send({ mensaje: 'No autenticado.' });
+    // try/catch propio (mismo saneo que los checks I5 del plugin): sin él, un hipo
+    // de la BD escaparía al error handler POR DEFECTO de Fastify, que responde 500
+    // con el mensaje crudo de Prisma (host/puerto internos).
+    try {
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: request.user.sub },
+      });
+      if (!usuario || !usuario.activo) {
+        return await reply.code(401).send({ mensaje: 'No autenticado.' });
+      }
+      // El NOMBRE de la empresa activa NO viaja en el token (se mantiene pequeño y sin datos
+      // que puedan quedar stale): se resuelve aquí desde el `empresaId` del token. Super-admin
+      // (empresaId=null) → sin empresa activa → empresaNombre=null, sin consulta. `empresa` no
+      // tiene RLS, así que este findUnique no requiere contexto de tenant.
+      const empresa = request.user.empresaId
+        ? await prisma.empresa.findUnique({
+            where: { id: request.user.empresaId },
+            select: { nombre: true },
+          })
+        : null;
+      // Membresías ACTIVAS para el selector del front (misma forma que en login).
+      // /me es el punto de re-sincronización tras el refresh-on-401: sin esto, el
+      // selector desaparecería tras cualquier renovación de token. Super-admin: []
+      // (invariante §4.2, sin membresías), sin consulta extra.
+      const membresias = request.user.esSuperAdmin
+        ? []
+        : (
+            await prisma.membresia.findMany({
+              where: { usuarioId: request.user.sub, empresa: { activo: true } },
+              orderBy: [{ predeterminada: 'desc' }, { creadoEn: 'asc' }],
+              include: { empresa: { select: { nombre: true } } },
+            })
+          ).map((m) => ({ empresaId: m.empresaId, empresaNombre: m.empresa.nombre, rol: m.rol }));
+      // rol/empresaId/esSuperAdmin salen del TOKEN (contexto activo resuelto en
+      // login/refresh), NO del registro global: así /me coincide con el contrato de
+      // /login (UsuarioPublico) y refleja la empresa ACTIVA, no el rol global legado
+      // (que diferiría del de la membresía en un usuario multi-empresa).
+      return await reply.code(200).send({
+        id: usuario.id,
+        nombre: usuario.nombre,
+        email: usuario.email,
+        rol: request.user.rol,
+        empresaId: request.user.empresaId,
+        empresaNombre: empresa?.nombre ?? null,
+        esSuperAdmin: request.user.esSuperAdmin,
+        debeCambiarContrasena: request.user.debeCambiarContrasena ?? false,
+        membresias,
+      });
+    } catch (error) {
+      request.log.error(error, 'fallo de BD en GET /auth/me');
+      return reply.code(500).send({ mensaje: 'Error interno.' });
     }
-    // El NOMBRE de la empresa activa NO viaja en el token (se mantiene pequeño y sin datos
-    // que puedan quedar stale): se resuelve aquí desde el `empresaId` del token. Super-admin
-    // (empresaId=null) → sin empresa activa → empresaNombre=null, sin consulta. `empresa` no
-    // tiene RLS, así que este findUnique no requiere contexto de tenant.
-    const empresa = request.user.empresaId
-      ? await prisma.empresa.findUnique({
-          where: { id: request.user.empresaId },
-          select: { nombre: true },
-        })
-      : null;
-    // rol/empresaId/esSuperAdmin salen del TOKEN (contexto activo resuelto en
-    // login/refresh), NO del registro global: así /me coincide con el contrato de
-    // /login (UsuarioPublico) y refleja la empresa ACTIVA, no el rol global legado
-    // (que diferiría del de la membresía en un usuario multi-empresa).
-    return reply.code(200).send({
-      id: usuario.id,
-      nombre: usuario.nombre,
-      email: usuario.email,
-      rol: request.user.rol,
-      empresaId: request.user.empresaId,
-      empresaNombre: empresa?.nombre ?? null,
-      esSuperAdmin: request.user.esSuperAdmin,
-      debeCambiarContrasena: request.user.debeCambiarContrasena ?? false,
-    });
   });
 
   // Cambio de empresa ACTIVA (Fase 4c, §3.5). `empresaId` SÍ viene en el body, pero

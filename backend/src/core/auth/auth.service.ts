@@ -6,6 +6,7 @@ import { txEmpresa } from '../tenant/contexto.js';
 import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
 import { Rol } from '../../generated/prisma/enums.js';
 import type {
+  MembresiaPublica,
   PayloadAccess,
   ResultadoCambioEmpresa,
   ResultadoLogin,
@@ -32,37 +33,77 @@ interface ContextoActivo {
   /** Nombre de la empresa activa (para el front); null si no hay empresa (super-admin). */
   empresaNombre: string | null;
   rol: Rol;
+  /** Membresías en empresas ACTIVAS (selector del front). Super-admin: []. */
+  membresias: MembresiaPublica[];
 }
 
 /**
  * Resuelve la empresa activa y el rol efectivo de un usuario, en el servidor:
+ * - Solo cuentan las membresías de empresas ACTIVAS para el selector; la ELECCIÓN
+ *   del contexto depende de `conFallback`:
+ *   · LOGIN (`conFallback=true`): si la predeterminada cayó, se sigue con la
+ *     SIGUIENTE activa — la baja de un tenant ya no bloquea al usuario de sus
+ *     otras empresas (cierra el lockout de BUGS_PREEXISTENTES). El login es un
+ *     acto EXPLÍCITO del usuario: conmutar aquí es visible y esperable.
+ *   · REFRESH (`conFallback=false`): NADA de conmutación silenciosa. Si la empresa
+ *     de la sesión cayó, el refresh FALLA (401) y el usuario re-loguea — un
+ *     fallback aquí dejaría que el retry-on-401 del cliente RE-EJECUTARA una
+ *     mutación en vuelo contra OTRA empresa (dinero al tenant equivocado,
+ *     hallazgo del revisor). Fail-closed: fallo visible > conmutación invisible.
  * - Prefiere `preferidaEmpresaId` si el usuario tiene membresía ahí (lo usa el
- *   refresh para conservar la empresa activa de la sesión); si no, la membresía
- *   marcada `predeterminada` (orden: predeterminada primero, luego la más antigua).
+ *   refresh para conservar la empresa de la sesión); si no, la membresía marcada
+ *   `predeterminada` (orden: predeterminada primero, luego la más antigua).
  * - Super-admin sin membresía válida: `empresaId = null`, `rol = empleado`
  *   (mínimo privilegio; su poder viene de `esSuperAdmin`, no del rol).
  * - Super-admin con `preferidaEmpresaId` (entró a esa empresa vía cambiar-empresa,
  *   §4.4 modo 1): se honra AUNQUE no tenga membresía —nunca la tiene—, para que la
  *   sesión de soporte sobreviva al refresh; mismo mínimo privilegio (`empleado`).
- * - Usuario normal sin membresía válida: NO puede operar → `ErrorAutenticacion`.
- * Valida que la empresa activa esté `activo`: a un tenant dado de baja no se entra.
+ * - Usuario normal sin contexto elegible: NO puede operar → `ErrorAutenticacion`.
+ * Devuelve además las membresías activas (para el selector del front).
  */
 async function resolverContextoActivo(
   usuario: { id: string; esSuperAdmin: boolean },
   preferidaEmpresaId?: string | null,
+  conFallback = false,
 ): Promise<ContextoActivo> {
   const membresias = await prisma.membresia.findMany({
     where: { usuarioId: usuario.id },
     orderBy: [{ predeterminada: 'desc' }, { creadoEn: 'asc' }],
+    // El estado y el nombre de la empresa vienen en el MISMO include: se elimina la
+    // segunda consulta que hacía falta antes para validar `activo`.
+    include: { empresa: { select: { nombre: true, activo: true } } },
   });
 
-  const activa =
-    (preferidaEmpresaId != null
-      ? membresias.find((m) => m.empresaId === preferidaEmpresaId)
-      : undefined) ?? membresias[0];
+  // El selector solo muestra empresas ACTIVAS.
+  const candidatas = membresias.filter((m) => m.empresa.activo);
+  const publicas: MembresiaPublica[] = candidatas.map((m) => ({
+    empresaId: m.empresaId,
+    empresaNombre: m.empresa.nombre,
+    rol: m.rol,
+  }));
+
+  let activa: (typeof membresias)[number] | undefined;
+  if (conFallback) {
+    // LOGIN: se elige entre las ACTIVAS (la preferida si sirve; si no, la primera).
+    activa =
+      (preferidaEmpresaId != null
+        ? candidatas.find((m) => m.empresaId === preferidaEmpresaId)
+        : undefined) ?? candidatas[0];
+  } else {
+    // REFRESH: la elegida es LA DE SIEMPRE (preferida de la sesión o predeterminada);
+    // si SU empresa está inactiva NO se conmuta a otra — se cae a sinTenant (401 para
+    // el usuario normal, que re-loguea y AHÍ sí obtiene el fallback, ya visible).
+    const elegida =
+      (preferidaEmpresaId != null
+        ? membresias.find((m) => m.empresaId === preferidaEmpresaId)
+        : undefined) ?? membresias[0];
+    activa = elegida?.empresa.activo ? elegida : undefined;
+  }
 
   const sinTenant = (): ContextoActivo => {
-    if (usuario.esSuperAdmin) return { empresaId: null, empresaNombre: null, rol: Rol.empleado };
+    if (usuario.esSuperAdmin) {
+      return { empresaId: null, empresaNombre: null, rol: Rol.empleado, membresias: [] };
+    }
     throw new ErrorAutenticacion();
   };
 
@@ -75,21 +116,23 @@ async function resolverContextoActivo(
         where: { id: preferidaEmpresaId },
       });
       if (preferida?.activo) {
-        return { empresaId: preferida.id, empresaNombre: preferida.nombre, rol: Rol.empleado };
+        return {
+          empresaId: preferida.id,
+          empresaNombre: preferida.nombre,
+          rol: Rol.empleado,
+          membresias: [],
+        };
       }
     }
     return sinTenant();
   }
 
-  const empresa = await prisma.empresa.findUnique({
-    where: { id: activa.empresaId },
-  });
-  // Empresa inexistente o dada de baja (`activo=false`): no se entra a ese tenant.
-  if (!empresa || !empresa.activo) return sinTenant();
-
-  // Se REUTILIZA el `empresa` ya consultado arriba (para validar `activo`): el nombre
-  // está a mano, sin una segunda consulta a la BD.
-  return { empresaId: activa.empresaId, empresaNombre: empresa.nombre, rol: activa.rol };
+  return {
+    empresaId: activa.empresaId,
+    empresaNombre: activa.empresa.nombre,
+    rol: activa.rol,
+    membresias: publicas,
+  };
 }
 
 function aUsuarioPublico(
@@ -111,6 +154,7 @@ function aUsuarioPublico(
     empresaNombre: contexto.empresaNombre,
     esSuperAdmin: usuario.esSuperAdmin,
     debeCambiarContrasena: usuario.debeCambiarContrasena,
+    membresias: contexto.membresias,
   };
 }
 
@@ -139,8 +183,9 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         throw new ErrorAutenticacion();
       }
 
-      // Empresa activa y rol efectivo SIEMPRE del servidor (membresías).
-      const contexto = await resolverContextoActivo(usuario);
+      // Empresa activa y rol efectivo SIEMPRE del servidor (membresías). Con
+      // fallback: el login es explícito, conmutar a otra empresa activa es visible.
+      const contexto = await resolverContextoActivo(usuario, null, true);
 
       const accessToken = firmarAccess({
         sub: usuario.id,
@@ -190,8 +235,10 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
 
       // Re-resuelve el contexto conservando la empresa activa de la sesión si el
       // usuario aún tiene membresía ahí; re-lee el rol (refleja cambios) y valida
-      // `activo`. Si perdió todas las membresías (revocación), un usuario normal
-      // deja de poder refrescar — la revocación surte efecto al siguiente refresh.
+      // `activo`. SIN fallback (a propósito): si la empresa de la sesión cayó, el
+      // refresh FALLA en vez de conmutar en silencio a otra — el retry-on-401 del
+      // cliente re-ejecutaría la petición en vuelo contra la empresa equivocada.
+      // El usuario re-loguea y el LOGIN (con fallback) lo lleva a su otra empresa.
       const contexto = await resolverContextoActivo(
         sesion.usuario,
         sesion.empresaIdActiva,
@@ -237,6 +284,19 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         throw new ErrorAutenticacion();
       }
 
+      // Membresías ACTIVAS para el UsuarioPublico de la respuesta: el selector del
+      // front debe seguir mostrando TODAS las empresas propias tras el cambio.
+      // Super-admin: [] (invariante §4.2), sin consulta.
+      const membresiasPublicas: MembresiaPublica[] = usuario.esSuperAdmin
+        ? []
+        : (
+            await prisma.membresia.findMany({
+              where: { usuarioId, empresa: { activo: true } },
+              orderBy: [{ predeterminada: 'desc' }, { creadoEn: 'asc' }],
+              include: { empresa: { select: { nombre: true } } },
+            })
+          ).map((m) => ({ empresaId: m.empresaId, empresaNombre: m.empresa.nombre, rol: m.rol }));
+
       let contexto: ContextoActivo;
       if (empresaIdDestino === null) {
         // "Volver a plataforma": solo super-admin (un usuario normal SIEMPRE opera
@@ -244,7 +304,7 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         if (!usuario.esSuperAdmin) {
           throw new ErrorAutorizacion('No tienes acceso a esa empresa.');
         }
-        contexto = { empresaId: null, empresaNombre: null, rol: Rol.empleado };
+        contexto = { empresaId: null, empresaNombre: null, rol: Rol.empleado, membresias: [] };
       } else {
         const membresia = await prisma.membresia.findUnique({
           where: { usuarioId_empresaId: { usuarioId, empresaId: empresaIdDestino } },
@@ -264,6 +324,7 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
           empresaNombre: empresa.nombre,
           // Super-admin sin membresía: mínimo privilegio (su poder viene de esSuperAdmin).
           rol: membresia?.rol ?? Rol.empleado,
+          membresias: membresiasPublicas,
         };
       }
 
