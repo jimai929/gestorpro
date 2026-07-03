@@ -4,14 +4,14 @@
  * El acceso lo controla <RutaSoloPlataforma> (UI) y el backend (soloPlataforma).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { LayoutPrincipal } from '../core/ui/LayoutPrincipal';
 import { useAuth } from '../core/auth/ContextoAuth';
 import { useTraduccion } from '../core/i18n/ContextoIdioma';
 import { FormularioCrearEmpresa } from './FormularioCrearEmpresa';
 import { ListaEmpresas } from './ListaEmpresas';
-import { listarEmpresasApi } from './servicioPlataforma';
+import { cambiarEstadoEmpresaApi, listarEmpresasApi } from './servicioPlataforma';
 import type { EmpresaListada } from './tipos';
 import styles from './PantallaPlataforma.module.css';
 
@@ -25,19 +25,31 @@ export function PantallaPlataforma() {
   const [error, setError] = useState<string | null>(null);
   const [entrandoId, setEntrandoId] = useState<string | null>(null);
   const [errorEntrar, setErrorEntrar] = useState<string | null>(null);
+  const [actualizandoId, setActualizandoId] = useState<string | null>(null);
+
+  // Guardia contra respuestas fuera de orden (mismo patrón que PantallaUsuarios): solo
+  // la recarga MÁS RECIENTE escribe estado. Sin esto, una recarga vieja que resolviera
+  // tras el refresh post-PATCH pintaría "Activa" una empresa recién desactivada.
+  const versionCarga = useRef(0);
 
   const recargar = useCallback(async () => {
+    const version = ++versionCarga.current;
     setCargando(true);
     setError(null);
-    // También el error de un "Entrar" fallido: recargar deja el estado visible fresco.
+    // También el error de un "Entrar" o cambio de estado fallido: recargar refresca todo.
     setErrorEntrar(null);
     try {
-      setEmpresas(await listarEmpresasApi());
+      const lista = await listarEmpresasApi();
+      if (version !== versionCarga.current) return; // llegó tarde: hay una carga más nueva
+      setEmpresas(lista);
     } catch (err) {
+      if (version !== versionCarga.current) return;
       // Error visible (mismo criterio que las mutaciones): muestra el mensaje del backend.
       setError(err instanceof Error ? err.message : t('plataforma.listaError'));
     } finally {
-      setCargando(false);
+      if (version === versionCarga.current) {
+        setCargando(false);
+      }
     }
   }, [t]);
 
@@ -62,6 +74,24 @@ export function PantallaPlataforma() {
     [cambiarEmpresa, navigate, t],
   );
 
+  // Baja / reactivación lógica del tenant. Error visible; solo se recarga tras el
+  // éxito real del backend (que además expulsa las sesiones del tenant al desactivar).
+  const alternarActivo = useCallback(
+    async (empresa: EmpresaListada) => {
+      setActualizandoId(empresa.id);
+      setErrorEntrar(null);
+      try {
+        await cambiarEstadoEmpresaApi(empresa.id, !empresa.activo);
+        await recargar();
+      } catch (err) {
+        setErrorEntrar(err instanceof Error ? err.message : t('plataforma.errActualizar'));
+      } finally {
+        setActualizandoId(null);
+      }
+    },
+    [recargar, t],
+  );
+
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
@@ -78,11 +108,13 @@ export function PantallaPlataforma() {
         <ListaEmpresas
           empresas={empresas}
           cargando={cargando}
-          // Un solo hueco de error visible: el de la carga o el del "Entrar" denegado.
+          // Un solo hueco de error visible: carga, "Entrar" denegado o cambio de estado.
           error={error ?? errorEntrar}
           onReintentar={() => void recargar()}
           onEntrar={(id) => void manejarEntrar(id)}
           entrandoId={entrandoId}
+          onAlternarActivo={(e) => void alternarActivo(e)}
+          actualizandoId={actualizandoId}
         />
       </div>
     </LayoutPrincipal>

@@ -4,6 +4,7 @@
  * estados de carga, error visible y vacío.
  */
 
+import { useState } from 'react';
 import { Boton } from '../core/ui/Boton';
 import { useTraduccion } from '../core/i18n/ContextoIdioma';
 import type { EmpresaListada } from './tipos';
@@ -18,6 +19,10 @@ interface PropiedadesLista {
   onEntrar: (empresaId: string) => void;
   /** Empresa cuyo "Entrar" está en curso (deshabilita los botones mientras tanto). */
   entrandoId?: string | null;
+  /** Baja / reactivación lógica del tenant. El padre llama al backend y recarga. */
+  onAlternarActivo: (empresa: EmpresaListada) => void;
+  /** Empresa cuyo cambio de estado está en curso (congela las acciones). */
+  actualizandoId?: string | null;
 }
 
 export function ListaEmpresas({
@@ -27,14 +32,45 @@ export function ListaEmpresas({
   onReintentar,
   onEntrar,
   entrandoId = null,
+  onAlternarActivo,
+  actualizandoId = null,
 }: PropiedadesLista) {
   const { t } = useTraduccion();
+  // Cualquier acción en vuelo (entrar, cambiar estado) O una recarga en curso congela
+  // TODA la tabla: un solo slot de estado en el padre no soporta mutaciones
+  // concurrentes, y disparar un toggle sobre una lista a medio recargar mezclaría
+  // respuestas fuera de orden.
+  const accionEnVuelo = entrandoId !== null || actualizandoId !== null || cargando;
+
+  // DESACTIVAR exige dos clics (armar → confirmar): expulsa al tenant COMPLETO y el
+  // botón vive pegado a "Entrar" — un misclick no debe dar de baja una empresa.
+  // Reactivar no arma (restaurar acceso no es destructivo).
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
+  const manejarToggle = (e: EmpresaListada) => {
+    if (!e.activo) {
+      onAlternarActivo(e); // reactivar: directo
+      return;
+    }
+    if (confirmandoId === e.id) {
+      setConfirmandoId(null);
+      onAlternarActivo(e); // segundo clic: confirmado
+    } else {
+      setConfirmandoId(e.id); // primer clic: solo arma
+    }
+  };
 
   return (
     <section className={styles.lista}>
       <div className={styles.encabezado}>
         <h2 className={styles.titulo}>{t('plataforma.listaTitulo')}</h2>
-        <Boton variante="secundario" type="button" onClick={onReintentar} disabled={cargando}>
+        <Boton
+          variante="secundario"
+          type="button"
+          onClick={onReintentar}
+          // También congelado con una mutación en vuelo: una recarga lanzada en
+          // paralelo podría resolver ANTES que el PATCH y pintar el estado viejo.
+          disabled={accionEnVuelo}
+        >
           {t('comun.actualizar')}
         </Boton>
       </div>
@@ -71,16 +107,30 @@ export function ListaEmpresas({
                 <td>{e.adminEmail ?? '—'}</td>
                 <td>{new Date(e.creadoEn).toLocaleDateString()}</td>
                 <td>{e.activo ? t('plataforma.estadoActiva') : t('plataforma.estadoInactiva')}</td>
-                <td>
+                <td className={styles.celdaAcciones}>
                   {/* A una empresa dada de baja no se entra (el backend también lo veta). */}
                   <Boton
                     variante="secundario"
                     type="button"
                     onClick={() => onEntrar(e.id)}
-                    disabled={!e.activo || entrandoId !== null}
+                    disabled={!e.activo || accionEnVuelo}
                     cargando={entrandoId === e.id}
                   >
                     {t('plataforma.entrar')}
+                  </Boton>
+                  {/* Baja / reactivación lógica (nunca se borra el tenant). */}
+                  <Boton
+                    variante={e.activo ? 'peligro' : 'secundario'}
+                    type="button"
+                    onClick={() => manejarToggle(e)}
+                    disabled={accionEnVuelo}
+                    cargando={actualizandoId === e.id}
+                  >
+                    {e.activo
+                      ? confirmandoId === e.id
+                        ? t('plataforma.confirmarBaja')
+                        : t('plataforma.desactivar')
+                      : t('plataforma.reactivar')}
                   </Boton>
                 </td>
               </tr>

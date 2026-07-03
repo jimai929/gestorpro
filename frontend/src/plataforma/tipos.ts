@@ -31,3 +31,11 @@ export interface EmpresaListada {
   creadoEn: string;
   adminEmail: string | null;
 }
+
+/** Respuesta de PATCH /empresas/:id (baja/reactivación lógica del tenant). */
+export interface EmpresaEstado {
+  id: string;
+  nombre: string;
+  slug: string;
+  activo: boolean;
+}

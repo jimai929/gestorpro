@@ -59,6 +59,12 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.errEntrar': 'No se pudo entrar a la empresa.',
     'plataforma.volver': 'Volver a plataforma',
     'plataforma.errVolver': 'No se pudo volver a la plataforma.',
+
+    // Baja / reactivación lógica del tenant
+    'plataforma.desactivar': 'Desactivar',
+    'plataforma.confirmarBaja': '¿Confirmar baja?',
+    'plataforma.reactivar': 'Reactivar',
+    'plataforma.errActualizar': 'No se pudo actualizar la empresa.',
   },
   en: {
     'inicio.plataforma': 'Platform',
@@ -107,6 +113,11 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.errEntrar': 'Could not enter the company.',
     'plataforma.volver': 'Back to platform',
     'plataforma.errVolver': 'Could not return to the platform.',
+
+    'plataforma.desactivar': 'Deactivate',
+    'plataforma.confirmarBaja': 'Confirm deactivation?',
+    'plataforma.reactivar': 'Reactivate',
+    'plataforma.errActualizar': 'Could not update the company.',
   },
   zh: {
     'inicio.plataforma': '平台',
@@ -153,5 +164,10 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.errEntrar': '无法进入该公司。',
     'plataforma.volver': '返回平台',
     'plataforma.errVolver': '无法返回平台。',
+
+    'plataforma.desactivar': '停用',
+    'plataforma.confirmarBaja': '确认停用？',
+    'plataforma.reactivar': '重新启用',
+    'plataforma.errActualizar': '无法更新公司。',
   },
 };

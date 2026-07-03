@@ -65,3 +65,10 @@
 .tabla tr:last-child td {
   border-bottom: none;
 }
+
+/* Celda de acciones: dos botones (Entrar + Desactivar/Reactivar) con separación. */
+.celdaAcciones {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

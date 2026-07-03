@@ -33,6 +33,7 @@ describe('ListaEmpresas', () => {
         error={null}
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
       />,
     );
     expect(screen.getByText('Acme Panamá')).toBeTruthy();
@@ -50,6 +51,7 @@ describe('ListaEmpresas', () => {
         error={null}
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
       />,
     );
     expect(screen.getByText('Cargando…')).toBeTruthy();
@@ -63,6 +65,7 @@ describe('ListaEmpresas', () => {
         error="Falló la carga"
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
       />,
     );
     expect(screen.getByText('Falló la carga')).toBeTruthy();
@@ -76,6 +79,7 @@ describe('ListaEmpresas', () => {
         error={null}
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
       />,
     );
     expect(screen.getByText('Aún no hay empresas. Crea la primera arriba.')).toBeTruthy();
@@ -91,6 +95,7 @@ describe('ListaEmpresas', () => {
         error={null}
         onReintentar={vi.fn()}
         onEntrar={onEntrar}
+        onAlternarActivo={vi.fn()}
       />,
     );
 
@@ -108,6 +113,7 @@ describe('ListaEmpresas', () => {
         error={null}
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
       />,
     );
     const botones = screen.getAllByRole('button', { name: 'Entrar' }) as HTMLButtonElement[];
@@ -123,10 +129,61 @@ describe('ListaEmpresas', () => {
         error={null}
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
         entrandoId="e1"
       />,
     );
     const botones = screen.getAllByRole('button', { name: 'Entrar' }) as HTMLButtonElement[];
     expect(botones.every((b) => b.disabled)).toBe(true);
+    // La acción de estado también queda congelada (un solo slot en el padre).
+    const estado = screen.getAllByRole('button', {
+      name: /Desactivar|Reactivar/,
+    }) as HTMLButtonElement[];
+    expect(estado.every((b) => b.disabled)).toBe(true);
+  });
+
+  it('"Desactivar" exige DOS clics (armar → confirmar); "Reactivar" es directo', async () => {
+    const onAlternarActivo = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ListaEmpresas
+        empresas={EMPRESAS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onEntrar={vi.fn()}
+        onAlternarActivo={onAlternarActivo}
+      />,
+    );
+    // Primer clic en Desactivar (Acme, activa): solo ARMA — un misclic junto a
+    // "Entrar" no debe dar de baja un tenant completo.
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
+    expect(onAlternarActivo).not.toHaveBeenCalled();
+    // Segundo clic (el botón ahora pide confirmación): ejecuta.
+    await user.click(screen.getByRole('button', { name: '¿Confirmar baja?' }));
+    expect(onAlternarActivo).toHaveBeenCalledWith(EMPRESAS[0]);
+    // Reactivar (Beta, inactiva): directo, restaurar acceso no es destructivo.
+    await user.click(screen.getByRole('button', { name: 'Reactivar' }));
+    expect(onAlternarActivo).toHaveBeenCalledWith(EMPRESAS[1]);
+  });
+
+  it('mientras un cambio de estado está en curso, TODAS las acciones quedan deshabilitadas', () => {
+    render(
+      <ListaEmpresas
+        empresas={EMPRESAS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        actualizandoId="e2"
+      />,
+    );
+    const entrar = screen.getAllByRole('button', { name: 'Entrar' }) as HTMLButtonElement[];
+    expect(entrar.every((b) => b.disabled)).toBe(true);
+    const estado = screen.getAllByRole('button', {
+      name: /Desactivar|Reactivar/,
+    }) as HTMLButtonElement[];
+    expect(estado.every((b) => b.disabled)).toBe(true);
   });
 });
