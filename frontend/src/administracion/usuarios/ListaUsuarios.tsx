@@ -18,7 +18,11 @@ interface PropiedadesLista {
   onReintentar: () => void;
   /** Abre el diálogo de restablecer contraseña para ese usuario. */
   onRestablecer: (usuario: UsuarioListado) => void;
-  /** Id del usuario de la sesión (su propia fila no ofrece "Restablecer"). */
+  /** Baja / reactivación lógica de la cuenta. El padre llama al backend y recarga. */
+  onAlternarActivo: (usuario: UsuarioListado) => void;
+  /** Usuario cuyo cambio de estado está en curso (deshabilita sus acciones). */
+  actualizandoId?: string | null;
+  /** Id del usuario de la sesión (su propia fila no ofrece acciones). */
   idActual: string | null;
 }
 
@@ -28,6 +32,8 @@ export function ListaUsuarios({
   error,
   onReintentar,
   onRestablecer,
+  onAlternarActivo,
+  actualizandoId = null,
   idActual,
 }: PropiedadesLista) {
   const { t } = useTraduccion();
@@ -85,19 +91,34 @@ export function ListaUsuarios({
                 <td className={styles.contacto}>{new Date(u.creadoEn).toLocaleDateString()}</td>
                 <td className={styles.colAccion}>
                   {u.id !== idActual ? (
-                    /* Cuenta desactivada: restablecerle la contraseña daría 204 pero el
-                       login la seguiría rechazando — sería un "éxito" engañoso. */
-                    <button
-                      type="button"
-                      className={styles.botonAccion}
-                      onClick={() => onRestablecer(u)}
-                      disabled={!u.activo}
-                      title={u.activo ? undefined : t('adm.usu.inactivoAyuda')}
-                    >
-                      {t('adm.usu.restablecer')}
-                    </button>
+                    <>
+                      {/* Cuenta desactivada: restablecerle la contraseña daría 204 pero
+                         el login la seguiría rechazando — sería un "éxito" engañoso. */}
+                      <button
+                        type="button"
+                        className={styles.botonAccion}
+                        onClick={() => onRestablecer(u)}
+                        // Con CUALQUIER actualización en vuelo se congela toda la tabla
+                        // (mismo criterio que ListaEmpresas): un solo slot de estado
+                        // actualizandoId/errorAccion no soporta mutaciones concurrentes.
+                        disabled={!u.activo || actualizandoId !== null}
+                        title={u.activo ? undefined : t('adm.usu.inactivoAyuda')}
+                      >
+                        {t('adm.usu.restablecer')}
+                      </button>
+                      {/* Baja / reactivación lógica (nunca se borra la cuenta). */}
+                      <button
+                        type="button"
+                        className={`${styles.botonAccion} ${u.activo ? styles.botonPeligro : ''}`}
+                        onClick={() => onAlternarActivo(u)}
+                        disabled={actualizandoId !== null}
+                      >
+                        {u.activo ? t('adm.usu.desactivar') : t('adm.usu.reactivar')}
+                      </button>
+                    </>
                   ) : (
-                    /* La propia cuenta: se cambia desde el menú de la barra (con la actual). */
+                    /* La propia cuenta: contraseña por el menú de la barra; la baja
+                       propia está prohibida (el tenant no se queda sin admin). */
                     <span className={styles.sinDato} title={t('adm.usu.propiaAyuda')}>
                       {t('adm.usu.propia')}
                     </span>

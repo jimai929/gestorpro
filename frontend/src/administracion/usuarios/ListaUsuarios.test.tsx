@@ -44,6 +44,7 @@ describe('ListaUsuarios', () => {
         error={null}
         onReintentar={vi.fn()}
         onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
         idActual={null}
       />,
     );
@@ -66,6 +67,7 @@ describe('ListaUsuarios', () => {
         error={null}
         onReintentar={vi.fn()}
         onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
         idActual={null}
       />,
     );
@@ -82,6 +84,7 @@ describe('ListaUsuarios', () => {
         error="Falló la carga"
         onReintentar={onReintentar}
         onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
         idActual={null}
       />,
     );
@@ -98,6 +101,7 @@ describe('ListaUsuarios', () => {
         error={null}
         onReintentar={vi.fn()}
         onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
         idActual={null}
       />,
     );
@@ -114,6 +118,7 @@ describe('ListaUsuarios', () => {
         error={null}
         onReintentar={vi.fn()}
         onRestablecer={onRestablecer}
+        onAlternarActivo={vi.fn()}
         idActual={null}
       />,
     );
@@ -137,11 +142,76 @@ describe('ListaUsuarios', () => {
         error={null}
         onReintentar={vi.fn()}
         onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
         idActual="u2"
       />,
     );
     // Las filas ajenas tienen el botón; la propia muestra la marca "Tu cuenta".
     expect(screen.getAllByRole('button', { name: 'Restablecer contraseña' })).toHaveLength(2);
+    expect(screen.getByText('Tu cuenta')).toBeTruthy();
+  });
+
+  it('"Desactivar" en fila activa y "Reactivar" en fila inactiva llaman a onAlternarActivo', async () => {
+    const onAlternarActivo = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ListaUsuarios
+        usuarios={USUARIOS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={onAlternarActivo}
+        idActual={null}
+      />,
+    );
+    // Filas activas (Ana, Berta) ofrecen "Desactivar"; la inactiva (Carlos), "Reactivar".
+    expect(screen.getAllByRole('button', { name: 'Desactivar' })).toHaveLength(2);
+    const reactivar = screen.getByRole('button', { name: 'Reactivar' });
+    await user.click(reactivar);
+    expect(onAlternarActivo).toHaveBeenCalledWith(USUARIOS[2]);
+    await user.click(screen.getAllByRole('button', { name: 'Desactivar' })[0]!);
+    expect(onAlternarActivo).toHaveBeenCalledWith(USUARIOS[0]);
+  });
+
+  it('mientras una fila se actualiza, TODAS las acciones quedan deshabilitadas', () => {
+    render(
+      <ListaUsuarios
+        usuarios={USUARIOS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        actualizandoId="u1"
+        idActual={null}
+      />,
+    );
+    // Un solo slot de actualizandoId/errorAccion: mutaciones concurrentes se pisarían
+    // (botones rehabilitados en vuelo, errores silenciados). Se congela TODA la tabla.
+    const desactivar = screen.getAllByRole('button', { name: 'Desactivar' }) as HTMLButtonElement[];
+    expect(desactivar.every((b) => b.disabled)).toBe(true);
+    const restablecer = screen.getAllByRole('button', {
+      name: 'Restablecer contraseña',
+    }) as HTMLButtonElement[];
+    expect(restablecer.every((b) => b.disabled)).toBe(true);
+    expect((screen.getByRole('button', { name: 'Reactivar' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('la fila del PROPIO usuario tampoco ofrece Desactivar/Reactivar', () => {
+    render(
+      <ListaUsuarios
+        usuarios={USUARIOS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        idActual="u2"
+      />,
+    );
+    // Solo Ana (activa, ajena) ofrece Desactivar; la propia fila muestra "Tu cuenta".
+    expect(screen.getAllByRole('button', { name: 'Desactivar' })).toHaveLength(1);
     expect(screen.getByText('Tu cuenta')).toBeTruthy();
   });
 
@@ -153,6 +223,7 @@ describe('ListaUsuarios', () => {
         error="Falló el refresh"
         onReintentar={vi.fn()}
         onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
         idActual={null}
       />,
     );

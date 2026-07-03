@@ -18,6 +18,15 @@ export function crearUsuarioApi(cuerpo: CuerpoCrearUsuario): Promise<UsuarioCrea
 }
 
 /**
+ * Baja / reactivación LÓGICA de un usuario del tenant (PATCH /usuarios/:id → 200 con
+ * la fila actualizada). Desactivar expulsa todas sus sesiones. La propia cuenta no se
+ * puede tocar (400) y una cuenta multi-empresa devuelve 409 (se gestiona en plataforma).
+ */
+export function cambiarEstadoUsuarioApi(usuarioId: string, activo: boolean): Promise<UsuarioListado> {
+  return api.patch<UsuarioListado>(`/usuarios/${usuarioId}`, { activo });
+}
+
+/**
  * Restablece la contraseña de un usuario del tenant con una temporal
  * (POST /usuarios/:id/restablecer-contrasena → 204). El backend revoca todas las
  * sesiones del usuario; la propia cuenta va por /auth/cambiar-contrasena (400 aquí).

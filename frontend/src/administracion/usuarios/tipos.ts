@@ -1,7 +1,7 @@
 /**
  * Tipos de la gestión de usuarios del tenant (Fase 4c). Coinciden con el contrato
- * de GET/POST /usuarios y POST /usuarios/:id/restablecer-contrasena del backend
- * (core/usuarios).
+ * de GET/POST /usuarios, PATCH /usuarios/:id (baja/reactivación) y
+ * POST /usuarios/:id/restablecer-contrasena del backend (core/usuarios).
  */
 
 import type { Rol } from '../../core/auth/tipos';

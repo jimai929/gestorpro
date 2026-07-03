@@ -6,7 +6,8 @@
  * el backend lo refuerza con `autorizar('administrador')` en cada endpoint; esta
  * pantalla es experiencia de UI (un no-admin que navegue directo verá el 403 visible).
  *
- * Rutas de API: GET /usuarios · POST /usuarios · POST /usuarios/:id/restablecer-contrasena
+ * Rutas de API: GET /usuarios · POST /usuarios · PATCH /usuarios/:id ·
+ * POST /usuarios/:id/restablecer-contrasena
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,7 +19,7 @@ import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioCrearUsuario } from './FormularioCrearUsuario';
 import { DialogoRestablecerContrasena } from './DialogoRestablecerContrasena';
 import { ListaUsuarios } from './ListaUsuarios';
-import { listarUsuariosApi } from './servicioUsuarios';
+import { cambiarEstadoUsuarioApi, listarUsuariosApi } from './servicioUsuarios';
 import type { UsuarioListado } from './tipos';
 import styles from './PantallaUsuarios.module.css';
 
@@ -32,6 +33,8 @@ export function PantallaUsuarios() {
 
   const [mostrarFormNuevo, setMostrarFormNuevo] = useState(false);
   const [usuarioRestablecer, setUsuarioRestablecer] = useState<UsuarioListado | null>(null);
+  const [actualizandoId, setActualizandoId] = useState<string | null>(null);
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
 
   // Guardia contra respuestas fuera de orden: cada carga toma un número de versión y
   // solo la MÁS RECIENTE escribe estado. Sin esto, una carga inicial lenta que resuelve
@@ -43,6 +46,8 @@ export function PantallaUsuarios() {
     const version = ++versionCarga.current;
     setCargando(true);
     setError(null);
+    // También el error de una acción fallida: recargar deja el estado visible fresco.
+    setErrorAccion(null);
     try {
       const lista = await listarUsuariosApi();
       if (version !== versionCarga.current) return; // llegó tarde: ya hay una carga más nueva
@@ -67,6 +72,21 @@ export function PantallaUsuarios() {
   const manejarRestablecido = () => {
     setUsuarioRestablecer(null);
     void cargar();
+  };
+
+  // Baja / reactivación lógica. El error queda visible (409 multi-empresa, 404…);
+  // solo se recarga tras el éxito real del backend.
+  const alternarActivo = async (u: UsuarioListado) => {
+    setActualizandoId(u.id);
+    setErrorAccion(null);
+    try {
+      await cambiarEstadoUsuarioApi(u.id, !u.activo);
+      await cargar();
+    } catch (err) {
+      setErrorAccion(err instanceof Error ? err.message : t('adm.usu.errActualizar'));
+    } finally {
+      setActualizandoId(null);
+    }
   };
 
   const claseNav = ({ isActive }: { isActive: boolean }) =>
@@ -112,9 +132,12 @@ export function PantallaUsuarios() {
         <ListaUsuarios
           usuarios={usuarios}
           cargando={cargando}
-          error={error}
+          // Un solo hueco de error visible: el de la carga o el de la última acción.
+          error={error ?? errorAccion}
           onReintentar={() => void cargar()}
           onRestablecer={(u) => setUsuarioRestablecer(u)}
+          onAlternarActivo={(u) => void alternarActivo(u)}
+          actualizandoId={actualizandoId}
           idActual={usuarioSesion?.id ?? null}
         />
 
