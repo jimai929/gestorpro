@@ -19,6 +19,7 @@ function montar(esSuperAdmin: boolean) {
       empresaId: null,
       empresaNombre: null,
       debeCambiarContrasena: false,
+      membresias: [],
     },
     estaAutenticado: true,
     cargando: false,

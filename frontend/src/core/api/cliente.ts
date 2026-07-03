@@ -74,6 +74,18 @@ function refrescarUnaVez(): Promise<string | null> {
   return refrescoEnCurso ?? Promise.resolve(null);
 }
 
+/**
+ * Espera a que termine el refresco EN CURSO, si lo hay (no dispara uno nuevo).
+ * Para operaciones que reemplazan el access token por fuera del refresh
+ * (cambiar-empresa): lanzarlas con un refresco en vuelo dejaría dos escrituras
+ * de token compitiendo sin orden garantizado.
+ */
+export async function esperarRefrescoEnCurso(): Promise<void> {
+  if (refrescoEnCurso) {
+    await refrescoEnCurso.catch(() => undefined);
+  }
+}
+
 /** Opciones extendidas para las peticiones del cliente. */
 export interface OpcionesPeticion extends RequestInit {
   omitirAuth?: boolean;

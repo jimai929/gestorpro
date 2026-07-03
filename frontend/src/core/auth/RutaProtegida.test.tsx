@@ -44,6 +44,7 @@ const usuario = (debeCambiarContrasena: boolean) => ({
   empresaId: null,
   empresaNombre: null,
   debeCambiarContrasena,
+  membresias: [],
 });
 
 const INTRO = 'Tu contraseña es temporal. Debes cambiarla para continuar.';

@@ -14,6 +14,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -21,6 +22,7 @@ import {
   fijarAccessToken,
   fijarManejadorRefresh,
   fijarManejadorDebeCambiar,
+  esperarRefrescoEnCurso,
 } from '../api';
 import {
   cambiarEmpresaApi,
@@ -65,6 +67,14 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [cargando, setCargando] = useState(true);
 
+  // VERSIÓN de la sesión local: cada escritura INTENCIONAL (login, logout, cambio de
+  // empresa) la incrementa. Las escrituras en segundo plano (el /me best-effort del
+  // refresh) y las operaciones largas en vuelo (cambiar-empresa) capturan la versión
+  // al empezar y SOLO aplican su resultado si nadie escribió en medio — sin esto, un
+  // /me tardío pisaría al usuario recién cambiado de empresa, y un cambiar-empresa
+  // que resolviera tras el logout RESUCITARÍA la sesión en la UI.
+  const versionSesion = useRef(0);
+
   /**
    * Registrar el manejador de refresco que el cliente HTTP invoca ante un 401:
    * renueva el access token con el refresh guardado; si el refresh ya no vale,
@@ -84,9 +94,14 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
         // empresa bajo la etiqueta de otra. Best-effort: si /me falla se conserva el
         // usuario actual (la frontera de seguridad sigue siendo el backend). `omitirRefresco`
         // evita re-entrar en el refresh ante un 401 de /me (p. ej. cuenta desactivada).
+        // GUARD de versión: si mientras el /me viajaba hubo un login/logout/cambio de
+        // empresa, su resultado ya es de OTRA sesión y se descarta.
+        const version = versionSesion.current;
         void api
           .get<Usuario>('/auth/me', { omitirRefresco: true })
-          .then((usuarioActual) => setUsuario(usuarioActual))
+          .then((usuarioActual) => {
+            if (version === versionSesion.current) setUsuario(usuarioActual);
+          })
           .catch(() => undefined);
         return accessToken;
       } catch {
@@ -143,6 +158,7 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
 
   const iniciarSesion = useCallback(async (email: string, password: string) => {
     const respuesta = await loginApi({ email, password });
+    versionSesion.current += 1; // escritura intencional: invalida resultados en vuelo
     fijarAccessToken(respuesta.accessToken);
     guardarRefreshToken(respuesta.refreshToken);
     setUsuario(respuesta.usuario);
@@ -151,6 +167,7 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
   const cerrarSesion = useCallback(async () => {
     const refreshToken = obtenerRefreshTokenGuardado();
     // Limpiar estado local primero — incluso si el backend falla, el usuario queda deslogueado
+    versionSesion.current += 1; // un cambiar-empresa o /me en vuelo NO resucitará la sesión
     fijarAccessToken(null);
     eliminarRefreshToken();
     setUsuario(null);
@@ -165,11 +182,32 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
   }, []);
 
   const cambiarEmpresa = useCallback(async (empresaId: string | null) => {
+    // Carrera con el refresh-on-401 (anotada por el revisor). Cobertura REAL:
+    // (1) un refresh EN VUELO al empezar → se espera aquí (sin disparar uno nuevo);
+    // (2) un refresh que ARRANCA durante el POST → tras el POST se espera de nuevo y
+    //     se RE-IMPONE el token del cambio, así la última escritura siempre es la del
+    //     cambio. Residuo asumido: un refresh que arranque DESPUÉS de esa segunda
+    //     espera ya lee la sesión con la empresa nueva (el backend la persistió antes
+    //     de responder), así que emite un token equivalente — inofensivo.
+    // La versión se captura EN LA ENTRADA (antes del primer await): un logout que
+    // ocurra en CUALQUIER punto del vuelo —incluida la espera del refresco— debe
+    // invalidar este cambio, no solo uno que ocurra después del POST.
+    const version = versionSesion.current;
+    await esperarRefrescoEnCurso();
     const respuesta = await cambiarEmpresaApi(empresaId);
-    // El backend ya persistió la empresa activa en la sesión (el refresh la conserva);
-    // aquí solo se reemplazan el access token y el usuario en memoria.
+    if (version !== versionSesion.current) {
+      // Logout (u otro login) mientras el cambio viajaba: NO resucitar la sesión.
+      return;
+    }
+    versionSesion.current += 1; // escritura intencional: descarta /me en vuelo
     fijarAccessToken(respuesta.accessToken);
     setUsuario(respuesta.usuario);
+    await esperarRefrescoEnCurso();
+    // Re-imposición idempotente (ver arriba): si nadie más escribió, el token del
+    // cambio queda como el último aunque un refresh rezagado escribiera en medio.
+    if (versionSesion.current === version + 1) {
+      fijarAccessToken(respuesta.accessToken);
+    }
   }, []);
 
   const valor: ValorContextoAuth = {

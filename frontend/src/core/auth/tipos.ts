@@ -5,6 +5,13 @@
 
 export type Rol = 'empleado' | 'supervisor' | 'administrador';
 
+/** Membresía visible (solo empresas ACTIVAS): alimenta el selector de la barra. */
+export interface MembresiaPublica {
+  empresaId: string;
+  empresaNombre: string;
+  rol: Rol;
+}
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -28,6 +35,12 @@ export interface Usuario {
   empresaNombre: string | null;
   /** true si la cuenta tiene una contraseña temporal y debe cambiarla antes de operar. */
   debeCambiarContrasena: boolean;
+  /**
+   * Membresías del usuario en empresas ACTIVAS (predeterminada primero). El selector
+   * de empresa de la barra se muestra solo con más de una. Super-admin: []. SOLO
+   * experiencia de UI: el cambio real lo valida el backend (cambiar-empresa).
+   */
+  membresias: MembresiaPublica[];
 }
 
 /** Respuesta de POST /auth/login */

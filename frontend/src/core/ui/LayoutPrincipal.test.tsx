@@ -19,7 +19,7 @@ const NUEVA = 'NuevaClave1*';
 
 function montar(cerrarSesion: () => Promise<void>) {
   vi.mocked(auth.useAuth).mockReturnValue({
-    usuario: { id: 'u1', nombre: 'Ana', email: 'ana@x.local', rol: 'administrador', esSuperAdmin: false, empresaId: 'e1', empresaNombre: 'Mi Empresa', debeCambiarContrasena: false },
+    usuario: { id: 'u1', nombre: 'Ana', email: 'ana@x.local', rol: 'administrador', esSuperAdmin: false, empresaId: 'e1', empresaNombre: 'Mi Empresa', debeCambiarContrasena: false, membresias: [] },
     estaAutenticado: true,
     cargando: false,
     iniciarSesion: vi.fn(),
@@ -91,6 +91,7 @@ describe('LayoutPrincipal — empresa activa en la barra superior', () => {
       empresaId: 'e1',
       empresaNombre: 'Acme Panamá',
       debeCambiarContrasena: false,
+      membresias: [],
     });
     expect(screen.getByText('Acme Panamá')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Volver a plataforma' })).toBeNull();
@@ -106,6 +107,7 @@ describe('LayoutPrincipal — empresa activa en la barra superior', () => {
       empresaId: null,
       empresaNombre: null,
       debeCambiarContrasena: false,
+      membresias: [],
     });
     expect(screen.getByText('Plataforma')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Volver a plataforma' })).toBeNull();
@@ -124,6 +126,7 @@ describe('LayoutPrincipal — empresa activa en la barra superior', () => {
         empresaId: 'e1',
         empresaNombre: 'Acme Panamá',
         debeCambiarContrasena: false,
+        membresias: [],
       },
       cambiarEmpresa,
     );
@@ -148,11 +151,82 @@ describe('LayoutPrincipal — empresa activa en la barra superior', () => {
         empresaId: 'e1',
         empresaNombre: 'Acme Panamá',
         debeCambiarContrasena: false,
+        membresias: [],
       },
       cambiarEmpresa,
     );
     await user.click(screen.getByRole('button', { name: 'Volver a plataforma' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByText('Sesión expirada')).toBeTruthy();
+  });
+});
+
+describe('LayoutPrincipal — selector de empresa (multi-membresía)', () => {
+  const MEMBRESIAS = [
+    { empresaId: 'e1', empresaNombre: 'Acme Panamá', rol: 'administrador' as const },
+    { empresaId: 'e2', empresaNombre: 'Beta SA', rol: 'empleado' as const },
+  ];
+  function usuarioMulti(): Usuario {
+    return {
+      id: 'u1',
+      nombre: 'Ana',
+      email: 'a@x.local',
+      rol: 'administrador',
+      esSuperAdmin: false,
+      empresaId: 'e1',
+      empresaNombre: 'Acme Panamá',
+      debeCambiarContrasena: false,
+      membresias: MEMBRESIAS,
+    };
+  }
+  function renderConUsuario(usuario: Usuario, cambiarEmpresa = vi.fn()) {
+    vi.mocked(auth.useAuth).mockReturnValue({
+      usuario,
+      estaAutenticado: true,
+      cargando: false,
+      iniciarSesion: vi.fn(),
+      cerrarSesion: vi.fn().mockResolvedValue(undefined),
+      cambiarEmpresa,
+    });
+    render(
+      <MemoryRouter>
+        <LayoutPrincipal>contenido</LayoutPrincipal>
+      </MemoryRouter>,
+    );
+  }
+
+  it('con más de una membresía: la etiqueta es un SELECTOR con las empresas propias', () => {
+    renderConUsuario(usuarioMulti());
+    const selector = screen.getByRole('combobox', { name: 'Cambiar de empresa' }) as HTMLSelectElement;
+    expect(selector.value).toBe('e1'); // la activa
+    const opciones = Array.from(selector.options).map((o) => o.textContent);
+    expect(opciones).toEqual(['Acme Panamá', 'Beta SA']);
+  });
+
+  it('elegir OTRA empresa llama a cambiarEmpresa con su id', async () => {
+    const cambiarEmpresa = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderConUsuario(usuarioMulti(), cambiarEmpresa);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Cambiar de empresa' }), 'e2');
+    expect(cambiarEmpresa).toHaveBeenCalledWith('e2');
+  });
+
+  it('si el cambio FALLA: error visible y el selector conserva la empresa real', async () => {
+    const cambiarEmpresa = vi.fn().mockRejectedValue(new Error('No tienes acceso a esa empresa.'));
+    const user = userEvent.setup();
+    renderConUsuario(usuarioMulti(), cambiarEmpresa);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Cambiar de empresa' }), 'e2');
+    expect(await screen.findByText('No tienes acceso a esa empresa.')).toBeTruthy();
+    // usuario.empresaId no cambió (el contexto solo muta tras el éxito real).
+    expect((screen.getByRole('combobox', { name: 'Cambiar de empresa' }) as HTMLSelectElement).value).toBe('e1');
+  });
+
+  it('con UNA sola membresía no hay selector: etiqueta simple', () => {
+    renderConUsuario({
+      ...usuarioMulti(),
+      membresias: [MEMBRESIAS[0]!],
+    });
+    expect(screen.queryByRole('combobox', { name: 'Cambiar de empresa' })).toBeNull();
+    expect(screen.getByText('Acme Panamá')).toBeTruthy();
   });
 });

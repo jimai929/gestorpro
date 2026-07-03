@@ -66,6 +66,7 @@ const es: Diccionario = {
 
   // Cuenta / cambio de contraseña
   'cuenta.cambiarContrasena': 'Cambiar contraseña',
+  'cuenta.cambiarEmpresa': 'Cambiar de empresa',
   'cuenta.cc.actual': 'Contraseña actual',
   'cuenta.cc.nueva': 'Nueva contraseña',
   'cuenta.cc.confirmar': 'Confirmar nueva contraseña',
@@ -142,6 +143,7 @@ const en: Diccionario = {
   'login.errorGenerico': 'Sign-in failed. Please try again.',
 
   'cuenta.cambiarContrasena': 'Change password',
+  'cuenta.cambiarEmpresa': 'Switch company',
   'cuenta.cc.actual': 'Current password',
   'cuenta.cc.nueva': 'New password',
   'cuenta.cc.confirmar': 'Confirm new password',
@@ -216,6 +218,7 @@ const zh: Diccionario = {
   'login.errorGenerico': '登录失败，请重试。',
 
   'cuenta.cambiarContrasena': '修改密码',
+  'cuenta.cambiarEmpresa': '切换公司',
   'cuenta.cc.actual': '当前密码',
   'cuenta.cc.nueva': '新密码',
   'cuenta.cc.confirmar': '确认新密码',

@@ -41,6 +41,7 @@ const usuario = (esSuperAdmin: boolean) => ({
   empresaId: null,
   empresaNombre: null,
   debeCambiarContrasena: false,
+  membresias: [],
 });
 
 describe('RutaSoloPlataforma — guard de super-admin', () => {

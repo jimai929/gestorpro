@@ -130,3 +130,21 @@
   margin: 0 auto;
   box-sizing: border-box;
 }
+
+/* Selector de empresa (multi-membresía): reemplaza a .empresaActual en la barra. */
+.selectorEmpresa {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #374151;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  margin-right: 0.625rem;
+  cursor: pointer;
+}
+
+.selectorEmpresa:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

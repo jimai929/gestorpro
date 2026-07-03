@@ -22,6 +22,7 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
   const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false);
   const [volviendo, setVolviendo] = useState(false);
   const [errorVolver, setErrorVolver] = useState<string | null>(null);
+  const [cambiandoEmpresa, setCambiandoEmpresa] = useState(false);
 
   // Empresa activa a mostrar en la barra: si hay empresa activa se muestra su nombre
   // (también para el super-admin que ENTRÓ a una empresa); el super-admin sin empresa
@@ -34,6 +35,28 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
   // Super-admin DENTRO de una empresa: botón para soltar el contexto del tenant.
   const puedeVolverAPlataforma =
     usuario !== null && usuario.esSuperAdmin && usuario.empresaId !== null;
+
+  // Usuario con MÁS de una membresía activa: la etiqueta de empresa se vuelve un
+  // selector. `?? []` cubre un `usuario` guardado antes de este deploy (sin el campo).
+  const membresias = usuario?.membresias ?? [];
+  const puedeCambiarDeEmpresa = !usuario?.esSuperAdmin && membresias.length > 1;
+
+  const manejarCambioDeEmpresa = async (empresaId: string) => {
+    if (!usuario || empresaId === usuario.empresaId) return;
+    setCambiandoEmpresa(true);
+    setErrorVolver(null);
+    try {
+      await cambiarEmpresa(empresaId);
+      // La pantalla actual puede no existir/denegarse bajo el rol de la otra empresa:
+      // se navega al inicio (mismo criterio que el "Entrar" de plataforma).
+      navigate('/');
+    } catch (err) {
+      // El <select> sigue mostrando la empresa REAL (usuario.empresaId no cambió).
+      setErrorVolver(err instanceof Error ? err.message : t('plataforma.errEntrar'));
+    } finally {
+      setCambiandoEmpresa(false);
+    }
+  };
 
   const manejarVolverAPlataforma = async () => {
     setVolviendo(true);
@@ -74,8 +97,25 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
         <div className={styles.acciones}>
           {usuario && (
             <div className={styles.infoUsuario}>
-              {etiquetaEmpresa && (
-                <span className={styles.empresaActual}>{etiquetaEmpresa}</span>
+              {puedeCambiarDeEmpresa ? (
+                /* Multi-membresía: la etiqueta es un selector (cambiar-empresa). */
+                <select
+                  className={styles.selectorEmpresa}
+                  aria-label={t('cuenta.cambiarEmpresa')}
+                  value={usuario.empresaId ?? ''}
+                  onChange={(e) => void manejarCambioDeEmpresa(e.target.value)}
+                  disabled={cambiandoEmpresa}
+                >
+                  {membresias.map((m) => (
+                    <option key={m.empresaId} value={m.empresaId}>
+                      {m.empresaNombre}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                etiquetaEmpresa && (
+                  <span className={styles.empresaActual}>{etiquetaEmpresa}</span>
+                )
               )}
               <span className={styles.nombreUsuario}>{usuario.nombre}</span>
               <span className={styles.badgeRol}>
