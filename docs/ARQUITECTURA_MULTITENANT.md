@@ -648,8 +648,13 @@ Orden duro: 0→1→2 antes que 3; 4 antes que 5; 5 antes que 8.
    medición que pruebe degradación inaceptable del `FOR UPDATE`. Ver §0.bis.
 4. **Catálogos:** confirmar **POR-EMPRESA** para los 5 (esp. `DiaFestivo`:
    por-empresa vs feriados nacionales globales).
-5. **Baja de empresa / revocación de super-admin (I5):** ¿invalidar sesiones
-   (borrar `SesionRefresco`) y/o chequear `Empresa.activo` en el preHandler?
+5. ~~Baja de empresa / revocación de super-admin (I5)~~ **CERRADA (2026-07-03):
+   AMBAS cosas.** La baja de empresa borra las `SesionRefresco` del tenant (misma
+   tx) Y `autenticar` chequea por request `Empresa.activo` del token + el claim
+   `esSuperAdmin` contra BD → el token residual muere en la request siguiente.
+   El `activo` de usuario normal NO se chequea por request (alcance honesto:
+   su baja ya expulsa sesiones; residuo ≤15 min aceptado). Ver
+   `DECISIONES.md → "I5 — revocación inmediata"`.
 6. **`Sede.nombre`:** confirmar NO añadir `@@unique([empresaId,nombre])`.
 7. **`email`:** confirmar sigue `@unique` global (no `@@unique([empresaId,email])`).
 8. **Grants de `empresa`:** ¿`app` puede `INSERT/UPDATE` (alta in-app) o solo

@@ -58,4 +58,8 @@ qué un cambio "menor" formó parte de otra parte del trabajo.
   donde el fallback a la siguiente membresía activa (o la elección explícita)
   es parte natural del diseño. No parchear antes: cambiaría la semántica de
   login sin la UI que la acompaña.
+- **Nota I5 (2026-07-03):** el check por-request de I5 eliminó el único escape
+  que quedaba (usar el access token residual ≤15 min para `cambiar-empresa`
+  hacia la empresa B activa). El lockout de este estado manual ahora es total
+  hasta intervención en BD — una razón más para resolverlo con el selector.
 - **Estado:** PENDIENTE (documentado; sin camino de producto que lo dispare).

@@ -37,11 +37,17 @@ describe('4c.3 — POST /empresas', () => {
   function tokenSuper(): string {
     return app.jwt.sign({ sub: superAdminId, rol: 'empleado', empresaId: null, esSuperAdmin: true });
   }
-  function tokenAdmin(): string {
+  // Empresa REAL y activa para el token del admin de tenant: desde I5 `autenticar`
+  // verifica la empresa del token en cada request (una inexistente → 401, y este
+  // suite quiere probar el 404 de soloPlataforma, no el corte de I5).
+  async function tokenAdmin(): Promise<string> {
+    const empresa = await semilla().empresa.create({
+      data: { nombre: `ET ${randomUUID().slice(0, 8)}`, slug: `et-${randomUUID()}` },
+    });
     return app.jwt.sign({
       sub: randomUUID(),
       rol: 'administrador',
-      empresaId: randomUUID(),
+      empresaId: empresa.id,
       esSuperAdmin: false,
     });
   }
@@ -59,7 +65,7 @@ describe('4c.3 — POST /empresas', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/empresas',
-      headers: { authorization: `Bearer ${tokenAdmin()}` },
+      headers: { authorization: `Bearer ${await tokenAdmin()}` },
       payload: cuerpo(`x-${randomUUID().slice(0, 8)}`, `a-${randomUUID()}@x.local`),
     });
     expect(res.statusCode).toBe(404);

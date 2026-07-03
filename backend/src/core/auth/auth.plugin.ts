@@ -2,6 +2,7 @@ import fp from 'fastify-plugin';
 import fastifyJwt from '@fastify/jwt';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ErrorAutorizacion } from '../errors.js';
+import { prisma } from '../prisma.js';
 import { actualizarContextoTenant } from '../tenant/contexto.js';
 import type { PayloadAccess } from './auth.tipos.js';
 import type { Rol } from '../../generated/prisma/enums.js';
@@ -79,6 +80,49 @@ async function pluginAuth(app: FastifyInstance): Promise<void> {
         empresaId: request.user.empresaId,
         esSuperAdmin: request.user.esSuperAdmin,
       });
+
+      // I5 — REVOCACIÓN INMEDIATA (decisión #5, cerrada 2026-07-03): el access token
+      // deja de valer en cuanto la empresa se da de baja o el super-admin pierde el
+      // flag, sin esperar su TTL (≤15 min). Coste: una consulta por PK por request
+      // (dos si el token reclama super-admin); `empresa` y `usuario` están fuera de
+      // RLS, así que el cliente plano las lee sin contexto. Alcance HONESTO: el
+      // `activo` de un usuario NORMAL no se chequea por request — su baja ya expulsa
+      // todas sus sesiones y el residuo ≤15 min es el tradeoff documentado; I5 cubre
+      // los dos casos donde el residuo era inaceptable (tenant entero / poder de
+      // plataforma). Fail-closed: empresa o cuenta inexistentes cuentan como
+      // revocadas. El 401 dispara el refresh-on-401 del cliente: el usuario normal
+      // cae al login (sus sesiones ya no existen) y el super-admin de soporte vuelve
+      // solo a plataforma (resolverContextoActivo deja de honrar la preferida).
+      const { empresaId, esSuperAdmin, sub } = request.user;
+      try {
+        if (empresaId !== null) {
+          const empresa = await prisma.empresa.findUnique({
+            where: { id: empresaId },
+            select: { activo: true },
+          });
+          if (!empresa?.activo) {
+            await reply.code(401).send({ mensaje: 'No autenticado.' });
+            return;
+          }
+        }
+        if (esSuperAdmin === true) {
+          const cuenta = await prisma.usuario.findUnique({
+            where: { id: sub },
+            select: { esSuperAdmin: true, activo: true },
+          });
+          if (!cuenta?.esSuperAdmin || !cuenta.activo) {
+            await reply.code(401).send({ mensaje: 'No autenticado.' });
+            return;
+          }
+        }
+      } catch (error) {
+        // Un hipo de la BD aquí escaparía al error handler POR DEFECTO de Fastify,
+        // que responde 500 con el mensaje CRUDO de Prisma (host/puerto internos) en
+        // TODA ruta autenticada. Se sanea: error genérico, detalle solo al log.
+        request.log.error(error, 'fallo de BD en el check I5 de autenticar');
+        await reply.code(500).send({ mensaje: 'Error interno.' });
+        return;
+      }
 
       // Cambio de contraseña FORZADO (Commit 2): si la cuenta tiene una contraseña
       // TEMPORAL (debeCambiarContrasena) y la ruta NO está en la allowlist, se bloquea

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { authPlugin } from '../../src/core/auth/auth.plugin.js';
+import { semilla, cerrarSemilla } from '../helpers/db.js';
 
 /**
  * 4c.1 — guard `soloPlataforma`. App MÍNIMA con una ruta protegida por
@@ -11,9 +12,27 @@ import { authPlugin } from '../../src/core/auth/auth.plugin.js';
  */
 describe('4c.1 — guard soloPlataforma', () => {
   let app: FastifyInstance;
+  let superAdminId: string;
+  let empresaId: string;
 
   beforeAll(async () => {
     process.env.JWT_ACCESS_SECRET ??= 'test-secret-solo-plataforma';
+    // Entidades REALES: desde I5, `autenticar` verifica por request la empresa del
+    // token y el claim esSuperAdmin contra BD (inexistente = revocado → 401), y este
+    // suite prueba el guard soloPlataforma, no el corte de I5.
+    const su = await semilla().usuario.create({
+      data: {
+        nombre: 'Plataforma',
+        email: `sp-${randomUUID()}@gestorpro.local`,
+        passwordHash: 'x',
+        esSuperAdmin: true,
+      },
+    });
+    superAdminId = su.id;
+    const empresa = await semilla().empresa.create({
+      data: { nombre: `SP ${randomUUID().slice(0, 8)}`, slug: `sp-${randomUUID()}` },
+    });
+    empresaId = empresa.id;
     app = Fastify();
     await app.register(authPlugin);
     app.get(
@@ -25,13 +44,14 @@ describe('4c.1 — guard soloPlataforma', () => {
   });
   afterAll(async () => {
     await app.close();
+    await cerrarSemilla();
   });
 
   function token(esSuperAdmin: boolean): string {
     return app.jwt.sign({
-      sub: randomUUID(),
+      sub: esSuperAdmin ? superAdminId : randomUUID(),
       rol: 'administrador',
-      empresaId: esSuperAdmin ? null : randomUUID(),
+      empresaId: esSuperAdmin ? null : empresaId,
       esSuperAdmin,
     });
   }

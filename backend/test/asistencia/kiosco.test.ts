@@ -84,6 +84,21 @@ describe('kiosco — token de dispositivo', () => {
     await expect(resolverContextoKiosco(id, token)).rejects.toBeInstanceOf(ErrorAutenticacion);
   });
 
+  it('rechaza el token de un kiosco cuya EMPRESA está dada de baja (I5: el device token no tiene TTL)', async () => {
+    // Sin este guard, un tenant dado de baja seguiría ACEPTANDO fichajes para
+    // siempre: el token de dispositivo no expira y no pasa por `autenticar`.
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const { id, token } = await comoEmpresa(empresaId, () => crearKiosco({ nombre: 'K', sedeId: sede.id }));
+
+    await semilla().empresa.update({ where: { id: empresaId }, data: { activo: false } });
+    await expect(resolverContextoKiosco(id, token)).rejects.toBeInstanceOf(ErrorAutenticacion);
+
+    // Reactivada, el MISMO token de dispositivo vuelve a operar (nada que reconfigurar).
+    await semilla().empresa.update({ where: { id: empresaId }, data: { activo: true } });
+    await expect(resolverContextoKiosco(id, token)).resolves.toEqual({ empresaId });
+  });
+
   it('regenerar un kiosco inexistente lanza ErrorNoEncontrado', async () => {
     const empresaId = await crearEmpresa();
     await expect(

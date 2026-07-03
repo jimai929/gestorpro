@@ -332,6 +332,35 @@ Huecos que `ARQUITECTURA_MULTITENANT.md` §3.5 dejaba abiertos, cerrados así
 - El super-admin puede darla de baja incluso DESDE DENTRO (sesión de soporte):
   su siguiente refresh lo devuelve a plataforma, sin 401 (probado).
 
+### I5 — revocación inmediata del access token vivo ✅ DECIDIDO (2026-07-03)
+
+Cierra la decisión abierta #5 de `ARQUITECTURA_MULTITENANT.md`. `autenticar`
+verifica en CADA request autenticada, además del JWT:
+
+- **Empresa del token inactiva o inexistente → 401** (consulta por PK, fuera de
+  RLS). El token residual de un tenant dado de baja muere en la request
+  siguiente, sin esperar su TTL.
+- **Claim `esSuperAdmin` ya no cierto en BD** (flag revocado o cuenta
+  desactivada) **→ 401**: el poder de plataforma no sobrevive ni un request a
+  su revocación. Solo se consulta si el token RECLAMA super-admin.
+- **Alcance HONESTO**: el `activo` de un usuario NORMAL no se chequea por
+  request — su baja ya expulsa todas las sesiones y el residuo ≤15 min sigue
+  siendo el tradeoff aceptado (pineado por test para que "chequear a todos"
+  no se cuele sin decidirse: costaría una consulta extra por request de toda
+  la app).
+- Coste: 1 consulta PK por request de tenant; 1 por request de PLATAFORMA
+  (lookup del usuario super-admin); 2 solo cuando un super-admin opera DENTRO
+  de un tenant. El 401 dispara el refresh-on-401 del cliente: usuario normal
+  cae al login; super-admin de soporte vuelve solo a plataforma. Un fallo de
+  BD en estos lookups responde 500 genérico ('Error interno.', detalle al
+  log): sin él, el error handler por defecto filtraría el mensaje crudo de
+  Prisma en toda ruta autenticada.
+- **El canal del KIOSCO también queda cubierto** (era el único acceso que no
+  pasa por `autenticar` y su device token NO tiene TTL): `resolverContextoKiosco`
+  verifica `empresa.activo` en el MISMO select del bootstrap (cero consultas
+  extra) — un tenant dado de baja deja de aceptar fichajes de inmediato, y al
+  reactivarlo el mismo token de dispositivo vuelve a operar sin reconfigurar.
+
 ## Pendientes abiertos
 
 > El código de las 7 fases (24 tareas) está construido y probado. Los puntos de

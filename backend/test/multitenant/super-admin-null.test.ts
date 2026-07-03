@@ -69,8 +69,18 @@ describe('Fase 8 ⑤.4 — HTTP: token super-admin (empresaId=null) NO fuga dato
     // Token realista de super-admin sin empresa activa: rol mínimo `empleado`,
     // empresaId=null, esSuperAdmin=true. El preHandler NO activa bypassPlataforma
     // (eso es solo de endpoints soloPlataforma, Fase 4c). Debe fallar cerrado.
+    // Cuenta REAL: desde I5 el claim esSuperAdmin se verifica contra BD por request
+    // (inexistente = revocado → 401, y aquí se prueba el fail-closed de RLS).
+    const su = await semilla().usuario.create({
+      data: {
+        nombre: 'Plataforma',
+        email: `san-${randomUUID()}@gestorpro.local`,
+        passwordHash: 'x',
+        esSuperAdmin: true,
+      },
+    });
     const token = app.jwt.sign({
-      sub: randomUUID(),
+      sub: su.id,
       rol: 'empleado',
       empresaId: null,
       esSuperAdmin: true,

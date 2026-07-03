@@ -40,7 +40,12 @@ describe('4c.5 — GET /auth/me', () => {
 
   it('usuario normal: /me refleja el rol y empresaId del TOKEN, no el rol global', async () => {
     const u = await nuevoUsuario(false); // rol global = empleado (default del schema)
-    const empresaId = randomUUID();
+    // Empresa REAL y activa: desde I5, `autenticar` verifica el estado de la empresa
+    // del token en cada request (una inexistente contaría como revocada → 401).
+    const empresa = await semilla().empresa.create({
+      data: { nombre: `Me ${randomUUID().slice(0, 8)}`, slug: `me-${randomUUID()}` },
+    });
+    const empresaId = empresa.id;
     const token = app.jwt.sign({ sub: u.id, rol: 'administrador', empresaId, esSuperAdmin: false });
     const res = await app.inject({
       method: 'GET',
@@ -58,10 +63,13 @@ describe('4c.5 — GET /auth/me', () => {
 
   it('/me refleja debeCambiarContrasena=true del token', async () => {
     const u = await nuevoUsuario(false);
+    const empresa = await semilla().empresa.create({
+      data: { nombre: `Me ${randomUUID().slice(0, 8)}`, slug: `me-${randomUUID()}` },
+    });
     const token = app.jwt.sign({
       sub: u.id,
       rol: 'administrador',
-      empresaId: randomUUID(),
+      empresaId: empresa.id,
       esSuperAdmin: false,
       debeCambiarContrasena: true,
     });

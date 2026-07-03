@@ -86,12 +86,21 @@ export async function resolverContextoKiosco(
   const kiosco = await txBootstrapDispositivo((tx) =>
     tx.kiosco.findUnique({
       where: { id: kioscoId },
-      select: { activo: true, tokenHash: true, sede: { select: { empresaId: true } } },
+      select: {
+        activo: true,
+        tokenHash: true,
+        // empresa.activo en el MISMO select (cero consultas extra): el token de
+        // dispositivo no tiene TTL, así que sin este check un tenant dado de baja
+        // seguiría ACEPTANDO fichajes para siempre — I5 cubre también este canal.
+        sede: { select: { empresaId: true, empresa: { select: { activo: true } } } },
+      },
     }),
   );
   if (
     !kiosco ||
     !kiosco.activo ||
+    // Empresa dada de baja (o huérfana): el kiosco queda revocado con el tenant.
+    !kiosco.sede.empresa?.activo ||
     !kiosco.tokenHash ||
     !token ||
     !(await verificarContrasena(kiosco.tokenHash, token))

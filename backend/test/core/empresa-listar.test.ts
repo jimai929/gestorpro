@@ -37,11 +37,17 @@ describe('GET /empresas — listado de tenants (solo super-admin)', () => {
   function tokenSuper(): string {
     return app.jwt.sign({ sub: superAdminId, rol: 'empleado', empresaId: null, esSuperAdmin: true });
   }
-  function tokenAdmin(): string {
+  // Empresa REAL y activa para el token del admin de tenant: desde I5 `autenticar`
+  // verifica la empresa del token en cada request (una inexistente → 401, y este
+  // suite quiere probar el 404 de soloPlataforma, no el corte de I5).
+  async function tokenAdmin(): Promise<string> {
+    const empresa = await semilla().empresa.create({
+      data: { nombre: `EL ${randomUUID().slice(0, 8)}`, slug: `el-${randomUUID()}` },
+    });
     return app.jwt.sign({
       sub: randomUUID(),
       rol: 'administrador',
-      empresaId: randomUUID(),
+      empresaId: empresa.id,
       esSuperAdmin: false,
     });
   }
@@ -75,7 +81,7 @@ describe('GET /empresas — listado de tenants (solo super-admin)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/empresas',
-      headers: { authorization: `Bearer ${tokenAdmin()}` },
+      headers: { authorization: `Bearer ${await tokenAdmin()}` },
     });
     expect(res.statusCode).toBe(404);
   });

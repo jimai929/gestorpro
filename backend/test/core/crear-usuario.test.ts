@@ -130,7 +130,18 @@ describe('Fase 4c — POST /usuarios (alta de usuarios en el tenant)', () => {
   });
 
   it('super-admin (empresaId=null, rol empleado) → 403 (bloqueado por autorizar(administrador))', async () => {
-    const res = await crear(token('empleado', null, true), cuerpo(`u-${randomUUID()}@x.local`));
+    // Super-admin REAL: desde I5 el claim esSuperAdmin se verifica contra BD en cada
+    // request (inexistente = revocado → 401, y aquí se prueba el 403 de autorizar).
+    const su = await semilla().usuario.create({
+      data: {
+        nombre: 'Plataforma',
+        email: `su-${randomUUID()}@gestorpro.local`,
+        passwordHash: 'x',
+        esSuperAdmin: true,
+      },
+    });
+    const tk = app.jwt.sign({ sub: su.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
+    const res = await crear(tk, cuerpo(`u-${randomUUID()}@x.local`));
     expect(res.statusCode).toBe(403);
   });
 
