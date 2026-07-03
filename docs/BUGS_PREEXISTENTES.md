@@ -37,3 +37,25 @@ qué un cambio "menor" formó parte de otra parte del trabajo.
   backend (ver la convención en `docs/CONVENCIONES.md`).
 - **Cuándo:** se hace en la **parte (e)** del paquete de Administración.
 - **Estado:** PENDIENTE.
+
+---
+
+## Lockout de login para usuario multi-membresía con la PREDETERMINADA dada de baja
+
+- **Qué:** `resolverContextoActivo` (auth.service.ts) resuelve el login SIN
+  fallback: toma `membresias[0]` (predeterminada primero) y, si ESA empresa está
+  inactiva, lanza `ErrorAutenticacion` sin probar la siguiente membresía activa.
+  Un usuario con predeterminada en la empresa A (dada de baja) y membresía en B
+  (activa) queda bloqueado de TODOS sus tenants — la baja de A lo saca también
+  de B — hasta reactivar A o cambiar la predeterminada a mano.
+- **Alcance real hoy:** INALCANZABLE por API — ningún endpoint crea segundas
+  membresías (email UNIQUE global; las altas siempre crean usuario nuevo). Solo
+  aparece con estado sembrado a mano. Dirección fail-closed: no expone datos,
+  es denegación de servicio.
+- **Detectado:** revisión adversarial de la baja de empresas (2026-07-02), que
+  vuelve el estado "empresa inactiva" alcanzable en producto.
+- **Arreglo previsto:** en el slice del selector multi-membresía (backlog 4c),
+  donde el fallback a la siguiente membresía activa (o la elección explícita)
+  es parte natural del diseño. No parchear antes: cambiaría la semántica de
+  login sin la UI que la acompaña.
+- **Estado:** PENDIENTE (documentado; sin camino de producto que lo dispare).

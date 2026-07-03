@@ -1,6 +1,30 @@
 import type { FastifyInstance } from 'fastify';
 import { responderError } from '../http.js';
-import { crearEmpresa, listarEmpresas } from './empresa.service.js';
+import { cambiarEstadoEmpresa, crearEmpresa, listarEmpresas } from './empresa.service.js';
+
+const PATRON_UUID =
+  '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+const esquemaEstadoEmpresa = {
+  params: {
+    type: 'object',
+    required: ['empresaId'],
+    additionalProperties: false,
+    properties: {
+      // uuid validado en la puerta: un id malformado es 400, nunca llega a Prisma.
+      empresaId: { type: 'string', pattern: PATRON_UUID },
+    },
+  },
+  body: {
+    type: 'object',
+    required: ['activo'],
+    additionalProperties: false,
+    properties: {
+      // ÚNICO campo mutable por esta ruta: la baja/reactivación lógica del tenant.
+      activo: { type: 'boolean' },
+    },
+  },
+} as const;
 
 const esquemaEmpresa = {
   body: {
@@ -21,10 +45,20 @@ const esquemaEmpresa = {
 /**
  * Rutas de PLATAFORMA (SaaS): gestión de tenants. SOLO super-admin (`soloPlataforma`
  * responde 404 a cualquier otro, no revela el endpoint). Alcance: alta de empresa
- * (crear tenant + su primer admin) y listado de tenants. No hay baja/edición aún.
+ * (crear tenant + su primer admin), listado y baja/reactivación lógica.
+ *
+ *   POST  /empresas             -> 201 (tenant + primer admin)
+ *   GET   /empresas             -> 200 (listado)
+ *   PATCH /empresas/:empresaId  -> 200 (baja/reactivación lógica)
  */
 export async function empresaRoutes(app: FastifyInstance): Promise<void> {
-  const soloSuper = { preHandler: [app.autenticar, app.soloPlataforma] };
+  // Guards en onRequest, NO en preHandler: en el ciclo de Fastify la validación de
+  // schema corre ENTRE ambos (onRequest → parsing → validation → preHandler). Con los
+  // guards en preHandler, un no-super-admin (o un cliente sin token) que enviara input
+  // malformado recibiría el 400 de ajv ANTES de los guards — revelando la existencia y
+  // el contrato de las rutas de plataforma y rompiendo el invariante "soloPlataforma
+  // responde 404 a cualquier otro". En onRequest los guards cortan primero SIEMPRE.
+  const soloSuper = { onRequest: [app.autenticar, app.soloPlataforma] };
 
   app.post<{
     Body: {
@@ -53,4 +87,25 @@ export async function empresaRoutes(app: FastifyInstance): Promise<void> {
     const empresas = await listarEmpresas();
     return reply.code(200).send(empresas);
   });
+
+  // Baja/reactivación LÓGICA del tenant (Empresa.activo; nunca se borra). Desactivar
+  // expulsa las sesiones de refresco de sus usuarios (login/refresh ya rechazan
+  // empresas inactivas, fail-closed); reactivar solo restaura el acceso.
+  app.patch<{ Params: { empresaId: string }; Body: { activo: boolean } }>(
+    '/empresas/:empresaId',
+    { ...soloSuper, schema: esquemaEstadoEmpresa },
+    async (request, reply) => {
+      try {
+        // El super-admin que ejecuta SIEMPRE sale del token (request.user.sub).
+        const actualizada = await cambiarEstadoEmpresa(
+          request.params.empresaId,
+          request.user.sub,
+          request.body.activo,
+        );
+        return await reply.code(200).send(actualizada);
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
 }

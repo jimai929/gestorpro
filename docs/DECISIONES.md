@@ -303,6 +303,35 @@ Huecos que `ARQUITECTURA_MULTITENANT.md` §3.5 dejaba abiertos, cerrados así
   restablecer (409, "reactívala antes") — el 204 sobre una cuenta que el login
   rechaza era un éxito engañoso. Refuerza el "no revive cuentas dadas de baja".
 
+### Baja / reactivación de empresas (plataforma) ✅ DECIDIDO (2026-07-02)
+
+`PATCH /empresas/:empresaId` con body `{ activo: boolean }` (guard
+`[autenticar, soloPlataforma]`, solo super-admin, 404 anti-enumeración al resto):
+
+- **Baja LÓGICA vía `Empresa.activo`**, nunca borrado (retención legal; todos
+  los datos del tenant la referencian). Reactivar restaura el acceso sin tocar
+  nada más.
+- **I5 acotado a empresas**: la frontera fail-closed YA existía
+  (`resolverContextoActivo` rechaza empresas inactivas en login/refresh/
+  cambiar-empresa). La baja ADEMÁS **expulsa las sesiones de refresco de los
+  usuarios con membresía en el tenant** (misma tx): el refresh muere al
+  instante; solo queda el access token residual ≤15 min (tradeoff I5 aceptado).
+  Las sesiones de soporte del super-admin NO se tocan: su refresh cae solo a
+  plataforma (la preferida inactiva deja de honrarse). Colateral ACEPTADO
+  (fail-closed): en un hipotético usuario multi-membresía (hoy solo por seed/SQL)
+  la expulsión por MEMBRESÍA borra también sus sesiones activas en OTRAS
+  empresas — sobre-expulsar en una purga de seguridad es el lado conservador;
+  el peor efecto es un re-login. Relacionado: lockout de login si su
+  PREDETERMINADA es la empresa dada de baja (preexistente, documentado en
+  `BUGS_PREEXISTENTES.md`; se resuelve con el selector multi-membresía).
+- **Idempotencia ATÓMICA** (mismo patrón que la baja de usuarios): updateMany
+  condicional dentro de la tx; sin asiento duplicado. Asientos
+  `desactivar_empresa` / `reactivar_empresa` con `usuarioId` = super-admin real
+  del token y `empresa_id` EXPLÍCITO (bajo bypass el GUC no está fijado —
+  mismo criterio que `crearEmpresa`).
+- El super-admin puede darla de baja incluso DESDE DENTRO (sesión de soporte):
+  su siguiente refresh lo devuelve a plataforma, sin 401 (probado).
+
 ## Pendientes abiertos
 
 > El código de las 7 fases (24 tareas) está construido y probado. Los puntos de

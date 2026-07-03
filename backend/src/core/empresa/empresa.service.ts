@@ -1,5 +1,5 @@
 import { txEmpresa } from '../tenant/contexto.js';
-import { ErrorConflicto } from '../errors.js';
+import { ErrorConflicto, ErrorNoEncontrado } from '../errors.js';
 import { hashearContrasena } from '../auth/contrasena.js';
 import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
 import { Rol } from '../../generated/prisma/enums.js';
@@ -113,6 +113,83 @@ export async function crearEmpresa(
     }
     throw error;
   }
+}
+
+/** Respuesta de PATCH /empresas/:id (baja/reactivación lógica del tenant). */
+export interface EmpresaEstado {
+  id: string;
+  nombre: string;
+  slug: string;
+  activo: boolean;
+}
+
+/**
+ * Cambia el ESTADO (baja/reactivación LÓGICA vía `Empresa.activo`) de un tenant.
+ * Operación de PLATAFORMA (solo super-admin, guard `soloPlataforma` en la ruta).
+ * Nunca se borra la empresa: retención legal, todos sus datos la referencian.
+ *
+ * Efecto de la baja (I5 acotado a empresas):
+ * - `resolverContextoActivo` ya rechaza empresas inactivas en login/refresh/
+ *   cambiar-empresa (fail-closed preexistente): sin tocar nada más, la baja
+ *   surtiría efecto al siguiente refresh (≤15 min).
+ * - Aquí ADEMÁS se EXPULSAN las sesiones de refresco de todos los usuarios con
+ *   membresía en la empresa (misma tx): el refresh muere al instante y solo queda
+ *   el access token residual (≤15 min, tradeoff I5 documentado). Las sesiones de
+ *   soporte del super-admin NO se tocan: su refresh cae solo a plataforma
+ *   (resolverContextoActivo honra la preferida SOLO si sigue activa).
+ * - Reactivar NO toca sesiones (los usuarios simplemente vuelven a poder entrar).
+ *
+ * Reglas:
+ * - Idempotencia ATÓMICA (mismo patrón que cambiarEstadoUsuario): updateMany
+ *   condicional dentro de la tx; pedir el estado actual → 200 sin asiento duplicado.
+ * - Asiento `desactivar_empresa`/`reactivar_empresa` con `usuarioId` = super-admin
+ *   REAL del token y `empresaId` EXPLÍCITO (bajo bypass el GUC no está fijado y
+ *   `auditoria.empresa_id` es NOT NULL — mismo criterio que `crearEmpresa`).
+ */
+export async function cambiarEstadoEmpresa(
+  empresaId: string,
+  superAdminId: string,
+  activo: boolean,
+): Promise<EmpresaEstado> {
+  const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+  if (!empresa) {
+    throw new ErrorNoEncontrado('Empresa no encontrada.');
+  }
+
+  await txEmpresa(
+    async (tx) => {
+      // Idempotencia ATÓMICA: solo "gana" si estaba en el estado contrario; dos
+      // PATCH concurrentes al mismo estado producen UN solo asiento.
+      const cambio = await tx.empresa.updateMany({
+        where: { id: empresaId, activo: !activo },
+        data: { activo },
+      });
+      if (cambio.count === 0) {
+        return; // ya estaba así: no-op
+      }
+      if (!activo) {
+        // Baja = fuera YA: se expulsan las sesiones de refresco de los usuarios del
+        // tenant (por MEMBRESÍA, no por empresaIdActiva: cubre también las sesiones
+        // que nunca cambiaron de empresa). El login/refresh ya los rechaza fail-closed.
+        await tx.sesionRefresco.deleteMany({
+          where: { usuario: { membresias: { some: { empresaId } } } },
+        });
+      }
+      await auditoriaRepo.registrar(
+        {
+          entidad: 'empresa',
+          entidadId: empresaId,
+          accion: activo ? 'reactivar_empresa' : 'desactivar_empresa',
+          usuarioId: superAdminId,
+          empresaId, // EXPLÍCITO: bajo bypass el GUC de tenant no está fijado
+          detalle: { activo },
+        },
+        tx,
+      );
+    },
+    { bypassPlataforma: true },
+  );
+  return { id: empresa.id, nombre: empresa.nombre, slug: empresa.slug, activo };
 }
 
 /**
