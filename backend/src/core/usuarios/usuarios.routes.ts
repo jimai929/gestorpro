@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { ErrorAutorizacion } from '../errors.js';
 import { responderError } from '../http.js';
 import {
+  cambiarEstadoUsuario,
   crearUsuarioEnTenant,
   listarUsuariosDelTenant,
   restablecerContrasena,
@@ -24,6 +25,28 @@ const esquemaUsuario = {
       // Lista BLANCA: un admin de tenant solo crea administrador o empleado. ajv rechaza
       // cualquier otro valor (supervisor, roles de plataforma, strings arbitrarios).
       rol: { type: 'string', enum: ['administrador', 'empleado'] },
+    },
+  },
+} as const;
+
+const esquemaEstado = {
+  params: {
+    type: 'object',
+    required: ['usuarioId'],
+    additionalProperties: false,
+    properties: {
+      // uuid validado en la puerta: un id malformado es 400, nunca llega a Prisma.
+      usuarioId: { type: 'string', pattern: PATRON_UUID },
+    },
+  },
+  body: {
+    type: 'object',
+    required: ['activo'],
+    additionalProperties: false,
+    properties: {
+      // ÚNICO campo mutable por esta ruta: la baja/reactivación lógica. Nada de
+      // rol, email ni contraseña por aquí (cada cosa tiene su endpoint con sus guards).
+      activo: { type: 'boolean' },
     },
   },
 } as const;
@@ -56,9 +79,10 @@ const esquemaRestablecer = {
  * Un super-admin EN PLATAFORMA (empresaId=null) queda fuera; si ENTRÓ a una empresa vía
  * cambiar-empresa, `autorizar` lo deja pasar y opera en ESA empresa (soporte §4.4).
  *
- *   GET  /usuarios                                    -> 200 (listado del tenant)
- *   POST /usuarios                                    -> 201 (alta con membresía)
- *   POST /usuarios/:usuarioId/restablecer-contrasena  -> 204 (contraseña temporal)
+ *   GET   /usuarios                                    -> 200 (listado del tenant)
+ *   POST  /usuarios                                    -> 201 (alta con membresía)
+ *   PATCH /usuarios/:usuarioId                         -> 200 (baja/reactivación lógica)
+ *   POST  /usuarios/:usuarioId/restablecer-contrasena  -> 204 (contraseña temporal)
  */
 export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
   // Listar los usuarios del tenant (los de membresía en la empresa del token). Las
@@ -99,6 +123,35 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
         }
         const creado = await crearUsuarioEnTenant(request.body, empresaId, sub);
         return await reply.code(201).send(creado);
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Baja/reactivación LÓGICA de un usuario del tenant (Usuario.activo; nunca se borra).
+  // Denegación 404 ÚNICA (inexistente = otro tenant = plataforma): anti-enumeración.
+  // Cuenta multi-empresa → 409 (su baja se gestiona desde la plataforma). Desactivar
+  // expulsa las sesiones del objetivo; el propio admin no puede desactivarse (400).
+  app.patch<{ Params: { usuarioId: string }; Body: { activo: boolean } }>(
+    '/usuarios/:usuarioId',
+    { preHandler: [app.autenticar, app.autorizar('administrador')], schema: esquemaEstado },
+    async (request, reply) => {
+      try {
+        // empresaId y el id del admin SIEMPRE del token (request.user), NUNCA del body.
+        const { empresaId, sub } = request.user;
+        if (empresaId === null) {
+          // Defensa en profundidad (misma que el alta): `autorizar` ya exige empresa
+          // activa. Inalcanzable en la práctica.
+          throw new ErrorAutorizacion();
+        }
+        const actualizado = await cambiarEstadoUsuario(
+          request.params.usuarioId,
+          empresaId,
+          sub,
+          request.body.activo,
+        );
+        return await reply.code(200).send(actualizado);
       } catch (error) {
         return responderError(error, request, reply);
       }

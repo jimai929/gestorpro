@@ -267,6 +267,42 @@ Huecos que `ARQUITECTURA_MULTITENANT.md` §3.5 dejaba abiertos, cerrados así
 - Sin rate limit propio (como su hermana `POST /usuarios`, que también hashea);
   `usuario.activo` NO se toca (restablecer no revive cuentas dadas de baja).
 
+### Baja / reactivación de usuarios del tenant ✅ DECIDIDO (2026-07-02)
+
+`PATCH /usuarios/:usuarioId` con body `{ activo: boolean }` (guard
+`[autenticar, autorizar('administrador')]`, dos niveles como restablecer):
+
+- **Baja LÓGICA vía `Usuario.activo`**, nunca borrado (fichajes, auditoría y
+  snapshots referencian la cuenta). `activo` es el ÚNICO campo mutable por esta
+  ruta: rol, email y contraseña tienen sus propios endpoints con sus guards.
+- **`Usuario.activo` es GLOBAL → cuenta multi-empresa se RECHAZA con 409** en
+  ambas direcciones: desactivarla desde un tenant la dejaría fuera de TODAS las
+  empresas (mutación cross-tenant). Su estado se gestiona desde la plataforma.
+  Hoy ningún endpoint crea segundas membresías (email UNIQUE global; las altas
+  siempre crean usuario nuevo), así que el 409 solo aparece ante estado sembrado
+  a mano. **Precondición para el futuro selector multi-empresa (backlog 4c):**
+  al añadir cualquier endpoint que cree membresías sobre usuarios existentes,
+  mover este conteo DENTRO de la transacción (hoy corre fuera: TOCTOU inexplotable
+  que pasaría a ser real; hay comentario centinela en el código).
+- **Auto-baja prohibida (400)**: evita el lock-out PROPIO; en el camino secuencial
+  normal el tenant nunca queda sin admins (el actor es un admin activo). Alcance
+  HONESTO: NO cubre dos admins desactivándose mutuamente en concurrencia, un token
+  residual I5 (≤15 min) ni un super-admin desactivando al último admin — casos de
+  disponibilidad recuperables por el super-admin (cambiar-empresa → reactivar o
+  crear admin); cerrarlos exigiría SERIALIZABLE (desproporcionado). El uuid del
+  path se normaliza a minúsculas antes de comparar (mismo caso que restablecer).
+- **Desactivar EXPULSA todas las sesiones** (`deleteMany` de `SesionRefresco`):
+  el refresh muere al instante; el access token vivo expira en ≤15 min (tradeoff
+  I5 aceptado). Reactivar NO toca sesiones ni contraseña.
+- **Denegación 404 ÚNICA** (inexistente = otro tenant = plataforma) e
+  **idempotencia sin ruido**: pedir el estado que ya tiene → 200 con la fila
+  actual, sin asiento duplicado (updateMany condicional DENTRO de la tx: dos
+  PATCH concurrentes al mismo estado producen UN solo asiento). Asientos:
+  `desactivar_usuario` / `reactivar_usuario` con `detalle {activo}`.
+- **Derivada sobre restablecer**: una cuenta desactivada ya NO se puede
+  restablecer (409, "reactívala antes") — el 204 sobre una cuenta que el login
+  rechaza era un éxito engañoso. Refuerza el "no revive cuentas dadas de baja".
+
 ## Pendientes abiertos
 
 > El código de las 7 fases (24 tareas) está construido y probado. Los puntos de

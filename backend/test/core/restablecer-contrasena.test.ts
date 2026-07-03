@@ -245,6 +245,33 @@ describe('Fase 4c — POST /usuarios/:id/restablecer-contrasena', () => {
     expect(asientos[0]?.empresaId).toBe(empresa.id);
   });
 
+  it('cuenta DESACTIVADA: 409 (reactivar primero) y nada cambia — sin 204 engañoso', async () => {
+    const empresa = await nuevaEmpresa();
+    const admin = await nuevoUsuario();
+    const inactivo = await semilla().usuario.create({
+      data: {
+        nombre: 'U',
+        email: `rc-${randomUUID()}@x.local`,
+        passwordHash: 'x',
+        activo: false,
+      },
+    });
+    await conMembresia(admin.id, empresa.id, 'administrador');
+    await conMembresia(inactivo.id, empresa.id, 'empleado');
+
+    const tk = app.jwt.sign({ sub: admin.id, rol: 'administrador', empresaId: empresa.id, esSuperAdmin: false });
+    const res = await restablecer(tk, inactivo.id);
+    expect(res.statusCode).toBe(409);
+
+    const enBd = await semilla().usuario.findUniqueOrThrow({ where: { id: inactivo.id } });
+    expect(enBd.passwordHash).toBe('x'); // intacto: el reset no aplicó
+    expect(enBd.debeCambiarContrasena).toBe(false);
+    const asientos = await semilla().auditoria.findMany({
+      where: { entidadId: inactivo.id, accion: 'restablecer_contrasena' },
+    });
+    expect(asientos).toHaveLength(0);
+  });
+
   it('validación en la puerta: temporal corta → 400; uuid malformado → 400', async () => {
     const empresa = await nuevaEmpresa();
     const admin = await nuevoUsuario();

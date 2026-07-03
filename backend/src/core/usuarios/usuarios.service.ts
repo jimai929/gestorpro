@@ -161,6 +161,121 @@ export async function listarUsuariosDelTenant(empresaId: string): Promise<Usuari
 }
 
 /**
+ * Cambia el ESTADO (baja/reactivación LÓGICA vía `Usuario.activo`) de un usuario del
+ * tenant. Nunca se borra la cuenta: fichajes, auditoría y snapshots la referencian.
+ * La ejecuta un administrador del tenant; el super-admin la obtiene ENTRANDO a la
+ * empresa vía cambiar-empresa (dos niveles, igual que restablecer-contrasena).
+ *
+ * Reglas de seguridad:
+ * - `empresaId` y `adminId` SIEMPRE del token (ver ruta), NUNCA del body.
+ * - Denegación con 404 ÚNICO e indistinguible (inexistente = de otro tenant =
+ *   cuenta de plataforma): no revela la existencia de cuentas ajenas.
+ * - `Usuario.activo` es GLOBAL: desactivar a un usuario con membresías en OTRAS
+ *   empresas lo dejaría fuera de TODAS (mutación cross-tenant desde un solo
+ *   tenant). Por eso una cuenta multi-empresa se RECHAZA con 409 en ambas
+ *   direcciones: su baja se gestiona desde la plataforma. (Hoy ningún endpoint
+ *   crea segundas membresías — email UNIQUE global y las altas siempre crean
+ *   usuario nuevo — así que el 409 solo puede darse ante estado sembrado a mano.)
+ * - El admin NO puede desactivarse a SÍ MISMO (400): evita el lock-out PROPIO. En el
+ *   camino secuencial normal el tenant nunca queda sin admins (el actor es un admin
+ *   activo), pero NO es una garantía absoluta: dos admins desactivándose MUTUAMENTE
+ *   en concurrencia, un token residual I5 (≤15 min) o un super-admin desactivando al
+ *   último admin pueden dejar 0 admins activos. Caso de disponibilidad, no de fuga,
+ *   y RECUPERABLE: el super-admin entra vía cambiar-empresa y reactiva o crea un
+ *   admin. Cerrarlo del todo exigiría SERIALIZABLE/locks — desproporcionado.
+ * - Desactivar EXPULSA todas las sesiones del objetivo (`deleteMany`): el refresh
+ *   muere al instante; el access token vivo expira en ≤15 min (tradeoff I5
+ *   aceptado y documentado). Reactivar NO toca sesiones ni contraseña.
+ * - Idempotente sin ruido: pedir el estado que ya tiene devuelve la fila actual
+ *   SIN transacción ni asiento de auditoría duplicado.
+ */
+export async function cambiarEstadoUsuario(
+  usuarioObjetivoId: string,
+  empresaId: string,
+  adminId: string,
+  activo: boolean,
+): Promise<UsuarioListado> {
+  // Normaliza el uuid a minúsculas ANTES de comparar (mismo motivo que en
+  // restablecerContrasena: el patrón de ruta admite hex en MAYÚSCULAS y Postgres
+  // resuelve el uuid case-insensitive; un `===` sensible dejaría al admin
+  // desactivarse a sí mismo enviando su propio id en mayúsculas).
+  const objetivoId = usuarioObjetivoId.toLowerCase();
+  if (objetivoId === adminId.toLowerCase()) {
+    throw new ErrorValidacion('Tu propia cuenta no se puede desactivar ni reactivar desde aquí.');
+  }
+
+  // Mensaje ÚNICO para todo camino de denegación (anti-enumeración). `usuario` y
+  // `membresia` están fuera de RLS: se leen con el cliente plano, sin contexto.
+  const noEncontrado = () => new ErrorNoEncontrado('Usuario no encontrado.');
+
+  const objetivo = await prisma.usuario.findUnique({ where: { id: objetivoId } });
+  if (!objetivo || objetivo.esSuperAdmin) {
+    throw noEncontrado();
+  }
+  const membresias = await prisma.membresia.findMany({ where: { usuarioId: objetivoId } });
+  const membresiaAqui = membresias.find((m) => m.empresaId === empresaId);
+  if (!membresiaAqui) {
+    throw noEncontrado();
+  }
+  if (membresias.length > 1) {
+    throw new ErrorConflicto(
+      'La cuenta pertenece a más de una empresa: su estado se gestiona desde la plataforma.',
+    );
+  }
+  // OJO (TOCTOU futuro): este conteo corre FUERA de la tx. Hoy es inexplotable —
+  // ningún endpoint añade membresías a un usuario existente (email UNIQUE global,
+  // las altas siempre crean usuario nuevo) — pero si algún día se implementa
+  // "añadir membresía" (p. ej. el selector multi-empresa del backlog 4c), hay que
+  // MOVER este check dentro de la transacción o re-validarlo ahí: si no, una
+  // membresía creada en la ventana convertiría esta baja en lock-out cross-tenant.
+
+  const fila = (): UsuarioListado => ({
+    id: objetivo.id,
+    nombre: objetivo.nombre,
+    email: objetivo.email,
+    rol: membresiaAqui.rol,
+    activo,
+    debeCambiarContrasena: objetivo.debeCambiarContrasena,
+    creadoEn: objetivo.creadoEn.toISOString(),
+  });
+
+  await txEmpresa(
+    async (tx) => {
+      // Idempotencia ATÓMICA (no un check previo TOCTOU): el updateMany condicional
+      // solo "gana" si la cuenta estaba en el estado contrario. Dos PATCH concurrentes
+      // al mismo estado producen UN solo asiento; el otro es no-op sin ruido. Pedir el
+      // estado que ya tiene → count 0 → 200 con la fila, sin asiento duplicado.
+      const cambio = await tx.usuario.updateMany({
+        where: { id: objetivoId, activo: !activo },
+        data: { activo },
+      });
+      if (cambio.count === 0) {
+        return; // ya estaba así: no-op
+      }
+      if (!activo) {
+        // Baja = fuera YA: sin sesiones de refresco solo queda el access token
+        // vivo (≤15 min); login/refresh/cambiar-empresa rechazan cuentas inactivas.
+        await tx.sesionRefresco.deleteMany({ where: { usuarioId: objetivoId } });
+      }
+      await auditoriaRepo.registrar(
+        {
+          entidad: 'usuario',
+          entidadId: objetivoId,
+          accion: activo ? 'reactivar_usuario' : 'desactivar_usuario',
+          usuarioId: adminId,
+          // empresa_id lo rellena el DEFAULT desde el GUC (override de txEmpresa).
+          detalle: { activo },
+        },
+        tx,
+      );
+    },
+    // FUENTE ÚNICA del tenant (mismo patrón que el resto del módulo).
+    { empresaId },
+  );
+  return fila();
+}
+
+/**
  * RESTABLECE la contraseña de un usuario del tenant (soporte): fija una contraseña
  * TEMPORAL (born-true, mismo mecanismo que el alta), revoca TODAS sus sesiones y
  * audita — todo en una transacción. La ejecuta un administrador del tenant; el
@@ -178,6 +293,8 @@ export async function listarUsuariosDelTenant(empresaId: string): Promise<Usuari
  *   auto-restablecimiento dejaría que una sesión robada tome la cuenta sin conocerla.
  * - La contraseña temporal jamás se guarda ni audita en claro; el usuario deberá
  *   rotarla en su primer login (debeCambiarContrasena=true → default-block).
+ * - Cuenta DESACTIVADA → 409: restablecer no revive cuentas dadas de baja; hay que
+ *   reactivarla primero (PATCH /usuarios/:id). Sin esto el 204 sería engañoso.
  */
 export async function restablecerContrasena(
   usuarioObjetivoId: string,
@@ -211,6 +328,15 @@ export async function restablecerContrasena(
   });
   if (!membresia) {
     throw noEncontrado();
+  }
+  // Cuenta DESACTIVADA: restablecerla daría un 204 engañoso (el login la seguiría
+  // rechazando y "no revive cuentas dadas de baja" — DECISIONES). Se exige el orden
+  // correcto: primero reactivar, después restablecer. Este 409 corre DESPUÉS del
+  // check de membresía: solo lo ve un admin del propio tenant (sin fuga cross-tenant).
+  if (!objetivo.activo) {
+    throw new ErrorConflicto(
+      'La cuenta está desactivada: reactívala antes de restablecer su contraseña.',
+    );
   }
 
   // argon2 FUERA de la transacción (es costoso; no hay que tener la tx abierta).
