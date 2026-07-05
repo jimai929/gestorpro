@@ -52,6 +52,14 @@ export const adaptadorVenta: AdaptadorCorreccion<VentaMovimiento> = {
     });
   },
 
+  async bloquearOriginal(id, tx) {
+    await tx.$queryRaw`SELECT id FROM venta_diaria WHERE id = ${id}::uuid FOR UPDATE`;
+  },
+
+  async existeReverso(id, tx) {
+    return (await tx.ventaDiaria.count({ where: { corrigeId: id, tipo: 'reverso' } })) > 0;
+  },
+
   hayCorreccion(entrada) {
     return entrada.detallesCorregidos !== undefined;
   },

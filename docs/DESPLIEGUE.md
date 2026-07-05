@@ -166,6 +166,18 @@ simulado).
 - **Migraciones:** cada despliegue ejecuta `prisma migrate deploy` (con el rol
   migrador) ANTES de levantar el backend nuevo. Política additive-only que ya
   rige: nunca editar migraciones aplicadas.
+- **Chequeo pre-deploy de `20260706120000_unico_reverso_por_movimiento`
+  (OBLIGATORIO, solo lectura):** esa migración crea índices únicos parciales
+  sobre `corrige_id WHERE tipo='reverso'` y FALLA (deploy a medias, migración en
+  `failed`) si producción ya tuviera reversos duplicados — posibles, porque
+  `/correcciones` operó sin el guard. ANTES de desplegarla, correr en prod las
+  tres consultas (deben devolver 0 filas; si no, sanear a mano primero):
+
+  ```sql
+  SELECT corrige_id, COUNT(*) FROM pago_proveedor WHERE tipo='reverso' GROUP BY corrige_id HAVING COUNT(*) > 1;
+  SELECT corrige_id, COUNT(*) FROM gasto          WHERE tipo='reverso' GROUP BY corrige_id HAVING COUNT(*) > 1;
+  SELECT corrige_id, COUNT(*) FROM venta_diaria   WHERE tipo='reverso' GROUP BY corrige_id HAVING COUNT(*) > 1;
+  ```
 - **Seed base vs demo — HECHO** (commit `4b2cb18`): `prisma/seed.ts` siembra
   SIEMPRE lo base prod-safe (Sede inicial, admin, categorías de gasto **incluida
   'Pago a empleado' `esPagoEmpleado=true`** de la que depende `pagarCobro`, roles

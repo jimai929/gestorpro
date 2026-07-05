@@ -41,6 +41,14 @@ export const adaptadorGasto: AdaptadorCorreccion<GastoMovimiento> = {
     });
   },
 
+  async bloquearOriginal(id, tx) {
+    await tx.$queryRaw`SELECT id FROM gasto WHERE id = ${id}::uuid FOR UPDATE`;
+  },
+
+  async existeReverso(id, tx) {
+    return (await tx.gasto.count({ where: { corrigeId: id, tipo: 'reverso' } })) > 0;
+  },
+
   async crearReverso(original, datos, tx) {
     return tx.gasto.create({
       data: {

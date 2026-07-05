@@ -1,4 +1,5 @@
 import type { ClienteTx } from '../../core/prisma.js';
+import { ErrorConflicto } from '../../core/errors.js';
 import { txEmpresa } from '../../core/tenant/contexto.js';
 import { auditoriaRepo } from '../repositories/auditoria.repository.js';
 
@@ -32,6 +33,14 @@ export interface AdaptadorCorreccion<T extends MovimientoBase> {
   /** Nombre de la entidad para la auditoría: 'pago' | 'gasto' | 'venta'. */
   entidad: string;
   cargar(id: string, tx: ClienteTx): Promise<T | null>;
+  /**
+   * Bloquea la fila del movimiento original (`SELECT ... FOR UPDATE` en SU tabla).
+   * Serializa las correcciones concurrentes del mismo movimiento: la perdedora
+   * espera aquí y, al despertar, `existeReverso` ya ve el reverso de la ganadora.
+   */
+  bloquearOriginal(id: string, tx: ClienteTx): Promise<void>;
+  /** ¿Ya existe un asiento `reverso` que corrige este movimiento? (regla "sin doble corrección") */
+  existeReverso(id: string, tx: ClienteTx): Promise<boolean>;
   crearReverso(
     original: T,
     datos: DatosAsiento,
@@ -96,6 +105,19 @@ export async function corregirMovimiento<T extends MovimientoBase>(
       );
     }
 
+    // Regla "sin doble corrección": a lo sumo UN reverso por movimiento normal.
+    // El chequeo va BAJO el lock de la fila original — dos correcciones
+    // concurrentes se serializan en bloquearOriginal y la perdedora ve aquí el
+    // reverso ya commiteado de la ganadora → 409 limpio (el índice único parcial
+    // uq_*_reverso_unico respalda la regla a nivel de BD). El original es
+    // inmutable, así que `tipo` no necesita re-chequeo bajo el lock.
+    await adaptador.bloquearOriginal(original.id, tx);
+    if (await adaptador.existeReverso(original.id, tx)) {
+      throw new ErrorConflicto(
+        'El movimiento ya fue corregido: no admite una segunda corrección.',
+      );
+    }
+
     const datos: DatosAsiento = { motivo, usuarioId };
 
     const reverso = await adaptador.crearReverso(original, datos, tx);
@@ -131,5 +153,12 @@ export async function corregirMovimiento<T extends MovimientoBase>(
     }
 
     return { reverso, correccion };
+  }, {
+    // Aislamiento EXPLÍCITO (misma convención y motivo que registrarPago): el
+    // guard anti-doble-corrección depende de READ COMMITTED — la tx que espera
+    // el FOR UPDATE debe ver, al despertar, el reverso ya commiteado por la
+    // ganadora; bajo REPEATABLE READ el snapshot stale dejaría pasar AMBAS.
+    // El timeout holgado cubre la espera del lock bajo contención.
+    tx: { isolationLevel: 'ReadCommitted', timeout: 15000 },
   });
 }
