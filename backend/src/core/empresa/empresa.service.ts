@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { txEmpresa } from '../tenant/contexto.js';
 import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../errors.js';
 import { hashearContrasena } from '../auth/contrasena.js';
@@ -351,4 +352,136 @@ export async function listarEmpresas(): Promise<EmpresaListada[]> {
     creadoEn: e.creadoEn.toISOString(),
     adminEmail: e.membresias[0]?.usuario.email ?? null,
   }));
+}
+
+/**
+ * Genera una contraseña temporal FUERTE (URL-safe, ~24 chars, alta entropía). Se devuelve
+ * UNA sola vez en la respuesta; JAMÁS se persiste en claro (solo su hash argon2). Mismo
+ * patrón de generación que los tokens del proyecto (randomBytes + base64url).
+ */
+function generarContrasenaTemporal(): string {
+  return randomBytes(18).toString('base64url');
+}
+
+/**
+ * Resultado de restablecer al admin de una empresa. Superficie MÍNIMA: SOLO la temporal
+ * (en CLARO, devuelta UNA vez, nunca persistida/auditada/logueada) y el flag de cambio
+ * forzado. NO expone `usuarioId` ni `email` (identidad del objetivo): esos solo se
+ * registran en `AuditoriaPlataforma.detalle`, no viajan en la respuesta.
+ */
+export interface AdminRestablecido {
+  contrasenaTemporal: string;
+  debeCambiarContrasena: true;
+}
+
+/**
+ * RESTABLECE la contraseña del admin PRINCIPAL de una empresa (soporte de PLATAFORMA),
+ * SIN que el super-admin entre al tenant (a diferencia de la vía de tenant
+ * `restablecerContrasena`, que exige cambiar-empresa). Genera una contraseña temporal
+ * FUERTE, la hashea (argon2), fuerza el cambio en el primer login
+ * (`debeCambiarContrasena=true`) y REVOCA todas las sesiones del admin — todo en una tx.
+ *
+ * "Admin principal" = la membresía `predeterminada` de rol `administrador` (la MISMA que
+ * muestra `listarEmpresas`). Es la vía de recuperación cuando el admin del cliente pierde
+ * el acceso y no puede rotarla él mismo por `/auth/cambiar-contrasena`.
+ *
+ * Reglas de seguridad:
+ * - `superAdminId` SIEMPRE del token (nunca del body). El objetivo lo RESUELVE el servidor
+ *   (no se pasa usuarioId): la membresía predeterminada+administrador de la empresa.
+ * - La contraseña temporal se GENERA en el servidor (no se acepta del body): más fuerte y
+ *   sin exponerla en el request. Se devuelve EN CLARO en la respuesta UNA vez; NUNCA se
+ *   persiste (solo el hash), ni se audita (`detalle` sin contraseña), ni se loguea.
+ * - Respuesta de superficie MÍNIMA: SOLO `{ contrasenaTemporal, debeCambiarContrasena }`.
+ *   NO devuelve `usuarioId` ni `email` — la identidad del admin objetivo solo se registra
+ *   en `AuditoriaPlataforma.detalle`, nunca en la respuesta.
+ * - Auditoría de PLATAFORMA `resetear_password_admin` (`AuditoriaPlataforma`), NO la de
+ *   tenant. Actor = super-admin real del token; `empresaAfectadaId` = la empresa.
+ * - Errores HONESTOS (super-admin god-view, no anti-enumeración de tenant): empresa
+ *   inexistente → 404; empresa desactivada → 409 (reactivar primero: un admin de empresa
+ *   suspendida no puede entrar igualmente, fail-closed); empresa SIN admin predeterminado
+ *   → 404; cuenta admin desactivada → 409 (si no, el 200 con temporal sería engañoso: el
+ *   login la seguiría rechazando). Objetivo `esSuperAdmin` → 404 (invariante §4.2: una
+ *   membresía admin nunca es de una cuenta de plataforma; defensa ante estado corrupto).
+ * - MULTI-EMPRESA: NO se rechaza. La contraseña es global, pero la autoridad del
+ *   super-admin ES cross-tenant (decisión de plataforma, ver B1) — a diferencia del admin
+ *   de tenant, que sí recibe 409 en su propia vía.
+ * - Las tablas tocadas (`usuario`, `sesion_refresco`, `auditoria_plataforma`) están TODAS
+ *   fuera de RLS (allowlist), así que basta un `$transaction` normal (sin bypass ni GUC).
+ * - TOCTOU: dentro de la tx se BLOQUEA la fila del admin (`SELECT … FOR UPDATE`) y se
+ *   re-valida `activo` (paridad con `restablecerContrasena` de tenant), cerrando la ventana
+ *   pre-check→tx: si otro operador lo desactivó en el intermedio, se aborta con 409 en vez
+ *   de un 200 engañoso. El pre-check de `activo` de arriba queda como FAST-PATH.
+ */
+export async function restablecerAdminEmpresa(
+  empresaId: string,
+  superAdminId: string,
+): Promise<AdminRestablecido> {
+  const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+  if (!empresa) {
+    throw new ErrorNoEncontrado('Empresa no encontrada.');
+  }
+  if (!empresa.activo) {
+    throw new ErrorConflicto(
+      'La empresa está desactivada: reactívala antes de restablecer su administrador.',
+    );
+  }
+  // Admin PRINCIPAL: la MISMA membresía que expone listarEmpresas (predeterminada + admin).
+  const membresia = await prisma.membresia.findFirst({
+    where: { empresaId, predeterminada: true, rol: Rol.administrador },
+    include: { usuario: true },
+  });
+  const admin = membresia?.usuario;
+  // esSuperAdmin: estado corrupto (§4.2, una membresía admin no es de plataforma) → se
+  // trata como "sin admin predeterminado" (mismo 404), nunca se restablece una cuenta de
+  // plataforma por aquí.
+  if (!admin || admin.esSuperAdmin) {
+    throw new ErrorNoEncontrado('La empresa no tiene un administrador predeterminado.');
+  }
+  if (!admin.activo) {
+    throw new ErrorConflicto(
+      'La cuenta del administrador está desactivada: reactívala antes de restablecer.',
+    );
+  }
+
+  // argon2 FUERA de la transacción (es costoso; no hay que tener la tx abierta).
+  const contrasenaTemporal = generarContrasenaTemporal();
+  const passwordHash = await hashearContrasena(contrasenaTemporal);
+
+  await prisma.$transaction(async (tx) => {
+    // Lock de la fila del admin (paridad con restablecerContrasena de tenant): re-valida
+    // `activo` BAJO el lock, cerrando la ventana pre-check → tx. Si otro operador desactivó
+    // al admin en el intermedio, se aborta con 409 en vez de dejar un 200 engañoso (una
+    // temporal que el login rechazaría por cuenta inactiva). El conteo multi-empresa NO se
+    // re-chequea: a diferencia del admin de tenant, el super-admin tiene autoridad
+    // cross-tenant legítima (no hay escalada que cerrar aquí).
+    const filas = await tx.$queryRaw<Array<{ activo: boolean }>>`
+      SELECT activo FROM usuario WHERE id = ${admin.id}::uuid FOR UPDATE`;
+    if (!filas[0]?.activo) {
+      throw new ErrorConflicto(
+        'La cuenta del administrador está desactivada: reactívala antes de restablecer.',
+      );
+    }
+    await tx.usuario.update({
+      where: { id: admin.id },
+      // Temporal born-true (mismo mecanismo que el alta): debe rotarla en el primer login.
+      data: { passwordHash, debeCambiarContrasena: true },
+    });
+    // Expulsa TODAS las sesiones vivas del admin: tras el reset solo entra quien tenga la
+    // temporal (p. ej. quien perdió el acceso, o un token robado).
+    await tx.sesionRefresco.deleteMany({ where: { usuarioId: admin.id } });
+    await auditoriaPlataformaRepo.registrar(
+      {
+        actorUsuarioId: superAdminId,
+        accion: 'resetear_password_admin',
+        empresaAfectadaId: empresaId,
+        // `detalle` SIN contraseña: jamás en claro. Solo referencia al objetivo.
+        detalle: { usuarioId: admin.id, email: admin.email },
+      },
+      tx,
+    );
+  });
+
+  // La temporal EN CLARO viaja SOLO aquí (respuesta), una vez. Nunca se persistió.
+  // Superficie mínima: sin usuarioId ni email (esos solo van al asiento de auditoría).
+  return { contrasenaTemporal, debeCambiarContrasena: true };
 }

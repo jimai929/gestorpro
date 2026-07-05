@@ -5,6 +5,7 @@ import {
   crearEmpresa,
   crearMembresia,
   listarEmpresas,
+  restablecerAdminEmpresa,
 } from './empresa.service.js';
 
 const PATRON_UUID =
@@ -59,6 +60,33 @@ const esquemaMembresia = {
   },
 } as const;
 
+const esquemaRestablecerAdmin = {
+  params: {
+    type: 'object',
+    required: ['empresaId'],
+    additionalProperties: false,
+    properties: {
+      // uuid validado en la puerta: un id malformado es 400, nunca llega a Prisma.
+      empresaId: { type: 'string', pattern: PATRON_UUID },
+    },
+  },
+  // SIN body: la contraseña temporal la GENERA el servidor (no se acepta del cliente).
+  // Respuesta de superficie MÍNIMA: SOLO temporal + flag. `additionalProperties:false` hace
+  // que el serializador de Fastify DESCARTE cualquier campo extra (usuarioId, email, hash…):
+  // aunque el servicio devolviera de más, la respuesta NUNCA lo filtra (defensa en la puerta).
+  response: {
+    200: {
+      type: 'object',
+      required: ['contrasenaTemporal', 'debeCambiarContrasena'],
+      additionalProperties: false,
+      properties: {
+        contrasenaTemporal: { type: 'string' },
+        debeCambiarContrasena: { type: 'boolean' },
+      },
+    },
+  },
+} as const;
+
 const esquemaEmpresa = {
   body: {
     type: 'object',
@@ -78,13 +106,15 @@ const esquemaEmpresa = {
 /**
  * Rutas de PLATAFORMA (SaaS): gestión de tenants. SOLO super-admin (`soloPlataforma`
  * responde 404 a cualquier otro, no revela el endpoint). Alcance: alta de empresa
- * (crear tenant + su primer admin), listado, baja/reactivación lógica y alta de
- * membresías multi-empresa sobre usuarios existentes.
+ * (crear tenant + su primer admin), listado, baja/reactivación lógica, alta de
+ * membresías multi-empresa sobre usuarios existentes y reset de la contraseña del
+ * admin principal de una empresa (sin entrar al tenant).
  *
- *   POST  /empresas                        -> 201 (tenant + primer admin)
- *   GET   /empresas                        -> 200 (listado)
- *   PATCH /empresas/:empresaId             -> 200 (baja/reactivación lógica)
- *   POST  /empresas/:empresaId/membresias  -> 201 (membresía de usuario existente)
+ *   POST  /empresas                              -> 201 (tenant + primer admin)
+ *   GET   /empresas                              -> 200 (listado)
+ *   PATCH /empresas/:empresaId                   -> 200 (baja/reactivación lógica)
+ *   POST  /empresas/:empresaId/membresias        -> 201 (membresía de usuario existente)
+ *   POST  /empresas/:empresaId/restablecer-admin -> 200 (temporal del admin, EN CLARO 1 vez)
  */
 export async function empresaRoutes(app: FastifyInstance): Promise<void> {
   // Guards en onRequest, NO en preHandler: en el ciclo de Fastify la validación de
@@ -140,6 +170,25 @@ export async function empresaRoutes(app: FastifyInstance): Promise<void> {
           request.user.sub,
         );
         return await reply.code(201).send(creada);
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Restablecer la contraseña del admin PRINCIPAL de una empresa SIN entrar al tenant
+  // (plataforma). El servidor GENERA una temporal fuerte, fuerza el cambio en el primer
+  // login y revoca las sesiones del admin; la temporal se devuelve EN CLARO UNA vez en la
+  // respuesta (nunca se persiste, audita ni loguea). Errores honestos (super-admin
+  // god-view): 404 empresa/admin inexistente, 409 empresa o cuenta admin desactivada.
+  app.post<{ Params: { empresaId: string } }>(
+    '/empresas/:empresaId/restablecer-admin',
+    { ...soloSuper, schema: esquemaRestablecerAdmin },
+    async (request, reply) => {
+      try {
+        // El super-admin que ejecuta SIEMPRE sale del token (request.user.sub).
+        const resultado = await restablecerAdminEmpresa(request.params.empresaId, request.user.sub);
+        return await reply.code(200).send(resultado);
       } catch (error) {
         return responderError(error, request, reply);
       }
