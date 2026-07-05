@@ -23,11 +23,13 @@ const esquemaEstadoEmpresa = {
   },
   body: {
     type: 'object',
-    required: ['activo'],
+    required: ['estado'],
     additionalProperties: false,
     properties: {
-      // ÚNICO campo mutable por esta ruta: la baja/reactivación lógica del tenant.
-      activo: { type: 'boolean' },
+      // ÚNICO campo mutable por esta ruta (B3): el estado del tenant. Lista BLANCA de
+      // los tres estados; la máquina de transiciones (cancelada terminal, no-op
+      // idempotente) la impone el servicio, no la puerta.
+      estado: { type: 'string', enum: ['activa', 'suspendida', 'cancelada'] },
     },
   },
 } as const;
@@ -111,8 +113,8 @@ const esquemaEmpresa = {
  * admin principal de una empresa (sin entrar al tenant).
  *
  *   POST  /empresas                              -> 201 (tenant + primer admin)
- *   GET   /empresas                              -> 200 (listado)
- *   PATCH /empresas/:empresaId                   -> 200 (baja/reactivación lógica)
+ *   GET   /empresas                              -> 200 (listado, con `estado`)
+ *   PATCH /empresas/:empresaId                   -> 200 (transición de estado B3)
  *   POST  /empresas/:empresaId/membresias        -> 201 (membresía de usuario existente)
  *   POST  /empresas/:empresaId/restablecer-admin -> 200 (temporal del admin, EN CLARO 1 vez)
  */
@@ -180,7 +182,8 @@ export async function empresaRoutes(app: FastifyInstance): Promise<void> {
   // (plataforma). El servidor GENERA una temporal fuerte, fuerza el cambio en el primer
   // login y revoca las sesiones del admin; la temporal se devuelve EN CLARO UNA vez en la
   // respuesta (nunca se persiste, audita ni loguea). Errores honestos (super-admin
-  // god-view): 404 empresa/admin inexistente, 409 empresa o cuenta admin desactivada.
+  // god-view): 404 empresa/admin inexistente, 409 empresa NO activa (suspendida o
+  // cancelada, B3) o cuenta admin desactivada.
   app.post<{ Params: { empresaId: string } }>(
     '/empresas/:empresaId/restablecer-admin',
     { ...soloSuper, schema: esquemaRestablecerAdmin },
@@ -195,10 +198,11 @@ export async function empresaRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // Baja/reactivación LÓGICA del tenant (Empresa.activo; nunca se borra). Desactivar
-  // expulsa las sesiones de refresco de sus usuarios (login/refresh ya rechazan
-  // empresas inactivas, fail-closed); reactivar solo restaura el acceso.
-  app.patch<{ Params: { empresaId: string }; Body: { activo: boolean } }>(
+  // Transición de ESTADO del tenant (B3: activa | suspendida | cancelada; nunca se
+  // borra). Suspender/cancelar expulsan las sesiones de refresco de sus usuarios
+  // (login/refresh ya rechazan empresas no activas, fail-closed); reactivar solo
+  // restaura el acceso y SOLO desde suspendida — cancelada es TERMINAL (409).
+  app.patch<{ Params: { empresaId: string }; Body: { estado: 'activa' | 'suspendida' | 'cancelada' } }>(
     '/empresas/:empresaId',
     { ...soloSuper, schema: esquemaEstadoEmpresa },
     async (request, reply) => {
@@ -207,7 +211,7 @@ export async function empresaRoutes(app: FastifyInstance): Promise<void> {
         const actualizada = await cambiarEstadoEmpresa(
           request.params.empresaId,
           request.user.sub,
-          request.body.activo,
+          request.body.estado,
         );
         return await reply.code(200).send(actualizada);
       } catch (error) {

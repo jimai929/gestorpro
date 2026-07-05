@@ -43,7 +43,13 @@ describe('Plataforma — POST /empresas/:id/restablecer-admin', () => {
   }
   async function nuevaEmpresa(activo = true) {
     return semilla().empresa.create({
-      data: { nombre: `RA ${randomUUID().slice(0, 8)}`, slug: `ra-${randomUUID()}`, activo },
+      // B3: los reads van por `estado`; el boolean del helper se mapea (espejo coherente).
+      data: {
+        nombre: `RA ${randomUUID().slice(0, 8)}`,
+        slug: `ra-${randomUUID()}`,
+        activo,
+        estado: activo ? 'activa' : 'suspendida',
+      },
     });
   }
   /** Crea empresa + su admin PRINCIPAL (membresía predeterminada+administrador) con clave conocida. */

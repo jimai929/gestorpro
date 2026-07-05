@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../prisma.js';
 import { ErrorAutenticacion } from '../errors.js';
+import { EstadoEmpresa } from '../../generated/prisma/enums.js';
 import { responderError } from '../http.js';
 import { cambiarContrasena, crearServicioAuth } from './auth.service.js';
 
@@ -164,7 +165,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         ? []
         : (
             await prisma.membresia.findMany({
-              where: { usuarioId: request.user.sub, empresa: { activo: true } },
+              // B3: solo empresas en estado 'activa' (suspendida/cancelada fuera del selector).
+              where: { usuarioId: request.user.sub, empresa: { estado: EstadoEmpresa.activa } },
               orderBy: [{ predeterminada: 'desc' }, { creadoEn: 'asc' }],
               include: { empresa: { select: { nombre: true } } },
             })

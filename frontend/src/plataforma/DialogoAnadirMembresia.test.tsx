@@ -13,7 +13,7 @@ const EMPRESA: EmpresaListada = {
   id: 'e1',
   nombre: 'Acme Panamá',
   slug: 'acme-panama',
-  activo: true,
+  estado: 'activa',
   creadoEn: '2026-06-30T00:00:00.000Z',
   adminEmail: 'ana@acme.com',
 };

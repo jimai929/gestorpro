@@ -34,7 +34,13 @@ describe('B4 — super-admin sin contexto de tenant (cierre central)', () => {
 
   async function nuevaEmpresa(activo = true) {
     return semilla().empresa.create({
-      data: { nombre: `B4 ${randomUUID().slice(0, 8)}`, slug: `b4-${randomUUID()}`, activo },
+      // B3: los reads van por `estado`; el boolean del helper se mapea (espejo coherente).
+      data: {
+        nombre: `B4 ${randomUUID().slice(0, 8)}`,
+        slug: `b4-${randomUUID()}`,
+        activo,
+        estado: activo ? 'activa' : 'suspendida',
+      },
     });
   }
   async function superAdminConClave() {

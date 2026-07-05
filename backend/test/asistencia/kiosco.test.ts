@@ -91,11 +91,18 @@ describe('kiosco — token de dispositivo', () => {
     const sede = await nuevaSede(empresaId);
     const { id, token } = await comoEmpresa(empresaId, () => crearKiosco({ nombre: 'K', sedeId: sede.id }));
 
-    await semilla().empresa.update({ where: { id: empresaId }, data: { activo: false } });
+    // B3: la revocación va por `estado` (espejo `activo` coherente).
+    await semilla().empresa.update({
+      where: { id: empresaId },
+      data: { estado: 'suspendida', activo: false },
+    });
     await expect(resolverContextoKiosco(id, token)).rejects.toBeInstanceOf(ErrorAutenticacion);
 
     // Reactivada, el MISMO token de dispositivo vuelve a operar (nada que reconfigurar).
-    await semilla().empresa.update({ where: { id: empresaId }, data: { activo: true } });
+    await semilla().empresa.update({
+      where: { id: empresaId },
+      data: { estado: 'activa', activo: true },
+    });
     await expect(resolverContextoKiosco(id, token)).resolves.toEqual({ empresaId });
   });
 

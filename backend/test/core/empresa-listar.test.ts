@@ -66,7 +66,7 @@ describe('GET /empresas — listado de tenants (solo super-admin)', () => {
     id: string;
     nombre: string;
     slug: string;
-    activo: boolean;
+    estado: 'activa' | 'suspendida' | 'cancelada';
     creadoEn: string;
     adminEmail: string | null;
   };
@@ -113,10 +113,10 @@ describe('GET /empresas — listado de tenants (solo super-admin)', () => {
     expect(filaA?.adminEmail).toBe(emailA);
     expect(filaB?.adminEmail).toBe(emailB);
 
-    // Campos de la fila.
+    // Campos de la fila (B3: el listado expone `estado`, no el legacy `activo`).
     expect(filaA?.slug).toBe(slugA);
     expect(filaA?.nombre).toBe(`Empresa ${slugA}`);
-    expect(filaA?.activo).toBe(true);
+    expect(filaA?.estado).toBe('activa');
     expect(typeof filaA?.creadoEn).toBe('string'); // ISO
   });
 });

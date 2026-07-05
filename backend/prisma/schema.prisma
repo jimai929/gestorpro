@@ -32,6 +32,16 @@ enum ModoExcepcion {
   ambos
 }
 
+/// Estado del ciclo de vida de un tenant (B3). Reemplaza la semántica del boolean
+/// `activo`: `activa` opera con normalidad; `suspendida` bloquea TODO el negocio pero
+/// la plataforma puede reactivarla; `cancelada` es TERMINAL (sin reactivación por el
+/// flujo normal). Solo `activa` permite login/refresh/cambiar-empresa/kiosco.
+enum EstadoEmpresa {
+  activa
+  suspendida
+  cancelada
+}
+
 /// Sede física de la empresa (un cliente puede tener varias).
 /// Tenant raíz del SaaS multi-empresa. Cada fila es un cliente aislado. El
 /// aislamiento entre empresas es fail-closed (RLS bajo gestorpro_app); ver
@@ -40,7 +50,12 @@ model Empresa {
   id          String   @id @default(uuid()) @db.Uuid
   nombre      String
   slug        String   @unique
+  /// LEGACY (B3): espejo de `estado` (true ⟺ activa) conservado por riesgo mínimo —
+  /// permite rollback del código sin perder la baja lógica. La fuente de verdad es
+  /// `estado`; NINGÚN read nuevo debe usar `activo`. Se eliminará en una migración
+  /// futura (contract) cuando B3 esté asentado en producción.
   activo      Boolean  @default(true)
+  estado      EstadoEmpresa @default(activa)
   plan        String   @default("base")
   zonaHoraria String   @default("America/Panama") @map("zona_horaria")
   creadoEn    DateTime @default(now()) @map("creado_en")

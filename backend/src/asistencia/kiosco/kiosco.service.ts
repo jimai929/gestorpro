@@ -89,18 +89,18 @@ export async function resolverContextoKiosco(
       select: {
         activo: true,
         tokenHash: true,
-        // empresa.activo en el MISMO select (cero consultas extra): el token de
-        // dispositivo no tiene TTL, así que sin este check un tenant dado de baja
-        // seguiría ACEPTANDO fichajes para siempre — I5 cubre también este canal.
-        sede: { select: { empresaId: true, empresa: { select: { activo: true } } } },
+        // empresa.estado en el MISMO select (cero consultas extra): el token de
+        // dispositivo no tiene TTL, así que sin este check un tenant suspendido o
+        // cancelado seguiría ACEPTANDO fichajes para siempre — I5 cubre también este canal.
+        sede: { select: { empresaId: true, empresa: { select: { estado: true } } } },
       },
     }),
   );
   if (
     !kiosco ||
     !kiosco.activo ||
-    // Empresa dada de baja (o huérfana): el kiosco queda revocado con el tenant.
-    !kiosco.sede.empresa?.activo ||
+    // B3: solo una empresa ACTIVA acepta fichajes (suspendida y cancelada revocan igual).
+    kiosco.sede.empresa?.estado !== 'activa' ||
     !kiosco.tokenHash ||
     !token ||
     !(await verificarContrasena(kiosco.tokenHash, token))

@@ -28,7 +28,8 @@ describe('Fase 4c — multi-membresía: fallback + selector', () => {
 
   async function nuevaEmpresa(nombre: string, activo = true) {
     return semilla().empresa.create({
-      data: { nombre, slug: `mm-${randomUUID()}`, activo },
+      // B3: los reads van por `estado`; el boolean del helper se mapea (espejo coherente).
+      data: { nombre, slug: `mm-${randomUUID()}`, activo, estado: activo ? 'activa' : 'suspendida' },
     });
   }
   async function usuarioConClave() {
@@ -114,8 +115,11 @@ describe('Fase 4c — multi-membresía: fallback + selector', () => {
     const sesion = await login(u.email);
     const { refreshToken } = sesion.json() as { refreshToken: string };
 
-    // La empresa activa de la sesión (alfa, la predeterminada) se da de baja.
-    await semilla().empresa.update({ where: { id: alfa.id }, data: { activo: false } });
+    // La empresa activa de la sesión (alfa, la predeterminada) se suspende (B3).
+    await semilla().empresa.update({
+      where: { id: alfa.id },
+      data: { estado: 'suspendida', activo: false },
+    });
 
     const refresco = await app.inject({
       method: 'POST',

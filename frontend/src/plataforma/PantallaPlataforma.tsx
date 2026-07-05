@@ -12,7 +12,7 @@ import { ListaEmpresas } from './ListaEmpresas';
 import { DialogoAnadirMembresia } from './DialogoAnadirMembresia';
 import { DialogoRestablecerAdmin } from './DialogoRestablecerAdmin';
 import { cambiarEstadoEmpresaApi, listarEmpresasApi } from './servicioPlataforma';
-import type { EmpresaListada } from './tipos';
+import type { EmpresaListada, EstadoEmpresa } from './tipos';
 import styles from './PantallaPlataforma.module.css';
 
 export function PantallaPlataforma() {
@@ -59,14 +59,16 @@ export function PantallaPlataforma() {
     void recargar();
   }, [recargar]);
 
-  // Baja / reactivación lógica del tenant. Error visible; solo se recarga tras el
-  // éxito real del backend (que además expulsa las sesiones del tenant al desactivar).
-  const alternarActivo = useCallback(
-    async (empresa: EmpresaListada) => {
+  // Transición de estado del tenant (B3: activa | suspendida | cancelada). Error
+  // visible; solo se recarga tras el éxito real del backend (que además expulsa las
+  // sesiones del tenant al suspender/cancelar). Cancelada es terminal: el 409 del
+  // backend queda visible aquí igual que cualquier otro error.
+  const cambiarEstado = useCallback(
+    async (empresa: EmpresaListada, estado: EstadoEmpresa) => {
       setActualizandoId(empresa.id);
       setErrorAccion(null);
       try {
-        await cambiarEstadoEmpresaApi(empresa.id, !empresa.activo);
+        await cambiarEstadoEmpresaApi(empresa.id, estado);
         await recargar();
       } catch (err) {
         setErrorAccion(err instanceof Error ? err.message : t('plataforma.errActualizar'));
@@ -96,7 +98,7 @@ export function PantallaPlataforma() {
           // Un solo hueco de error visible: carga o cambio de estado.
           error={error ?? errorAccion}
           onReintentar={() => void recargar()}
-          onAlternarActivo={(e) => void alternarActivo(e)}
+          onCambiarEstado={(e, estado) => void cambiarEstado(e, estado)}
           actualizandoId={actualizandoId}
           onAnadirMembresia={(e) => setEmpresaMembresia(e)}
           onRestablecerAdmin={(e) => setEmpresaResetAdmin(e)}

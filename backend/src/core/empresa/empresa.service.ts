@@ -3,7 +3,7 @@ import { txEmpresa } from '../tenant/contexto.js';
 import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../errors.js';
 import { hashearContrasena } from '../auth/contrasena.js';
 import { auditoriaPlataformaRepo } from '../../shared/repositories/auditoria-plataforma.repository.js';
-import { Rol } from '../../generated/prisma/enums.js';
+import { EstadoEmpresa, Rol } from '../../generated/prisma/enums.js';
 import { prisma } from '../prisma.js';
 
 function esErrorPrisma(error: unknown, codigo: string): boolean {
@@ -38,7 +38,8 @@ export interface EmpresaListada {
   id: string;
   nombre: string;
   slug: string;
-  activo: boolean;
+  /** B3: tres estados. La API de plataforma expone `estado`; el boolean `activo` es legacy interno. */
+  estado: EstadoEmpresa;
   creadoEn: string;
   adminEmail: string | null;
 }
@@ -127,40 +128,55 @@ export async function crearEmpresa(
   }
 }
 
-/** Respuesta de PATCH /empresas/:id (baja/reactivación lógica del tenant). */
+/** Respuesta de PATCH /empresas/:id (transición de estado del tenant). */
 export interface EmpresaEstado {
   id: string;
   nombre: string;
   slug: string;
-  activo: boolean;
+  estado: EstadoEmpresa;
 }
 
+/** Asiento de plataforma por estado destino (reactivar conserva su nombre histórico). */
+const ACCION_POR_ESTADO: Record<EstadoEmpresa, string> = {
+  activa: 'reactivar_empresa',
+  suspendida: 'suspender_empresa',
+  cancelada: 'cancelar_empresa',
+};
+
 /**
- * Cambia el ESTADO (baja/reactivación LÓGICA vía `Empresa.activo`) de un tenant.
- * Operación de PLATAFORMA (solo super-admin, guard `soloPlataforma` en la ruta).
- * Nunca se borra la empresa: retención legal, todos sus datos la referencian.
+ * TRANSICIONA el estado de un tenant (B3, tres estados). Operación de PLATAFORMA
+ * (solo super-admin, guard `soloPlataforma` en la ruta). Nunca se borra la empresa:
+ * retención legal, todos sus datos la referencian.
  *
- * Efecto de la baja (I5 acotado a empresas):
- * - `resolverContextoActivo` ya rechaza empresas inactivas en login/refresh/
- *   cambiar-empresa (fail-closed preexistente): sin tocar nada más, la baja
- *   surtiría efecto al siguiente refresh (≤15 min).
+ * Máquina de estados (sin generalizar más de lo decidido):
+ * - activa    → suspendida | cancelada
+ * - suspendida → activa | cancelada
+ * - cancelada → NADA: es TERMINAL. Cualquier transición pedida sobre una cancelada
+ *   (incluida `activa`) → 409. No existe "recuperar una cancelada" en el flujo normal.
+ * - destino === estado actual → no-op idempotente (200 sin asiento duplicado).
+ *
+ * Efecto de suspender/cancelar (fuera del negocio YA):
+ * - `resolverContextoActivo`/I5 solo aceptan `estado=activa` (fail-closed): la salida
+ *   surtiría efecto sola al siguiente refresh/request.
  * - Aquí ADEMÁS se EXPULSAN las sesiones de refresco de todos los usuarios con
- *   membresía en la empresa (misma tx): el refresh muere al instante y solo queda
- *   el access token residual (≤15 min, tradeoff I5 documentado). Las sesiones de
- *   soporte del super-admin NO se tocan: su refresh cae solo a plataforma
- *   (resolverContextoActivo honra la preferida SOLO si sigue activa).
+ *   membresía en la empresa (misma tx): el refresh muere al instante y solo queda el
+ *   access token residual (≤15 min, tradeoff I5 documentado).
  * - Reactivar NO toca sesiones (los usuarios simplemente vuelven a poder entrar).
  *
  * Reglas:
- * - Idempotencia ATÓMICA (mismo patrón que cambiarEstadoUsuario): updateMany
- *   condicional dentro de la tx; pedir el estado actual → 200 sin asiento duplicado.
- * - Asiento de PLATAFORMA `desactivar_empresa`/`reactivar_empresa` (`AuditoriaPlataforma`)
- *   con `actorUsuarioId` = super-admin REAL del token y `empresaAfectadaId` = la empresa.
+ * - La decisión se toma BAJO lock (`SELECT … FOR UPDATE` de la fila de la empresa):
+ *   dos PATCH concurrentes quedan serializados — el segundo ve el estado ya cambiado
+ *   y resuelve no-op/409, nunca un asiento duplicado ni un salto ilegal (sin TOCTOU).
+ * - `activo` (espejo legacy) se mantiene sincronizado: true ⟺ estado='activa'.
+ * - Asiento de PLATAFORMA `suspender_empresa`/`reactivar_empresa`/`cancelar_empresa`
+ *   (`AuditoriaPlataforma`, NUNCA la `Auditoria` de tenant) con `actorUsuarioId` =
+ *   super-admin REAL del token, `empresaAfectadaId` = la empresa y el detalle
+ *   {estado, estadoAnterior}.
  */
 export async function cambiarEstadoEmpresa(
   empresaId: string,
   superAdminId: string,
-  activo: boolean,
+  destino: EstadoEmpresa,
 ): Promise<EmpresaEstado> {
   const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
   if (!empresa) {
@@ -169,19 +185,29 @@ export async function cambiarEstadoEmpresa(
 
   await txEmpresa(
     async (tx) => {
-      // Idempotencia ATÓMICA: solo "gana" si estaba en el estado contrario; dos
-      // PATCH concurrentes al mismo estado producen UN solo asiento.
-      const cambio = await tx.empresa.updateMany({
-        where: { id: empresaId, activo: !activo },
-        data: { activo },
-      });
-      if (cambio.count === 0) {
-        return; // ya estaba así: no-op
+      // Estado REAL bajo lock: el pre-read de arriba (404) puede quedar stale.
+      const filas = await tx.$queryRaw<Array<{ estado: EstadoEmpresa }>>`
+        SELECT estado FROM empresa WHERE id = ${empresaId}::uuid FOR UPDATE`;
+      const actual = filas[0]?.estado;
+      if (!actual) {
+        throw new ErrorNoEncontrado('Empresa no encontrada.');
       }
-      if (!activo) {
-        // Baja = fuera YA: se expulsan las sesiones de refresco de los usuarios del
-        // tenant (por MEMBRESÍA, no por empresaIdActiva: cubre también las sesiones
-        // que nunca cambiaron de empresa). El login/refresh ya los rechaza fail-closed.
+      if (actual === destino) {
+        return; // ya estaba así: no-op idempotente, sin asiento duplicado
+      }
+      if (actual === EstadoEmpresa.cancelada) {
+        // TERMINAL: ninguna transición sale de cancelada por el flujo normal.
+        throw new ErrorConflicto('La empresa está cancelada: es un estado terminal.');
+      }
+      await tx.empresa.update({
+        where: { id: empresaId },
+        // Espejo legacy sincronizado: `activo` sigue significando "está activa".
+        data: { estado: destino, activo: destino === EstadoEmpresa.activa },
+      });
+      if (destino !== EstadoEmpresa.activa) {
+        // Suspender/cancelar = fuera YA: se expulsan las sesiones de refresco de los
+        // usuarios del tenant (por MEMBRESÍA, no por empresaIdActiva: cubre también las
+        // sesiones que nunca cambiaron de empresa). Login/refresh ya rechazan fail-closed.
         await tx.sesionRefresco.deleteMany({
           where: { usuario: { membresias: { some: { empresaId } } } },
         });
@@ -189,16 +215,16 @@ export async function cambiarEstadoEmpresa(
       await auditoriaPlataformaRepo.registrar(
         {
           actorUsuarioId: superAdminId,
-          accion: activo ? 'reactivar_empresa' : 'desactivar_empresa',
+          accion: ACCION_POR_ESTADO[destino],
           empresaAfectadaId: empresaId,
-          detalle: { activo },
+          detalle: { estado: destino, estadoAnterior: actual },
         },
         tx,
       );
     },
     { bypassPlataforma: true },
   );
-  return { id: empresa.id, nombre: empresa.nombre, slug: empresa.slug, activo };
+  return { id: empresa.id, nombre: empresa.nombre, slug: empresa.slug, estado: destino };
 }
 
 /** Roles que la plataforma puede asignar en una membresía (misma lista blanca que el alta del tenant). */
@@ -251,8 +277,10 @@ export async function crearMembresia(
   if (!empresa) {
     throw new ErrorNoEncontrado('Empresa no encontrada.');
   }
-  if (!empresa.activo) {
-    throw new ErrorConflicto('La empresa está desactivada: reactívala antes de añadir membresías.');
+  // B3: solo una empresa ACTIVA admite membresías nuevas (suspendida: reactivar primero;
+  // cancelada: terminal, jamás).
+  if (empresa.estado !== EstadoEmpresa.activa) {
+    throw new ErrorConflicto('La empresa no está activa: no admite membresías nuevas.');
   }
   const usuario = await prisma.usuario.findUnique({ where: { email } });
   if (!usuario) {
@@ -335,7 +363,7 @@ export async function listarEmpresas(): Promise<EmpresaListada[]> {
       id: true,
       nombre: true,
       slug: true,
-      activo: true,
+      estado: true,
       creadoEn: true,
       membresias: {
         where: { predeterminada: true, rol: Rol.administrador },
@@ -348,7 +376,7 @@ export async function listarEmpresas(): Promise<EmpresaListada[]> {
     id: e.id,
     nombre: e.nombre,
     slug: e.slug,
-    activo: e.activo,
+    estado: e.estado,
     creadoEn: e.creadoEn.toISOString(),
     adminEmail: e.membresias[0]?.usuario.email ?? null,
   }));
@@ -397,8 +425,8 @@ export interface AdminRestablecido {
  * - Auditoría de PLATAFORMA `resetear_password_admin` (`AuditoriaPlataforma`), NO la de
  *   tenant. Actor = super-admin real del token; `empresaAfectadaId` = la empresa.
  * - Errores HONESTOS (super-admin god-view, no anti-enumeración de tenant): empresa
- *   inexistente → 404; empresa desactivada → 409 (reactivar primero: un admin de empresa
- *   suspendida no puede entrar igualmente, fail-closed); empresa SIN admin predeterminado
+ *   inexistente → 404; empresa NO activa (B3: suspendida O cancelada) → 409 (un admin de
+ *   una empresa no activa no puede entrar igualmente, fail-closed); empresa SIN admin predeterminado
  *   → 404; cuenta admin desactivada → 409 (si no, el 200 con temporal sería engañoso: el
  *   login la seguiría rechazando). Objetivo `esSuperAdmin` → 404 (invariante §4.2: una
  *   membresía admin nunca es de una cuenta de plataforma; defensa ante estado corrupto).
@@ -420,9 +448,11 @@ export async function restablecerAdminEmpresa(
   if (!empresa) {
     throw new ErrorNoEncontrado('Empresa no encontrada.');
   }
-  if (!empresa.activo) {
+  // B3: SOLO estado=activa admite el reset (suspendida → 409 "reactivar primero";
+  // cancelada → 409 terminal: su admin no volverá a entrar por el flujo normal).
+  if (empresa.estado !== EstadoEmpresa.activa) {
     throw new ErrorConflicto(
-      'La empresa está desactivada: reactívala antes de restablecer su administrador.',
+      'La empresa no está activa: no se puede restablecer su administrador.',
     );
   }
   // Admin PRINCIPAL: la MISMA membresía que expone listarEmpresas (predeterminada + admin).

@@ -43,7 +43,13 @@ describe('Plataforma — POST /empresas/:id/membresias (alta multi-empresa)', ()
   }
   async function nuevaEmpresa(activo = true) {
     return semilla().empresa.create({
-      data: { nombre: `MA ${randomUUID().slice(0, 8)}`, slug: `ma-${randomUUID()}`, activo },
+      // B3: los reads van por `estado`; el boolean del helper se mapea (espejo coherente).
+      data: {
+        nombre: `MA ${randomUUID().slice(0, 8)}`,
+        slug: `ma-${randomUUID()}`,
+        activo,
+        estado: activo ? 'activa' : 'suspendida',
+      },
     });
   }
   async function nuevoUsuario(opts: { esSuperAdmin?: boolean; conClave?: boolean; activo?: boolean } = {}) {

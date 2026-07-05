@@ -9,6 +9,7 @@ import type {
   EmpresaCreada,
   EmpresaEstado,
   EmpresaListada,
+  EstadoEmpresa,
   MembresiaCreada,
   RolMembresia,
 } from './tipos';
@@ -31,11 +32,15 @@ export function listarEmpresasApi(): Promise<EmpresaListada[]> {
 }
 
 /**
- * Baja / reactivación LÓGICA de una empresa (PATCH /empresas/:id → 200). Solo
- * super-admin. Desactivar expulsa las sesiones de los usuarios del tenant.
+ * Transición de ESTADO de una empresa (PATCH /empresas/:id → 200; B3 tres estados).
+ * Solo super-admin. Suspender/cancelar expulsan las sesiones de los usuarios del
+ * tenant; `cancelada` es terminal (el backend responde 409 a cualquier salida).
  */
-export function cambiarEstadoEmpresaApi(empresaId: string, activo: boolean): Promise<EmpresaEstado> {
-  return api.patch<EmpresaEstado>(`/empresas/${empresaId}`, { activo });
+export function cambiarEstadoEmpresaApi(
+  empresaId: string,
+  estado: EstadoEmpresa,
+): Promise<EmpresaEstado> {
+  return api.patch<EmpresaEstado>(`/empresas/${empresaId}`, { estado });
 }
 
 /**

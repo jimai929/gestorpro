@@ -21,7 +21,7 @@ const ACME: EmpresaListada = {
   id: 'e1',
   nombre: 'Acme Panamá',
   slug: 'acme-panama',
-  activo: true,
+  estado: 'activa',
   creadoEn: '2026-06-30T00:00:00.000Z',
   adminEmail: 'ana@acme.com',
 };
@@ -34,7 +34,7 @@ function montar() {
   );
 }
 
-describe('PantallaPlataforma — cableado de baja/reactivación', () => {
+describe('PantallaPlataforma — cableado de transiciones de estado (B3)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(auth.useAuth).mockReturnValue({
@@ -42,11 +42,11 @@ describe('PantallaPlataforma — cableado de baja/reactivación', () => {
     } as unknown as ReturnType<typeof auth.useAuth>);
   });
 
-  it('desactivar con éxito: PATCH con (id, false) y la lista se RECARGA mostrando Inactiva', async () => {
+  it('suspender con éxito: PATCH con (id, "suspendida") y la lista se RECARGA mostrando Suspendida', async () => {
     vi.mocked(servicio.listarEmpresasApi)
       .mockResolvedValueOnce([ACME])
-      .mockResolvedValueOnce([{ ...ACME, activo: false }]);
-    vi.mocked(servicio.cambiarEstadoEmpresaApi).mockResolvedValue({ ...ACME, activo: false });
+      .mockResolvedValueOnce([{ ...ACME, estado: 'suspendida' }]);
+    vi.mocked(servicio.cambiarEstadoEmpresaApi).mockResolvedValue({ ...ACME, estado: 'suspendida' });
     const user = userEvent.setup();
     montar();
 
@@ -55,30 +55,30 @@ describe('PantallaPlataforma — cableado de baja/reactivación', () => {
     expect(screen.getByText('Activa')).toBeTruthy();
 
     // Dos clics: armar → confirmar.
-    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
-    await user.click(screen.getByRole('button', { name: '¿Confirmar baja?' }));
+    await user.click(screen.getByRole('button', { name: 'Suspender' }));
+    await user.click(screen.getByRole('button', { name: '¿Confirmar suspensión?' }));
 
     await waitFor(() =>
-      expect(servicio.cambiarEstadoEmpresaApi).toHaveBeenCalledWith('e1', false),
+      expect(servicio.cambiarEstadoEmpresaApi).toHaveBeenCalledWith('e1', 'suspendida'),
     );
     // Solo tras el éxito real se recarga y la fila refleja el estado nuevo.
-    expect(await screen.findByText('Inactiva')).toBeTruthy();
+    expect(await screen.findByText('Suspendida')).toBeTruthy();
     expect(servicio.listarEmpresasApi).toHaveBeenCalledTimes(2);
   });
 
-  it('desactivar con error del backend: mensaje visible y la lista NO se recarga', async () => {
+  it('cancelar con error del backend (p. ej. 409 terminal): mensaje visible y la lista NO se recarga', async () => {
     vi.mocked(servicio.listarEmpresasApi).mockResolvedValue([ACME]);
     vi.mocked(servicio.cambiarEstadoEmpresaApi).mockRejectedValue(
-      new ErrorHttp(404, 'Empresa no encontrada.'),
+      new ErrorHttp(409, 'La empresa está cancelada: es un estado terminal.'),
     );
     const user = userEvent.setup();
     montar();
 
     expect(await screen.findByText('Acme Panamá')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
-    await user.click(screen.getByRole('button', { name: '¿Confirmar baja?' }));
+    await user.click(screen.getByRole('button', { name: 'Cancelar empresa' }));
+    await user.click(screen.getByRole('button', { name: '¿Cancelar DEFINITIVAMENTE?' }));
 
-    expect(await screen.findByText('Empresa no encontrada.')).toBeTruthy();
+    expect(await screen.findByText('La empresa está cancelada: es un estado terminal.')).toBeTruthy();
     // La tabla sigue visible con los datos previos (el error no la tapa).
     expect(screen.getByText('Acme Panamá')).toBeTruthy();
     expect(servicio.listarEmpresasApi).toHaveBeenCalledTimes(1); // sin recarga

@@ -5,7 +5,7 @@ import { hashearContrasena, verificarContrasena } from './contrasena.js';
 import { txEmpresa } from '../tenant/contexto.js';
 import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
 import { auditoriaPlataformaRepo } from '../../shared/repositories/auditoria-plataforma.repository.js';
-import { Rol } from '../../generated/prisma/enums.js';
+import { EstadoEmpresa, Rol } from '../../generated/prisma/enums.js';
 import type {
   MembresiaPublica,
   PayloadAccess,
@@ -69,12 +69,13 @@ async function resolverContextoActivo(
     where: { usuarioId: usuario.id },
     orderBy: [{ predeterminada: 'desc' }, { creadoEn: 'asc' }],
     // El estado y el nombre de la empresa vienen en el MISMO include: se elimina la
-    // segunda consulta que hacía falta antes para validar `activo`.
-    include: { empresa: { select: { nombre: true, activo: true } } },
+    // segunda consulta que hacía falta antes para validarlo.
+    include: { empresa: { select: { nombre: true, estado: true } } },
   });
 
-  // El selector solo muestra empresas ACTIVAS.
-  const candidatas = membresias.filter((m) => m.empresa.activo);
+  // El selector solo muestra empresas ACTIVAS (B3: suspendida y cancelada quedan fuera,
+  // fail-closed — mismo trato para ambas en el negocio; la diferencia es solo de plataforma).
+  const candidatas = membresias.filter((m) => m.empresa.estado === EstadoEmpresa.activa);
   const publicas: MembresiaPublica[] = candidatas.map((m) => ({
     empresaId: m.empresaId,
     empresaNombre: m.empresa.nombre,
@@ -96,7 +97,7 @@ async function resolverContextoActivo(
       (preferidaEmpresaId != null
         ? membresias.find((m) => m.empresaId === preferidaEmpresaId)
         : undefined) ?? membresias[0];
-    activa = elegida?.empresa.activo ? elegida : undefined;
+    activa = elegida?.empresa.estado === EstadoEmpresa.activa ? elegida : undefined;
   }
 
   const sinTenant = (): ContextoActivo => {
@@ -278,7 +279,7 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         ? []
         : (
             await prisma.membresia.findMany({
-              where: { usuarioId, empresa: { activo: true } },
+              where: { usuarioId, empresa: { estado: EstadoEmpresa.activa } },
               orderBy: [{ predeterminada: 'desc' }, { creadoEn: 'asc' }],
               include: { empresa: { select: { nombre: true } } },
             })
@@ -305,8 +306,9 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         const empresa = await prisma.empresa.findUnique({
           where: { id: empresaIdDestino },
         });
-        // Mismo mensaje que "sin membresía": no confirma si la empresa existe.
-        if (!empresa || !empresa.activo) {
+        // Mismo mensaje que "sin membresía": no confirma si la empresa existe ni su
+        // estado (B3: suspendida y cancelada son indistinguibles desde el tenant).
+        if (!empresa || empresa.estado !== EstadoEmpresa.activa) {
           throw new ErrorAutorizacion('No tienes acceso a esa empresa.');
         }
         contexto = {

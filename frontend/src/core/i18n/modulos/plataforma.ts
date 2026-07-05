@@ -52,7 +52,8 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.colEstado': 'Estado',
     'plataforma.colAcciones': 'Acciones',
     'plataforma.estadoActiva': 'Activa',
-    'plataforma.estadoInactiva': 'Inactiva',
+    'plataforma.estadoSuspendida': 'Suspendida',
+    'plataforma.estadoCancelada': 'Cancelada',
 
     // Entrar a una empresa (cambiar-empresa) y volver a la plataforma
     'plataforma.entrar': 'Entrar',
@@ -60,10 +61,12 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.volver': 'Volver a plataforma',
     'plataforma.errVolver': 'No se pudo volver a la plataforma.',
 
-    // Baja / reactivación lógica del tenant
-    'plataforma.desactivar': 'Desactivar',
-    'plataforma.confirmarBaja': '¿Confirmar baja?',
+    // Transiciones de estado del tenant (B3): suspender ↔ reactivar; cancelar es TERMINAL.
+    'plataforma.suspender': 'Suspender',
+    'plataforma.confirmarSuspension': '¿Confirmar suspensión?',
     'plataforma.reactivar': 'Reactivar',
+    'plataforma.cancelarEmpresa': 'Cancelar empresa',
+    'plataforma.confirmarCancelacion': '¿Cancelar DEFINITIVAMENTE?',
     'plataforma.errActualizar': 'No se pudo actualizar la empresa.',
 
     // Añadir membresía (usuario existente, multi-empresa)
@@ -135,16 +138,19 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.colEstado': 'Status',
     'plataforma.colAcciones': 'Actions',
     'plataforma.estadoActiva': 'Active',
-    'plataforma.estadoInactiva': 'Inactive',
+    'plataforma.estadoSuspendida': 'Suspended',
+    'plataforma.estadoCancelada': 'Canceled',
 
     'plataforma.entrar': 'Enter',
     'plataforma.errEntrar': 'Could not enter the company.',
     'plataforma.volver': 'Back to platform',
     'plataforma.errVolver': 'Could not return to the platform.',
 
-    'plataforma.desactivar': 'Deactivate',
-    'plataforma.confirmarBaja': 'Confirm deactivation?',
+    'plataforma.suspender': 'Suspend',
+    'plataforma.confirmarSuspension': 'Confirm suspension?',
     'plataforma.reactivar': 'Reactivate',
+    'plataforma.cancelarEmpresa': 'Cancel company',
+    'plataforma.confirmarCancelacion': 'Cancel PERMANENTLY?',
     'plataforma.errActualizar': 'Could not update the company.',
 
     'plataforma.anadirMembresia': 'Add membership',
@@ -212,16 +218,19 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.colEstado': '状态',
     'plataforma.colAcciones': '操作',
     'plataforma.estadoActiva': '启用',
-    'plataforma.estadoInactiva': '停用',
+    'plataforma.estadoSuspendida': '已暂停',
+    'plataforma.estadoCancelada': '已取消',
 
     'plataforma.entrar': '进入',
     'plataforma.errEntrar': '无法进入该公司。',
     'plataforma.volver': '返回平台',
     'plataforma.errVolver': '无法返回平台。',
 
-    'plataforma.desactivar': '停用',
-    'plataforma.confirmarBaja': '确认停用？',
+    'plataforma.suspender': '暂停',
+    'plataforma.confirmarSuspension': '确认暂停？',
     'plataforma.reactivar': '重新启用',
+    'plataforma.cancelarEmpresa': '取消公司',
+    'plataforma.confirmarCancelacion': '确认永久取消？',
     'plataforma.errActualizar': '无法更新公司。',
 
     'plataforma.anadirMembresia': '添加成员',

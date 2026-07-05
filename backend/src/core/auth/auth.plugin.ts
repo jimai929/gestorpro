@@ -6,6 +6,7 @@ import { prisma } from '../prisma.js';
 import { actualizarContextoTenant } from '../tenant/contexto.js';
 import type { PayloadAccess } from './auth.tipos.js';
 import type { Rol } from '../../generated/prisma/enums.js';
+import { EstadoEmpresa } from '../../generated/prisma/enums.js';
 
 // El payload que firmamos y lo que queda en request.user tras verificar.
 declare module '@fastify/jwt' {
@@ -111,9 +112,11 @@ async function pluginAuth(app: FastifyInstance): Promise<void> {
         if (empresaId !== null) {
           const empresa = await prisma.empresa.findUnique({
             where: { id: empresaId },
-            select: { activo: true },
+            select: { estado: true },
           });
-          if (!empresa?.activo) {
+          // B3: SOLO estado=activa mantiene vivo el token (suspendida y cancelada
+          // revocan por igual; la diferencia entre ambas es solo de plataforma).
+          if (empresa?.estado !== EstadoEmpresa.activa) {
             await reply.code(401).send({ mensaje: 'No autenticado.' });
             return;
           }

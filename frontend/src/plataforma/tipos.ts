@@ -22,22 +22,28 @@ export interface EmpresaCreada {
   adminId: string;
 }
 
+/**
+ * Estado del tenant (B3, espejo del enum del backend): `activa` opera; `suspendida`
+ * está bloqueada pero la plataforma puede reactivarla; `cancelada` es TERMINAL.
+ */
+export type EstadoEmpresa = 'activa' | 'suspendida' | 'cancelada';
+
 /** Fila de GET /empresas (listado de tenants). `creadoEn` ISO; `adminEmail` puede ser null. */
 export interface EmpresaListada {
   id: string;
   nombre: string;
   slug: string;
-  activo: boolean;
+  estado: EstadoEmpresa;
   creadoEn: string;
   adminEmail: string | null;
 }
 
-/** Respuesta de PATCH /empresas/:id (baja/reactivación lógica del tenant). */
+/** Respuesta de PATCH /empresas/:id (transición de estado del tenant). */
 export interface EmpresaEstado {
   id: string;
   nombre: string;
   slug: string;
-  activo: boolean;
+  estado: EstadoEmpresa;
 }
 
 /** Rol asignable en una membresía (misma lista blanca que el backend). */

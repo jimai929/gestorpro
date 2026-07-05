@@ -60,7 +60,10 @@ describe('I5 — revocación inmediata del access token vivo', () => {
 
     // Baja del tenant (directa en BD: lo que I5 debe detectar es el ESTADO, venga de
     // donde venga — el endpoint de plataforma ya tiene su propia suite).
-    await semilla().empresa.update({ where: { id: empresa.id }, data: { activo: false } });
+    await semilla().empresa.update({
+      where: { id: empresa.id },
+      data: { estado: 'suspendida', activo: false }, // B3: la revocación va por estado
+    });
 
     // El MISMO token, sin esperar TTL ni refresh: 401 en lectura y en escritura.
     const lectura = await app.inject({
@@ -79,7 +82,10 @@ describe('I5 — revocación inmediata del access token vivo', () => {
 
     // Reactivada, el mismo token vuelve a operar (la revocación es del CONTEXTO, no
     // del token: no hay lista negra que purgar).
-    await semilla().empresa.update({ where: { id: empresa.id }, data: { activo: true } });
+    await semilla().empresa.update({
+      where: { id: empresa.id },
+      data: { estado: 'activa', activo: true }, // B3: reactivación por estado
+    });
     const despues = await app.inject({
       method: 'GET',
       url: '/usuarios',

@@ -118,7 +118,8 @@ describe('auth — empresa activa en el login (multi-tenant)', () => {
 
   it('no se puede iniciar sesión en una empresa dada de baja (activo=false)', async () => {
     const empresa = await prisma.empresa.create({
-      data: { nombre: `baja-${Date.now()}`, slug: `baja-${Date.now()}`, activo: false },
+      // B3: la baja es `estado` (espejo activo coherente).
+      data: { nombre: `baja-${Date.now()}`, slug: `baja-${Date.now()}`, activo: false, estado: 'suspendida' },
     });
     const usuario = await nuevoUsuario();
     await prisma.membresia.create({
@@ -251,7 +252,8 @@ describe('auth — cambiarEmpresa (Fase 4c)', () => {
   it('empresa inexistente o dada de baja: el MISMO error genérico (anti-enumeración)', async () => {
     const e1 = await nuevaEmpresa();
     const baja = await prisma.empresa.create({
-      data: { nombre: `baja-${Date.now()}`, slug: `ce-baja-${Date.now()}`, activo: false },
+      // B3: la baja es `estado` (espejo activo coherente).
+      data: { nombre: `baja-${Date.now()}`, slug: `ce-baja-${Date.now()}`, activo: false, estado: 'suspendida' },
     });
     const usuario = await nuevoUsuario();
     await prisma.membresia.create({
