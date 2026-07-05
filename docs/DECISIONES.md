@@ -275,15 +275,17 @@ Huecos que `ARQUITECTURA_MULTITENANT.md` §3.5 dejaba abiertos, cerrados así
 - **Baja LÓGICA vía `Usuario.activo`**, nunca borrado (fichajes, auditoría y
   snapshots referencian la cuenta). `activo` es el ÚNICO campo mutable por esta
   ruta: rol, email y contraseña tienen sus propios endpoints con sus guards.
-- **`Usuario.activo` es GLOBAL → cuenta multi-empresa se RECHAZA con 409** en
-  ambas direcciones: desactivarla desde un tenant la dejaría fuera de TODAS las
-  empresas (mutación cross-tenant). Su estado se gestiona desde la plataforma.
-  Hoy ningún endpoint crea segundas membresías (email UNIQUE global; las altas
-  siempre crean usuario nuevo), así que el 409 solo aparece ante estado sembrado
-  a mano. **Precondición para el futuro selector multi-empresa (backlog 4c):**
-  al añadir cualquier endpoint que cree membresías sobre usuarios existentes,
-  mover este conteo DENTRO de la transacción (hoy corre fuera: TOCTOU inexplotable
-  que pasaría a ser real; hay comentario centinela en el código).
+- **`Usuario.activo` es GLOBAL → cuenta multi-empresa se RECHAZA con 409** para
+  el admin de TENANT, en ambas direcciones: desactivarla desde un tenant la
+  dejaría fuera de TODAS las empresas (mutación cross-tenant). Su estado se
+  gestiona desde la plataforma. *(Actualización 2026-07-03, slice de alta de
+  membresías:)* las segundas membresías ya EXISTEN por API
+  (`POST /empresas/:id/membresias`); la precondición TOCTOU registrada aquí se
+  CUMPLIÓ — el conteo se re-valida DENTRO de la tx bajo `SELECT … FOR UPDATE`
+  de la fila del usuario (lock compartido con `crearMembresia`), y el 409 se
+  RELAJA para el super-admin que entró a la empresa (dos niveles): "gestionar
+  desde la plataforma" se materializa así, sin endpoint extra. Ver la decisión
+  "Alta de membresías multi-empresa".
 - **Auto-baja prohibida (400)**: evita el lock-out PROPIO; en el camino secuencial
   normal el tenant nunca queda sin admins (el actor es un admin activo). Alcance
   HONESTO: NO cubre dos admins desactivándose mutuamente en concurrencia, un token
@@ -318,10 +320,10 @@ Huecos que `ARQUITECTURA_MULTITENANT.md` §3.5 dejaba abiertos, cerrados así
   instante; solo queda el access token residual ≤15 min (tradeoff I5 aceptado).
   Las sesiones de soporte del super-admin NO se tocan: su refresh cae solo a
   plataforma (la preferida inactiva deja de honrarse). Colateral ACEPTADO
-  (fail-closed): en un hipotético usuario multi-membresía (hoy solo por seed/SQL)
-  la expulsión por MEMBRESÍA borra también sus sesiones activas en OTRAS
-  empresas — sobre-expulsar en una purga de seguridad es el lado conservador;
-  el peor efecto es un re-login. Relacionado: lockout de login si su
+  (fail-closed): en un usuario multi-membresía (desde 2026-07-03 alcanzable por
+  API vía `POST /empresas/:id/membresias`) la expulsión por MEMBRESÍA borra
+  también sus sesiones activas en OTRAS empresas — sobre-expulsar en una purga
+  de seguridad es el lado conservador; el peor efecto es un re-login. Relacionado: lockout de login si su
   PREDETERMINADA es la empresa dada de baja (preexistente, documentado en
   `BUGS_PREEXISTENTES.md`; se resuelve con el selector multi-membresía).
 - **Idempotencia ATÓMICA** (mismo patrón que la baja de usuarios): updateMany
@@ -395,6 +397,104 @@ usable el estado multi-membresía que el modelo ya soporta.
   /me best-effort del refresh y un cambio en vuelo solo aplican su resultado
   si la versión no cambió — un /me tardío no pisa al usuario recién cambiado
   y un logout durante el cambio no resucita la sesión. Todo con tests.
+
+### Alta de membresías multi-empresa (plataforma) ✅ DECIDIDO (2026-07-03)
+
+`POST /empresas/:empresaId/membresias` con body `{ email, rol }` (guard
+`[autenticar, soloPlataforma]` en onRequest, 404 anti-enumeración al resto).
+Única vía que crea membresías sobre usuarios EXISTENTES (las altas de tenant y
+de empresa siempre crean usuario nuevo; email UNIQUE global). Cumple las DOS
+precondiciones registradas al decidir la baja de usuarios:
+
+- **TOCTOU CERRADO con lock compartido:** `crearMembresia`,
+  `cambiarEstadoUsuario` y `restablecerContrasena` toman `SELECT … FOR UPDATE`
+  de la MISMA fila de `usuario` dentro de sus transacciones y re-validan ahí
+  (conteo de membresías / `activo` / `esSuperAdmin`): añadir membresía y
+  baja/reset del usuario quedan SERIALIZADOS — una membresía creada en la
+  ventana ya no convierte una baja de tenant en lock-out cross-tenant (test de
+  carrera probabilístico en `membresias-alta.test.ts`). Los pre-checks fuera de
+  la tx quedan como fast-path.
+- **Modelo de sesión REVISADO (dos hallazgos aplicados):**
+  1. `restablecerContrasena` gana el MISMO 409 multi-empresa que la baja — y no
+     por simetría: la contraseña es GLOBAL, así que el admin del tenant A que
+     fija la temporal de un usuario con membresía en B podría loguearse como él
+     y ENTRAR a B con su rol (escalada cross-tenant, no solo disponibilidad).
+  2. El 409 multi-empresa (estado Y contraseña) se RELAJA para el SUPER-ADMIN
+     que entró a la empresa vía cambiar-empresa: su autoridad ES cross-tenant y
+     "se gestiona desde la plataforma" se materializa con el dos-niveles ya
+     existente — sin esto, una cuenta multi-empresa quedaba INGESTIONABLE por
+     todos (el mensaje del 409 prometía una gestión que no existía). El claim
+     `esSuperAdmin` del token lo re-valida I5 contra BD en cada request.
+  Las sesiones NO se tocan al añadir una membresía: aparece en el selector con
+  el siguiente login/me (UsuarioPublico.membresias se resuelve en vivo).
+- **Objetivo por EMAIL exacto** (misma comparación que el login; sin
+  normalización nueva). El super-admin es god-view: aquí no aplica el 404
+  indistinguible de cuentas — los errores son honestos (404 email/empresa
+  inexistente, 400 cuenta de plataforma, 409 desactivada/duplicada).
+- **Guards:** cuenta de plataforma → 400 (invariante §4.2: `esSuperAdmin`
+  JAMÁS con membresía); cuenta o empresa DESACTIVADA → 409 "reactivar primero"
+  (evita fabricar el estado-trampa "multi-membresía inactiva"); duplicada → 409
+  vía P2002 del `@@unique([usuarioId, empresaId])`, sin pre-check.
+- **`predeterminada` SIEMPRE false:** la del usuario no se toca; el fallback de
+  login y el selector ya hacen usable la empresa nueva. Carrera "empresa
+  desactivada en la ventana" ACEPTADA sin lock: la membresía resultante es
+  INERTE (login/cambiar-empresa/selector filtran empresas inactivas,
+  fail-closed) y vuelve a servir si la empresa se reactiva.
+- **Auditoría:** asiento `crear_membresia` (entidad `membresia`) bajo la
+  empresa DESTINO, `usuarioId` = super-admin real del token, `empresa_id`
+  EXPLÍCITO (bypass §4.4, mismo criterio que `crearEmpresa`), detalle
+  `{email, rol}`.
+- **Front (plataforma):** botón "Añadir membresía" por empresa ACTIVA en
+  `ListaEmpresas` → diálogo (email + rol, lista blanca administrador|empleado)
+  con error visible, loading, éxito solo tras el 201 real y `key` por empresa
+  destino (remonta estado al cambiar de fila). Abrir el diálogo DESARMA una baja
+  de tenant pendiente (`confirmandoId`): el estado armado "¿Confirmar baja?" no
+  caduca y un flujo modal interpuesto lo haría olvidable — desarmar restaura la
+  garantía de dos pasos.
+- **isolationLevel EXPLÍCITO (`ReadCommitted` + timeout 15s) en las tres tx**
+  (`crearMembresia`, `cambiarEstadoUsuario`, `restablecerContrasena`): el cierre
+  TOCTOU descansa en que, tras esperar el `FOR UPDATE`, el re-conteo vea la
+  membresía recién commiteada por la tx ganadora — semántica de READ COMMITTED.
+  Bajo REPEATABLE READ (un `default_transaction_isolation` bastaría) el snapshot
+  stale reabriría la ventana; se pinea igual que `registrarPago` (convención ya
+  establecida para el mismo patrón `FOR UPDATE` + re-agregado). El "TOCTOU
+  CERRADO" ya NO queda condicionado a una config de BD no validada.
+- **Email del endpoint = LOOKUP, no creación:** el schema valida solo
+  `minLength: 3` (sin patrón), igual que `POST /empresas` (adminEmail) y el
+  login. Un patrón estricto (el de `POST /usuarios`, que sí CREA) dejaría
+  inalcanzable por API una cuenta existente con email no-canónico (p.ej.
+  `jefe@interno`, sin punto) que el alta de plataforma sí permite crear; la
+  comparación real es exacta en `crearMembresia`. El diálogo del front relaja su
+  refuerzo de forma en consecuencia (`/^\S+@\S+$/`).
+
+**Alcance HONESTO (limitaciones registradas, NO cerradas en este slice):**
+- **Auditoría de la acción cross-tenant del super-admin queda bajo la empresa
+  ENTRADA, no bajo las demás afectadas.** Cuando el super-admin (dos niveles)
+  desactiva/restablece a un usuario MULTI-empresa, la mutación es GLOBAL
+  (`Usuario.activo`/`passwordHash` afectan a TODOS sus tenants) pero el ÚNICO
+  asiento aterriza con `empresa_id` = la empresa del token. El log RLS-scoped de
+  los OTROS tenants afectados no muestra rastro. Hoy no hay lector de auditoría
+  per-tenant (la forénsica lee god-view y encuentra el asiento con el actor
+  real), así que es una brecha de COMPLETITUD forense, no de fuga ni escalada.
+  Si algún día se expone auditoría a los tenants, emitir un asiento adicional
+  con `empresa_id` explícito bajo cada empresa afectada (el mecanismo — bypass +
+  empresaId explícito — ya existe, patrón de `crearMembresia`). **Decisión de
+  Jim, no autónoma:** fan-out de una acción → N asientos toca el invariante
+  append-only.
+- **Escalada residual reset→alta NO cerrable por `debeCambiarContrasena`.** Un
+  admin del tenant A restablece a un usuario mono-empresa (204 legal: conoce la
+  temporal); luego el super-admin lo añade a B; el admin de A entra con la
+  temporal y opera en B. El 409 espejo de `restablecerContrasena` cierra el orden
+  DIRECTO (reset de un usuario que YA es multi-empresa, un solo actor no
+  confiable cross-tenant); el orden INVERSO exige que el SUPER-ADMIN (raíz de
+  confianza para concesiones cross-tenant) añada la membresía. NO se añade guard
+  de `debeCambiarContrasena` en `crearMembresia` porque (a) es EVADIBLE — el
+  admin de A entra, rota la temporal (flag→false) y RECIÉN pide la membresía — y
+  (b) `debeCambiarContrasena=true` es el estado born-true NORMAL de casi todo
+  usuario nuevo: gatearlo ROMPERÍA el caso legítimo primario (añadir a un usuario
+  recién creado a su 2ª empresa antes de su primer login). El residual es
+  inherente al modelo (contraseña GLOBAL + poder de reset del admin + concesión
+  discrecional del super-admin), no a una falta de validación.
 
 ## Pendientes abiertos
 

@@ -131,15 +131,17 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
 
   // Baja/reactivación LÓGICA de un usuario del tenant (Usuario.activo; nunca se borra).
   // Denegación 404 ÚNICA (inexistente = otro tenant = plataforma): anti-enumeración.
-  // Cuenta multi-empresa → 409 (su baja se gestiona desde la plataforma). Desactivar
+  // Cuenta multi-empresa → 409 para el admin de tenant; el super-admin (dentro de la
+  // empresa, dos niveles) SÍ puede — así se "gestiona desde la plataforma". Desactivar
   // expulsa las sesiones del objetivo; el propio admin no puede desactivarse (400).
   app.patch<{ Params: { usuarioId: string }; Body: { activo: boolean } }>(
     '/usuarios/:usuarioId',
     { preHandler: [app.autenticar, app.autorizar('administrador')], schema: esquemaEstado },
     async (request, reply) => {
       try {
-        // empresaId y el id del admin SIEMPRE del token (request.user), NUNCA del body.
-        const { empresaId, sub } = request.user;
+        // empresaId, el id del admin y esSuperAdmin SIEMPRE del token (request.user),
+        // NUNCA del body. El claim esSuperAdmin se re-valida contra BD por request (I5).
+        const { empresaId, sub, esSuperAdmin } = request.user;
         if (empresaId === null) {
           // Defensa en profundidad (misma que el alta): `autorizar` ya exige empresa
           // activa. Inalcanzable en la práctica.
@@ -150,6 +152,7 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
           empresaId,
           sub,
           request.body.activo,
+          esSuperAdmin,
         );
         return await reply.code(200).send(actualizado);
       } catch (error) {
@@ -160,6 +163,8 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
 
   // Restablecer la contraseña de un usuario del tenant (soporte). La denegación es un
   // 404 ÚNICO (inexistente = de otro tenant = cuenta de plataforma): anti-enumeración.
+  // Cuenta multi-empresa → 409 para el admin de tenant (la contraseña es GLOBAL:
+  // fijarla desde un tenant sería toma de cuenta cross-tenant); super-admin sí puede.
   // NO está exenta del cambio forzado: un admin con contraseña temporal primero rota
   // la suya. La temporal viaja en el body pero JAMÁS se guarda ni audita en claro.
   app.post<{ Params: { usuarioId: string }; Body: { contrasenaTemporal: string } }>(
@@ -167,8 +172,9 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.autenticar, app.autorizar('administrador')], schema: esquemaRestablecer },
     async (request, reply) => {
       try {
-        // empresaId y el id del admin SIEMPRE del token (request.user), NUNCA del body.
-        const { empresaId, sub } = request.user;
+        // empresaId, el id del admin y esSuperAdmin SIEMPRE del token (request.user),
+        // NUNCA del body. El claim esSuperAdmin se re-valida contra BD por request (I5).
+        const { empresaId, sub, esSuperAdmin } = request.user;
         if (empresaId === null) {
           // Defensa en profundidad (misma que el alta): `autorizar` ya exige empresa
           // activa. Inalcanzable en la práctica.
@@ -179,6 +185,7 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
           empresaId,
           sub,
           request.body.contrasenaTemporal,
+          esSuperAdmin,
         );
         return await reply.code(204).send();
       } catch (error) {

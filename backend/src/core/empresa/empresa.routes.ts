@@ -1,6 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { responderError } from '../http.js';
-import { cambiarEstadoEmpresa, crearEmpresa, listarEmpresas } from './empresa.service.js';
+import {
+  cambiarEstadoEmpresa,
+  crearEmpresa,
+  crearMembresia,
+  listarEmpresas,
+} from './empresa.service.js';
 
 const PATRON_UUID =
   '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
@@ -26,6 +31,34 @@ const esquemaEstadoEmpresa = {
   },
 } as const;
 
+const esquemaMembresia = {
+  params: {
+    type: 'object',
+    required: ['empresaId'],
+    additionalProperties: false,
+    properties: {
+      // uuid validado en la puerta: un id malformado es 400, nunca llega a Prisma.
+      empresaId: { type: 'string', pattern: PATRON_UUID },
+    },
+  },
+  body: {
+    type: 'object',
+    required: ['email', 'rol'],
+    additionalProperties: false,
+    properties: {
+      // LOOKUP, no creación: se identifica una cuenta EXISTENTE por email exacto, así
+      // que la puerta debe ser tan permisiva como la vía que crea las cuentas objetivo.
+      // POST /empresas (adminEmail) y el login validan solo minLength:3 SIN patrón: un
+      // admin con email no-canónico (p.ej. 'jefe@interno', sin punto) existe y se
+      // loguea; un patrón estricto aquí lo dejaría inalcanzable por API. La comparación
+      // real la hace crearMembresia (findUnique por email exacto).
+      email: { type: 'string', minLength: 3 },
+      // Lista BLANCA: la plataforma asigna administrador o empleado, nunca otro valor.
+      rol: { type: 'string', enum: ['administrador', 'empleado'] },
+    },
+  },
+} as const;
+
 const esquemaEmpresa = {
   body: {
     type: 'object',
@@ -45,11 +78,13 @@ const esquemaEmpresa = {
 /**
  * Rutas de PLATAFORMA (SaaS): gestión de tenants. SOLO super-admin (`soloPlataforma`
  * responde 404 a cualquier otro, no revela el endpoint). Alcance: alta de empresa
- * (crear tenant + su primer admin), listado y baja/reactivación lógica.
+ * (crear tenant + su primer admin), listado, baja/reactivación lógica y alta de
+ * membresías multi-empresa sobre usuarios existentes.
  *
- *   POST  /empresas             -> 201 (tenant + primer admin)
- *   GET   /empresas             -> 200 (listado)
- *   PATCH /empresas/:empresaId  -> 200 (baja/reactivación lógica)
+ *   POST  /empresas                        -> 201 (tenant + primer admin)
+ *   GET   /empresas                        -> 200 (listado)
+ *   PATCH /empresas/:empresaId             -> 200 (baja/reactivación lógica)
+ *   POST  /empresas/:empresaId/membresias  -> 201 (membresía de usuario existente)
  */
 export async function empresaRoutes(app: FastifyInstance): Promise<void> {
   // Guards en onRequest, NO en preHandler: en el ciclo de Fastify la validación de
@@ -87,6 +122,29 @@ export async function empresaRoutes(app: FastifyInstance): Promise<void> {
     const empresas = await listarEmpresas();
     return reply.code(200).send(empresas);
   });
+
+  // Alta de MEMBRESÍA multi-empresa: añade un usuario EXISTENTE (por email) a la
+  // empresa del path con rol per-tenant. Única vía que crea segundas membresías;
+  // el estado/contraseña de una cuenta multi-empresa se gestiona con el super-admin
+  // ENTRANDO a la empresa (dos niveles, ver usuarios.service).
+  app.post<{ Params: { empresaId: string }; Body: { email: string; rol: 'administrador' | 'empleado' } }>(
+    '/empresas/:empresaId/membresias',
+    { ...soloSuper, schema: esquemaMembresia },
+    async (request, reply) => {
+      try {
+        // El super-admin que ejecuta SIEMPRE sale del token (request.user.sub).
+        const creada = await crearMembresia(
+          request.params.empresaId,
+          request.body.email,
+          request.body.rol,
+          request.user.sub,
+        );
+        return await reply.code(201).send(creada);
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
 
   // Baja/reactivación LÓGICA del tenant (Empresa.activo; nunca se borra). Desactivar
   // expulsa las sesiones de refresco de sus usuarios (login/refresh ya rechazan

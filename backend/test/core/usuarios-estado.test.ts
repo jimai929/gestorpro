@@ -204,6 +204,61 @@ describe('Fase 4c — PATCH /usuarios/:id (baja/reactivación)', () => {
     ).toBe(0);
   });
 
+  it('cuenta multi-empresa, dos niveles: el SUPER-ADMIN dentro de la empresa SÍ la desactiva/reactiva (autoridad cross-tenant)', async () => {
+    const empresa = await nuevaEmpresa();
+    const otra = await nuevaEmpresa();
+    const dual = await nuevoUsuario({ conClave: true });
+    await conMembresia(dual.id, empresa.id, 'empleado');
+    await semilla().membresia.create({
+      data: { usuarioId: dual.id, empresaId: otra.id, rol: 'empleado' },
+    });
+    const superAdmin = await nuevoUsuario({ esSuperAdmin: true });
+    const tkPlataforma = app.jwt.sign({
+      sub: superAdmin.id,
+      rol: 'empleado',
+      empresaId: null,
+      esSuperAdmin: true,
+    });
+
+    // Sesión viva del dual: la baja del super-admin SÍ debe expulsarla (global).
+    const login = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email: dual.email, password: CLAVE },
+    });
+    expect(login.statusCode).toBe(200);
+
+    const entrar = await app.inject({
+      method: 'POST',
+      url: '/auth/cambiar-empresa',
+      headers: { authorization: `Bearer ${tkPlataforma}` },
+      payload: { empresaId: empresa.id },
+    });
+    expect(entrar.statusCode).toBe(200);
+    const { accessToken } = entrar.json() as { accessToken: string };
+
+    // Donde el admin de tenant recibe 409 (probado arriba), el super-admin pasa:
+    // "se gestiona desde la plataforma" se materializa con el dos-niveles.
+    const baja = await cambiarEstado(accessToken, dual.id, false);
+    expect(baja.statusCode).toBe(200);
+    expect((await semilla().usuario.findUniqueOrThrow({ where: { id: dual.id } })).activo).toBe(false);
+    expect(await semilla().sesionRefresco.count({ where: { usuarioId: dual.id } })).toBe(0);
+
+    const alta = await cambiarEstado(accessToken, dual.id, true);
+    expect(alta.statusCode).toBe(200);
+    expect((await semilla().usuario.findUniqueOrThrow({ where: { id: dual.id } })).activo).toBe(true);
+
+    // Asientos con el usuarioId REAL del super-admin, bajo la empresa donde entró.
+    const asientos = await semilla().auditoria.findMany({
+      where: { entidadId: dual.id, accion: { in: ['desactivar_usuario', 'reactivar_usuario'] } },
+    });
+    expect(asientos).toHaveLength(2);
+    for (const asiento of asientos) {
+      expect(asiento.usuarioId).toBe(superAdmin.id);
+      expect(asiento.empresaId).toBe(empresa.id);
+    }
+  });
+
   it('auto-baja: 400 (también con el propio id en MAYÚSCULAS) y nada cambia', async () => {
     const empresa = await nuevaEmpresa();
     const admin = await nuevoUsuario();

@@ -272,6 +272,68 @@ describe('Fase 4c — POST /usuarios/:id/restablecer-contrasena', () => {
     expect(asientos).toHaveLength(0);
   });
 
+  it('cuenta MULTI-EMPRESA: 409 para el admin de tenant (la contraseña es GLOBAL: fijarla sería toma de cuenta cross-tenant) y nada cambia', async () => {
+    const empresa = await nuevaEmpresa();
+    const otra = await nuevaEmpresa();
+    const admin = await nuevoUsuario();
+    const dual = await nuevoUsuario({ conClave: true });
+    await conMembresia(admin.id, empresa.id, 'administrador');
+    await conMembresia(dual.id, empresa.id, 'empleado');
+    await semilla().membresia.create({
+      data: { usuarioId: dual.id, empresaId: otra.id, rol: 'administrador' },
+    });
+
+    // Sesión viva del dual: el 409 NO debe expulsarla (cero efectos colaterales).
+    const login = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email: dual.email, password: CLAVE_VIEJA },
+    });
+    expect(login.statusCode).toBe(200);
+
+    const tk = app.jwt.sign({ sub: admin.id, rol: 'administrador', empresaId: empresa.id, esSuperAdmin: false });
+    const res = await restablecer(tk, dual.id);
+    expect(res.statusCode).toBe(409);
+
+    // Intacto TODO: hash, flag, sesiones; sin asiento. (Si este 409 no existiera,
+    // el admin de A conocería la temporal de una cuenta con rol en B → escalada.)
+    const enBd = await semilla().usuario.findUniqueOrThrow({ where: { id: dual.id } });
+    expect(enBd.passwordHash).toBe(dual.passwordHash);
+    expect(enBd.debeCambiarContrasena).toBe(false);
+    expect(await semilla().sesionRefresco.count({ where: { usuarioId: dual.id } })).toBe(1);
+    expect(
+      await semilla().auditoria.count({
+        where: { entidadId: dual.id, accion: 'restablecer_contrasena' },
+      }),
+    ).toBe(0);
+  });
+
+  it('cuenta MULTI-EMPRESA, dos niveles: el SUPER-ADMIN dentro de la empresa SÍ la restablece (204)', async () => {
+    const empresa = await nuevaEmpresa();
+    const otra = await nuevaEmpresa();
+    const dual = await nuevoUsuario();
+    await conMembresia(dual.id, empresa.id, 'empleado');
+    await semilla().membresia.create({
+      data: { usuarioId: dual.id, empresaId: otra.id, rol: 'empleado' },
+    });
+    const superAdmin = await nuevoUsuario({ esSuperAdmin: true });
+    const tkPlataforma = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
+    const entrar = await app.inject({
+      method: 'POST',
+      url: '/auth/cambiar-empresa',
+      headers: { authorization: `Bearer ${tkPlataforma}` },
+      payload: { empresaId: empresa.id },
+    });
+    expect(entrar.statusCode).toBe(200);
+    const { accessToken } = entrar.json() as { accessToken: string };
+
+    const res = await restablecer(accessToken, dual.id);
+    expect(res.statusCode).toBe(204);
+    const enBd = await semilla().usuario.findUniqueOrThrow({ where: { id: dual.id } });
+    expect(enBd.debeCambiarContrasena).toBe(true);
+    expect(enBd.passwordHash.startsWith('$argon2')).toBe(true);
+  });
+
   it('validación en la puerta: temporal corta → 400; uuid malformado → 400', async () => {
     const empresa = await nuevaEmpresa();
     const admin = await nuevoUsuario();

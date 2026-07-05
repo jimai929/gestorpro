@@ -1,5 +1,5 @@
 import { txEmpresa } from '../tenant/contexto.js';
-import { ErrorConflicto, ErrorNoEncontrado } from '../errors.js';
+import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../errors.js';
 import { hashearContrasena } from '../auth/contrasena.js';
 import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
 import { Rol } from '../../generated/prisma/enums.js';
@@ -190,6 +190,125 @@ export async function cambiarEstadoEmpresa(
     { bypassPlataforma: true },
   );
   return { id: empresa.id, nombre: empresa.nombre, slug: empresa.slug, activo };
+}
+
+/** Roles que la plataforma puede asignar en una membresía (misma lista blanca que el alta del tenant). */
+export type RolMembresia = 'administrador' | 'empleado';
+
+export interface MembresiaCreada {
+  id: string;
+  usuarioId: string;
+  empresaId: string;
+  email: string;
+  rol: RolMembresia;
+}
+
+/**
+ * Añade una MEMBRESÍA a un usuario EXISTENTE en otra empresa (multi-empresa).
+ * Operación de PLATAFORMA (solo super-admin, guard `soloPlataforma` en la ruta):
+ * es la ÚNICA vía que crea segundas membresías — las altas de tenant y de empresa
+ * siempre crean usuario nuevo (email UNIQUE global).
+ *
+ * Reglas de seguridad e invariantes:
+ * - El objetivo se identifica por EMAIL (comparación exacta, igual que el login);
+ *   el super-admin es god-view, no aplica anti-enumeración de cuentas aquí.
+ * - Una cuenta de plataforma (esSuperAdmin) JAMÁS recibe membresía (invariante
+ *   §4.2): 400 explícito, no silencioso.
+ * - Cuenta o empresa DESACTIVADA → 409 (reactivar primero): evita fabricar el
+ *   estado-trampa "multi-membresía inactiva" cuya reactivación exigiría entrar
+ *   empresa por empresa; espejo del 409 de restablecer-sobre-inactiva.
+ * - `predeterminada` SIEMPRE false: la predeterminada del usuario no se toca (el
+ *   selector y el fallback de login ya hacen usable la nueva empresa).
+ * - TOCTOU: dentro de la tx se BLOQUEA la fila del usuario (`FOR UPDATE`) y se
+ *   re-validan `activo`/`esSuperAdmin` bajo el lock. `cambiarEstadoUsuario` y
+ *   `restablecerContrasena` toman el MISMO lock antes de contar membresías, así
+ *   que "añadir membresía" y "baja/reset del usuario" quedan SERIALIZADOS: nunca
+ *   una membresía creada en la ventana convierte una baja de tenant en lock-out
+ *   cross-tenant. (Empresa desactivada en la ventana NO se bloquea: la membresía
+ *   resultante es INERTE — login/cambiar-empresa/selector filtran empresas
+ *   inactivas, fail-closed — y vuelve a ser útil si la empresa se reactiva.)
+ * - Duplicada (ya tiene membresía en esa empresa) → 409 vía P2002 del
+ *   `@@unique([usuarioId, empresaId])`, sin pre-check TOCTOU.
+ * - Asiento `crear_membresia` con `usuarioId` = super-admin REAL del token y
+ *   `empresaId` EXPLÍCITO (bajo bypass el GUC no está fijado — mismo criterio
+ *   que `crearEmpresa`).
+ */
+export async function crearMembresia(
+  empresaId: string,
+  email: string,
+  rol: RolMembresia,
+  superAdminId: string,
+): Promise<MembresiaCreada> {
+  const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+  if (!empresa) {
+    throw new ErrorNoEncontrado('Empresa no encontrada.');
+  }
+  if (!empresa.activo) {
+    throw new ErrorConflicto('La empresa está desactivada: reactívala antes de añadir membresías.');
+  }
+  const usuario = await prisma.usuario.findUnique({ where: { email } });
+  if (!usuario) {
+    throw new ErrorNoEncontrado('Usuario no encontrado.');
+  }
+  if (usuario.esSuperAdmin) {
+    throw new ErrorValidacion('Una cuenta de plataforma no puede tener membresías.');
+  }
+  if (!usuario.activo) {
+    throw new ErrorConflicto('La cuenta está desactivada: reactívala antes de añadir membresías.');
+  }
+
+  const rolMembresia: Rol = rol;
+  try {
+    return await txEmpresa(
+      async (tx) => {
+        // Lock de la fila del usuario: serializa contra cambiarEstadoUsuario y
+        // restablecerContrasena (mismo lock) y ancla los re-checks de abajo.
+        const filas = await tx.$queryRaw<Array<{ activo: boolean; es_super_admin: boolean }>>`
+          SELECT activo, es_super_admin FROM usuario WHERE id = ${usuario.id}::uuid FOR UPDATE`;
+        // Re-validación BAJO el lock (el pre-check de arriba pudo quedar stale).
+        if (filas.length === 0 || filas[0]?.es_super_admin) {
+          throw new ErrorNoEncontrado('Usuario no encontrado.');
+        }
+        if (!filas[0]?.activo) {
+          throw new ErrorConflicto(
+            'La cuenta está desactivada: reactívala antes de añadir membresías.',
+          );
+        }
+        const membresia = await tx.membresia.create({
+          data: {
+            usuarioId: usuario.id,
+            empresaId,
+            rol: rolMembresia,
+            predeterminada: false, // la predeterminada del usuario NO se toca
+          },
+        });
+        await auditoriaRepo.registrar(
+          {
+            entidad: 'membresia',
+            entidadId: membresia.id,
+            accion: 'crear_membresia',
+            usuarioId: superAdminId,
+            empresaId, // EXPLÍCITO: bajo bypass el GUC de tenant no está fijado
+            detalle: { email: usuario.email, rol },
+          },
+          tx,
+        );
+        return { id: membresia.id, usuarioId: usuario.id, empresaId, email: usuario.email, rol };
+      },
+      // isolationLevel EXPLÍCITO (misma convención que registrarPago): el re-check
+      // bajo `FOR UPDATE` que serializa contra la baja/reset del usuario descansa en
+      // READ COMMITTED — bajo REPEATABLE READ (un `default_transaction_isolation`
+      // bastaría) la tx que espera el lock leería un snapshot stale al despertar y el
+      // TOCTOU se reabriría. El timeout holgado cubre la espera del lock bajo contención.
+      { bypassPlataforma: true, tx: { isolationLevel: 'ReadCommitted', timeout: 15000 } },
+    );
+  } catch (error) {
+    // @@unique([usuarioId, empresaId]): ya tiene membresía en esta empresa.
+    if (esErrorPrisma(error, 'P2002')) {
+      throw new ErrorConflicto('El usuario ya tiene membresía en esta empresa.');
+    }
+    throw error;
+  }
 }
 
 /**
