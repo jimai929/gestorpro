@@ -55,6 +55,7 @@ model Empresa {
   diasFestivos         DiaFestivo[]
   configuracionesCobro ConfiguracionCobro[]
   auditorias           Auditoria[]
+  auditoriasPlataforma AuditoriaPlataforma[]
 
   @@map("empresa")
 }
@@ -153,6 +154,32 @@ model Auditoria {
   empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
   @@map("auditoria")
+}
+
+/// Bitácora APPEND-ONLY de operaciones de PLATAFORMA (super-admin), SEPARADA de la
+/// auditoría de tenant (`Auditoria`). NO lleva RLS ni empresa_id de partición: es un
+/// registro a nivel plataforma (allowlist en post-migrate.sql, como usuario/empresa).
+/// `empresaAfectadaId` (opcional) referencia la empresa OBJETO de la acción; es NULL en
+/// acciones de plataforma sin empresa. NUNCA guarda contraseñas ni secretos en `detalle`.
+/// Inmutable: el REVOKE de UPDATE/DELETE (post-migrate.sql) + la ausencia de métodos de
+/// escritura fuera de `registrar` la protegen, igual que `Auditoria`.
+model AuditoriaPlataforma {
+  id                String   @id @default(uuid()) @db.Uuid
+  /// Super-admin que ejecutó la acción (SIEMPRE del token, nunca del body).
+  actorUsuarioId    String   @map("actor_usuario_id") @db.Uuid
+  /// Empresa objeto de la acción; NULL en acciones de plataforma sin empresa.
+  empresaAfectadaId String?  @map("empresa_afectada_id") @db.Uuid
+  accion            String
+  detalle           Json?
+  /// IP del actor, si el contexto la provee (hoy NULL: el servicio aún no la recibe).
+  ip                String?
+  creadoEn          DateTime @default(now()) @map("creado_en")
+
+  empresaAfectada Empresa? @relation(fields: [empresaAfectadaId], references: [id], onDelete: Restrict)
+
+  @@index([empresaAfectadaId])
+  @@index([actorUsuarioId])
+  @@map("auditoria_plataforma")
 }
 
 // ─── Finanzas · Cuentas por pagar (Fase 1) ──────────────────────────────────

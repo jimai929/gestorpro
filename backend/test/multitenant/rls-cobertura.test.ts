@@ -15,6 +15,8 @@ const { Client } = pg;
  * Allowlist (excluidas de RLS, ver post-migrate.sql / ARQUITECTURA_MULTITENANT §2.4):
  *  - usuario, sesion_refresco, empresa, membresia → el login las consulta sin
  *    contexto de tenant; aislamiento por otra vía.
+ *  - auditoria_plataforma → bitácora a nivel PLATAFORMA (super-admin), sin empresa_id
+ *    de partición; su aislamiento es el guard soloPlataforma de la ruta, no la RLS.
  *  - _prisma_migrations → tabla de control de Prisma, no es de tenant.
  *
  * Si una tabla NUEVA es legítimamente no-tenant (global), añadirla a EXCLUIDAS
@@ -25,6 +27,7 @@ const EXCLUIDAS = new Set([
   'sesion_refresco',
   'empresa',
   'membresia',
+  'auditoria_plataforma',
   '_prisma_migrations',
 ]);
 

@@ -97,14 +97,25 @@ describe('4c.3 — POST /empresas', () => {
     const admin = await semilla().usuario.findUniqueOrThrow({ where: { id: creada.adminId } });
     expect(admin.debeCambiarContrasena).toBe(true);
 
-    // Asiento de auditoría: crear_empresa, empresa_id = nueva, usuario_id = super-admin REAL.
-    const asientos = await semilla().auditoria.findMany({
-      where: { entidad: 'empresa', entidadId: creada.id },
+    // Auditoría de PLATAFORMA (NO la de tenant): DOS asientos separados —
+    // crear_empresa + crear_admin_inicial— con actor = super-admin REAL y
+    // empresaAfectadaId = la nueva. La `Auditoria` de tenant NO se toca.
+    const asientos = await semilla().auditoriaPlataforma.findMany({
+      where: { empresaAfectadaId: creada.id },
+      orderBy: { creadoEn: 'asc' },
     });
-    expect(asientos).toHaveLength(1);
-    expect(asientos[0]?.accion).toBe('crear_empresa');
-    expect(asientos[0]?.empresaId).toBe(creada.id);
-    expect(asientos[0]?.usuarioId).toBe(superAdminId);
+    expect(asientos.map((a) => a.accion)).toEqual(['crear_empresa', 'crear_admin_inicial']);
+    for (const a of asientos) {
+      expect(a.actorUsuarioId).toBe(superAdminId);
+      expect(a.empresaAfectadaId).toBe(creada.id);
+    }
+    // crear_admin_inicial referencia al admin creado y NUNCA guarda la contraseña.
+    const adminInicial = asientos.find((a) => a.accion === 'crear_admin_inicial');
+    expect((adminInicial?.detalle as { adminId: string }).adminId).toBe(creada.adminId);
+    expect((adminInicial?.detalle as { adminEmail: string }).adminEmail).toBe(adminEmail);
+    expect(JSON.stringify(adminInicial)).not.toContain('Clave123*');
+    // La operación de plataforma NO contamina la bitácora de tenant.
+    expect(await semilla().auditoria.count({ where: { entidadId: creada.id } })).toBe(0);
 
     // INVARIANTE §4.2: el super-admin NO ganó ninguna membresía al crear el tenant.
     expect(await semilla().membresia.count({ where: { usuarioId: superAdminId } })).toBe(0);

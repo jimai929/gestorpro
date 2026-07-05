@@ -17,6 +17,14 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO gestorpro_app;
 REVOKE UPDATE, DELETE, TRUNCATE ON auditoria FROM gestorpro_app;
 REVOKE UPDATE, DELETE, TRUNCATE ON auditoria FROM PUBLIC;
 
+-- Auditoría de PLATAFORMA (super-admin): misma inmutabilidad append-only que
+-- `auditoria`. Es una tabla a nivel plataforma (sin empresa_id de partición), por lo
+-- que NO lleva RLS (está en la allowlist de abajo). PENDIENTE de proceso: añadir su
+-- verificación al paso de append-only de deploy.sh (un UPDATE como gestorpro_app DEBE
+-- fallar), igual que ya se hace con `auditoria`.
+REVOKE UPDATE, DELETE, TRUNCATE ON auditoria_plataforma FROM gestorpro_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON auditoria_plataforma FROM PUBLIC;
+
 -- ════════════════════════════════════════════════════════════════════════════
 -- Aislamiento multi-tenant (RLS) — Fase 5 (ver docs/PLAN_FASE5_RLS.md, docs/
 -- ARQUITECTURA_MULTITENANT.md §2). FRONTERA DURA fail-closed.
@@ -40,6 +48,10 @@ REVOKE UPDATE, DELETE, TRUNCATE ON auditoria FROM PUBLIC;
 -- login (auth.service.resolverContextoActivo) las consulta SIN contexto de tenant
 -- (aún no hay sesión); con RLS darían 0 filas y romperían el login. Su aislamiento
 -- es por otra vía (email @unique global, refresh token opaco, filtro por usuarioId).
+-- TAMBIÉN excluida: auditoria_plataforma — bitácora a nivel PLATAFORMA (super-admin),
+-- sin empresa_id de partición; su aislamiento es el guard soloPlataforma de la ruta,
+-- no la RLS. NO tiene ENABLE/FORCE abajo (a diferencia de `auditoria`, que sí es de
+-- tenant). Su allowlist está pineada en test/multitenant/rls-cobertura.test.ts.
 --
 -- MANTENIMIENTO (igual que el REVOKE de auditoria): al añadir una tabla
 -- tenant-scoped nueva, AÑADIR aquí su ENABLE/FORCE + policy, y el test de

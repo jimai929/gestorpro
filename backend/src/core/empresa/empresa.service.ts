@@ -1,7 +1,7 @@
 import { txEmpresa } from '../tenant/contexto.js';
 import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../errors.js';
 import { hashearContrasena } from '../auth/contrasena.js';
-import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
+import { auditoriaPlataformaRepo } from '../../shared/repositories/auditoria-plataforma.repository.js';
 import { Rol } from '../../generated/prisma/enums.js';
 import { prisma } from '../prisma.js';
 
@@ -50,11 +50,12 @@ export interface EmpresaListada {
  * Invariantes:
  * - La membresía admin es del NUEVO usuario del tenant, NO del super-admin (que
  *   conserva 0 membresías; su poder viene de esSuperAdmin).
- * - `usuarioId` del asiento de auditoría = el super-admin REAL (del token, nunca
- *   del body). El asiento lleva `empresaId` EXPLÍCITO (= la empresa creada): bajo
- *   bypass el GUC de tenant no está fijado, y el DEFAULT de auditoria daría NULL.
- * - `empresa`/`usuario`/`membresia` están EXCLUIDAS de RLS (allowlist), así que se
- *   escriben aunque el GUC de tenant no esté fijado.
+ * - Auditoría de PLATAFORMA (`AuditoriaPlataforma`, NO la `Auditoria` de tenant): dos
+ *   asientos (`crear_empresa` + `crear_admin_inicial`) con `actorUsuarioId` = el
+ *   super-admin REAL (del token) y `empresaAfectadaId` = la empresa creada. Así la
+ *   operación de plataforma no contamina la bitácora scoped por tenant.
+ * - `empresa`/`usuario`/`membresia`/`auditoria_plataforma` están EXCLUIDAS de RLS
+ *   (allowlist), así que se escriben aunque el GUC de tenant no esté fijado (bypass).
  */
 export async function crearEmpresa(
   datos: DatosNuevaEmpresa,
@@ -85,14 +86,24 @@ export async function crearEmpresa(
             predeterminada: true,
           },
         });
-        await auditoriaRepo.registrar(
+        // Auditoría de PLATAFORMA (no de tenant): DOS asientos separados en la misma tx.
+        // (1) crear_empresa, (2) crear_admin_inicial. El admin inicial tiene su PROPIO
+        // asiento (antes iba plegado en el detalle de crear_empresa). Nunca contraseñas.
+        await auditoriaPlataformaRepo.registrar(
           {
-            entidad: 'empresa',
-            entidadId: empresa.id,
+            actorUsuarioId: superAdminId,
             accion: 'crear_empresa',
-            usuarioId: superAdminId,
-            empresaId: empresa.id,
-            detalle: { nombre: empresa.nombre, slug: empresa.slug, adminEmail: admin.email },
+            empresaAfectadaId: empresa.id,
+            detalle: { nombre: empresa.nombre, slug: empresa.slug },
+          },
+          tx,
+        );
+        await auditoriaPlataformaRepo.registrar(
+          {
+            actorUsuarioId: superAdminId,
+            accion: 'crear_admin_inicial',
+            empresaAfectadaId: empresa.id,
+            detalle: { adminId: admin.id, adminEmail: admin.email, rol: Rol.administrador },
           },
           tx,
         );
@@ -142,9 +153,8 @@ export interface EmpresaEstado {
  * Reglas:
  * - Idempotencia ATÓMICA (mismo patrón que cambiarEstadoUsuario): updateMany
  *   condicional dentro de la tx; pedir el estado actual → 200 sin asiento duplicado.
- * - Asiento `desactivar_empresa`/`reactivar_empresa` con `usuarioId` = super-admin
- *   REAL del token y `empresaId` EXPLÍCITO (bajo bypass el GUC no está fijado y
- *   `auditoria.empresa_id` es NOT NULL — mismo criterio que `crearEmpresa`).
+ * - Asiento de PLATAFORMA `desactivar_empresa`/`reactivar_empresa` (`AuditoriaPlataforma`)
+ *   con `actorUsuarioId` = super-admin REAL del token y `empresaAfectadaId` = la empresa.
  */
 export async function cambiarEstadoEmpresa(
   empresaId: string,
@@ -175,13 +185,11 @@ export async function cambiarEstadoEmpresa(
           where: { usuario: { membresias: { some: { empresaId } } } },
         });
       }
-      await auditoriaRepo.registrar(
+      await auditoriaPlataformaRepo.registrar(
         {
-          entidad: 'empresa',
-          entidadId: empresaId,
+          actorUsuarioId: superAdminId,
           accion: activo ? 'reactivar_empresa' : 'desactivar_empresa',
-          usuarioId: superAdminId,
-          empresaId, // EXPLÍCITO: bajo bypass el GUC de tenant no está fijado
+          empresaAfectadaId: empresaId,
           detalle: { activo },
         },
         tx,
@@ -229,9 +237,8 @@ export interface MembresiaCreada {
  *   inactivas, fail-closed — y vuelve a ser útil si la empresa se reactiva.)
  * - Duplicada (ya tiene membresía en esa empresa) → 409 vía P2002 del
  *   `@@unique([usuarioId, empresaId])`, sin pre-check TOCTOU.
- * - Asiento `crear_membresia` con `usuarioId` = super-admin REAL del token y
- *   `empresaId` EXPLÍCITO (bajo bypass el GUC no está fijado — mismo criterio
- *   que `crearEmpresa`).
+ * - Asiento de PLATAFORMA `crear_membresia` (`AuditoriaPlataforma`, no la de tenant)
+ *   con `actorUsuarioId` = super-admin REAL del token y `empresaAfectadaId` = la empresa.
  */
 export async function crearMembresia(
   empresaId: string,
@@ -282,14 +289,12 @@ export async function crearMembresia(
             predeterminada: false, // la predeterminada del usuario NO se toca
           },
         });
-        await auditoriaRepo.registrar(
+        await auditoriaPlataformaRepo.registrar(
           {
-            entidad: 'membresia',
-            entidadId: membresia.id,
+            actorUsuarioId: superAdminId,
             accion: 'crear_membresia',
-            usuarioId: superAdminId,
-            empresaId, // EXPLÍCITO: bajo bypass el GUC de tenant no está fijado
-            detalle: { email: usuario.email, rol },
+            empresaAfectadaId: empresaId,
+            detalle: { membresiaId: membresia.id, email: usuario.email, rol },
           },
           tx,
         );
@@ -319,7 +324,8 @@ export async function crearMembresia(
  * NO usa txEmpresa/bypass: `empresa`, `membresia` y `usuario` están EXCLUIDAS de RLS, así
  * que `gestorpro_app` las lee y hace el join directamente. El aislamiento de este listado
  * cross-tenant lo garantiza el guard de RUTA `soloPlataforma` (solo super-admin), NO la RLS.
- * (El bypass de `crearEmpresa` era para ESCRIBIR en `auditoria`, que sí tiene RLS.)
+ * (El bypass de `crearEmpresa` cubre las tablas de tenant que esa operación pudiera tocar;
+ * la auditoría de plataforma va a `auditoria_plataforma`, fuera de RLS.)
  */
 export async function listarEmpresas(): Promise<EmpresaListada[]> {
   const empresas = await prisma.empresa.findMany({

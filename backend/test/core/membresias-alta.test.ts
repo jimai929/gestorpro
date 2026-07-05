@@ -97,13 +97,17 @@ describe('Plataforma — POST /empresas/:id/membresias (alta multi-empresa)', ()
     expect(original?.predeterminada).toBe(true);
     expect(original?.rol).toBe('empleado');
 
-    // Auditoría: asiento del super-admin REAL con empresa_id EXPLÍCITO (bypass).
-    const asientos = await semilla().auditoria.findMany({
-      where: { entidad: 'membresia', entidadId: creada.id, accion: 'crear_membresia' },
+    // Auditoría de PLATAFORMA (NO la de tenant): asiento del super-admin REAL con
+    // empresaAfectadaId = la empresa destino; el id de la membresía va en el detalle.
+    const asientos = await semilla().auditoriaPlataforma.findMany({
+      where: { empresaAfectadaId: destino.id, accion: 'crear_membresia' },
     });
     expect(asientos).toHaveLength(1);
-    expect(asientos[0]?.usuarioId).toBe(superAdminId);
-    expect(asientos[0]?.empresaId).toBe(destino.id);
+    expect(asientos[0]?.actorUsuarioId).toBe(superAdminId);
+    expect(asientos[0]?.empresaAfectadaId).toBe(destino.id);
+    expect((asientos[0]?.detalle as { membresiaId: string }).membresiaId).toBe(creada.id);
+    // La operación de plataforma NO contamina la bitácora de tenant.
+    expect(await semilla().auditoria.count({ where: { entidadId: creada.id } })).toBe(0);
 
     // Extremo a extremo: el login lista AMBAS membresías (selector) — la
     // predeterminada primero — y cambiar-empresa a la nueva funciona con el
@@ -252,8 +256,8 @@ describe('Plataforma — POST /empresas/:id/membresias (alta multi-empresa)', ()
     expect(membresias).toHaveLength(2);
     expect(membresias.find((m) => m.empresaId === destino.id)?.rol).toBe('empleado'); // intacta
     expect(
-      await semilla().auditoria.count({
-        where: { entidad: 'membresia', accion: 'crear_membresia', empresaId: destino.id },
+      await semilla().auditoriaPlataforma.count({
+        where: { accion: 'crear_membresia', empresaAfectadaId: destino.id },
       }),
     ).toBe(1);
   });

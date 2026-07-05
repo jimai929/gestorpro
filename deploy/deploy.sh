@@ -132,12 +132,14 @@ echo "==> 4b/7 Verificando aislamiento RLS (la frontera multi-tenant está ARMAD
 # (RLS) debe estar habilitada y FORZADA en TODAS las tablas tenant-scoped. Una
 # tabla nueva sin RLS sería fail-OPEN (fuga cross-tenant) y el deploy NO debe
 # dejarla pasar en silencio. Allowlist EXCLUIDA = la misma de post-migrate.sql y
-# del test rls-cobertura (usuario/sesion_refresco/empresa/membresia + _prisma_migrations).
+# del test rls-cobertura: usuario/sesion_refresco/empresa/membresia +
+# auditoria_plataforma (bitácora de PLATAFORMA, sin RLS por diseño: su aislamiento
+# es el guard soloPlataforma de la ruta, no la RLS) + _prisma_migrations.
 faltan_rls="$(docker compose exec -T postgres \
   psql -tAX -v ON_ERROR_STOP=1 -U gestorpro_migrador -d gestorpro -c \
   "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind = 'r'
-     AND c.relname NOT IN ('usuario','sesion_refresco','empresa','membresia','_prisma_migrations')
+     AND c.relname NOT IN ('usuario','sesion_refresco','empresa','membresia','auditoria_plataforma','_prisma_migrations')
      AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
    ORDER BY c.relname;" 2>&1 || true)"
 if [[ -n "$faltan_rls" ]]; then
@@ -179,30 +181,37 @@ SUPER_ADMIN_PASSWORD="${SUPER_ADMIN_PASSWORD:-}" \
   docker compose run --rm -e DATABASE_URL -e NODE_ENV -e ADMIN_EMAIL -e ADMIN_PASSWORD \
   -e SUPER_ADMIN_EMAIL -e SUPER_ADMIN_PASSWORD backend npx prisma db seed
 
-echo "==> 6/7 Verificando append-only de auditoria (rol app)"
-# (a) Aserción POSITIVA: el rol app conecta y la tabla existe. Un SELECT debe
-#     funcionar (vacío o no). Si falla, el problema es conexión / base / tabla
-#     inexistente, NO append-only: hay que abortar y no dar un OK engañoso.
-if ! docker compose exec -T postgres \
-     psql -v ON_ERROR_STOP=1 -U gestorpro_app -d gestorpro \
-     -c "SELECT 1 FROM auditoria LIMIT 1;" >/dev/null 2>&1; then
-  echo "ERROR: gestorpro_app no pudo SELECT auditoria (conexión, base o tabla inexistente). Abortando." >&2
-  exit 1
-fi
-# (b) Aserción NEGATIVA: el UPDATE debe ser RECHAZADO POR PERMISOS. Se exige que
-#     el mensaje sea 'permission denied' / 'permiso denegado'; cualquier otro
-#     fallo (tabla inexistente, error de sintaxis, conexión) NO cuenta como OK, y
-#     que el UPDATE tenga éxito tampoco. '|| true' evita que set -e aborte aquí.
-salida_update="$(docker compose exec -T postgres \
-  psql -v ON_ERROR_STOP=1 -U gestorpro_app -d gestorpro \
-  -c "UPDATE auditoria SET accion = accion;" 2>&1 || true)"
-if ! printf '%s' "$salida_update" | grep -qiE 'permission denied|permiso denegado'; then
-  echo "ERROR DE SEGURIDAD: el UPDATE de auditoria como app NO fue rechazado por permisos." >&2
-  echo "Salida de psql:" >&2
-  printf '%s\n' "$salida_update" >&2
-  exit 1
-fi
-echo "    OK: gestorpro_app lee pero NO puede modificar auditoria (append-only verificado)."
+echo "==> 6/7 Verificando append-only de auditoria y auditoria_plataforma (rol app)"
+# La FRONTERA REAL de inmutabilidad es el REVOKE de UPDATE/DELETE/TRUNCATE sobre estas
+# bitácoras (post-migrate.sql). Para AMBAS tablas se exige:
+#  (a) POSITIVA: el rol app conecta y la tabla existe (SELECT funciona, vacío o no); si
+#      falla es conexión / base / tabla inexistente, NO append-only → abortar sin dar un
+#      OK engañoso.
+#  (b) NEGATIVA: UPDATE, DELETE y TRUNCATE deben ser RECHAZADOS POR PERMISOS ('permission
+#      denied' / 'permiso denegado'); cualquier otro fallo (tabla inexistente, sintaxis,
+#      conexión) o un ÉXITO NO cuentan como OK. Se prueban los TRES verbos porque el
+#      REVOKE cubre los tres; probarlos NO borra datos (el permiso los rechaza antes de
+#      ejecutar). '|| true' evita que set -e aborte en la aserción negativa.
+for tabla in auditoria auditoria_plataforma; do
+  if ! docker compose exec -T postgres \
+       psql -v ON_ERROR_STOP=1 -U gestorpro_app -d gestorpro \
+       -c "SELECT 1 FROM ${tabla} LIMIT 1;" >/dev/null 2>&1; then
+    echo "ERROR: gestorpro_app no pudo SELECT ${tabla} (conexión, base o tabla inexistente). Abortando." >&2
+    exit 1
+  fi
+  for op in "UPDATE ${tabla} SET accion = accion" "DELETE FROM ${tabla}" "TRUNCATE ${tabla}"; do
+    salida_op="$(docker compose exec -T postgres \
+      psql -v ON_ERROR_STOP=1 -U gestorpro_app -d gestorpro \
+      -c "${op};" 2>&1 || true)"
+    if ! printf '%s' "$salida_op" | grep -qiE 'permission denied|permiso denegado'; then
+      echo "ERROR DE SEGURIDAD: '${op}' como app NO fue rechazado por permisos." >&2
+      echo "Salida de psql:" >&2
+      printf '%s\n' "$salida_op" >&2
+      exit 1
+    fi
+  done
+  echo "    OK: gestorpro_app lee pero NO puede UPDATE/DELETE/TRUNCATE ${tabla} (append-only verificado)."
+done
 
 echo "==> 7/7 Levantando backend y esperando a que esté healthy"
 docker compose up -d backend

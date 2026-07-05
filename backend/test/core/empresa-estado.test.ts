@@ -115,13 +115,15 @@ describe('Fase 4c — PATCH /empresas/:id (baja/reactivación del tenant)', () =
     });
     expect(entrar.statusCode).toBe(403);
 
-    // Auditoría: asiento del super-admin REAL con empresa_id EXPLÍCITO (bypass).
-    const asientos = await semilla().auditoria.findMany({
-      where: { entidad: 'empresa', entidadId: empresa.id, accion: 'desactivar_empresa' },
+    // Auditoría de PLATAFORMA (NO la de tenant): asiento del super-admin REAL con
+    // empresaAfectadaId = la empresa. La `Auditoria` de tenant no se toca.
+    const asientos = await semilla().auditoriaPlataforma.findMany({
+      where: { empresaAfectadaId: empresa.id, accion: 'desactivar_empresa' },
     });
     expect(asientos).toHaveLength(1);
-    expect(asientos[0]?.usuarioId).toBe(superAdminId);
-    expect(asientos[0]?.empresaId).toBe(empresa.id);
+    expect(asientos[0]?.actorUsuarioId).toBe(superAdminId);
+    expect(asientos[0]?.empresaAfectadaId).toBe(empresa.id);
+    expect(await semilla().auditoria.count({ where: { entidadId: empresa.id } })).toBe(0);
   });
 
   it('reactivar: 200, el tenant vuelve a operar; idempotencia sin asiento duplicado', async () => {
@@ -146,8 +148,8 @@ describe('Fase 4c — PATCH /empresas/:id (baja/reactivación del tenant)', () =
     const repetido = await cambiarEstado(tk, empresa.id, true);
     expect(repetido.statusCode).toBe(200);
     expect(
-      await semilla().auditoria.count({
-        where: { entidadId: empresa.id, accion: 'reactivar_empresa' },
+      await semilla().auditoriaPlataforma.count({
+        where: { empresaAfectadaId: empresa.id, accion: 'reactivar_empresa' },
       }),
     ).toBe(1);
     expect(await semilla().sesionRefresco.count({ where: { usuarioId: usuario.id } })).toBe(1);
