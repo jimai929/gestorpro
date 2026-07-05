@@ -4,6 +4,7 @@ import { ErrorAutenticacion, ErrorAutorizacion, ErrorValidacion } from '../error
 import { hashearContrasena, verificarContrasena } from './contrasena.js';
 import { txEmpresa } from '../tenant/contexto.js';
 import { auditoriaRepo } from '../../shared/repositories/auditoria.repository.js';
+import { auditoriaPlataformaRepo } from '../../shared/repositories/auditoria-plataforma.repository.js';
 import { Rol } from '../../generated/prisma/enums.js';
 import type {
   MembresiaPublica,
@@ -381,6 +382,11 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
  * - Actualiza el hash, REVOCA todas las sesiones de refresco del usuario y deja un
  *   asiento de auditoría `cambiar_contrasena`, todo en la MISMA transacción (todo o
  *   nada). NUNCA se registra ninguna contraseña en claro.
+ * - B5: un super-admin (cuenta de PLATAFORMA, empresaId=null, sin tenant) audita en
+ *   `AuditoriaPlataforma` (empresa_afectada_id null) con un `$transaction` normal —NO en
+ *   la `Auditoria` de tenant, cuyo `empresa_id` NOT NULL saldría del GUC de tenant que
+ *   aquí no está fijado (rompería). usuario/sesion_refresco/auditoria_plataforma están
+ *   fuera de RLS, así que no necesitan contexto de tenant.
  *
  * No toca `empresaId`, membresías, `rol` ni `esSuperAdmin`.
  */
@@ -405,6 +411,29 @@ export async function cambiarContrasena(
 
   // argon2 FUERA de la transacción (es costoso; no hay que tener la tx abierta).
   const nuevoHash = await hashearContrasena(contrasenaNueva);
+
+  if (usuario.esSuperAdmin) {
+    // Cuenta de PLATAFORMA: bitácora de plataforma, sin contexto de tenant. Mismo efecto
+    // (rota hash, limpia debeCambiarContrasena, expulsa TODAS las sesiones) en una sola tx.
+    await prisma.$transaction(async (tx) => {
+      await tx.usuario.update({
+        where: { id: usuarioId },
+        data: { passwordHash: nuevoHash, debeCambiarContrasena: false },
+      });
+      await tx.sesionRefresco.deleteMany({ where: { usuarioId } });
+      await auditoriaPlataformaRepo.registrar(
+        {
+          actorUsuarioId: usuarioId,
+          accion: 'cambiar_contrasena',
+          // empresaAfectadaId se OMITE (null): es la propia cuenta de plataforma, sin
+          // empresa objeto. `detalle` se OMITE: jamás se guarda contraseña alguna.
+        },
+        tx,
+      );
+    });
+    return;
+  }
+
   await txEmpresa(async (tx) => {
     await tx.usuario.update({
       where: { id: usuarioId },

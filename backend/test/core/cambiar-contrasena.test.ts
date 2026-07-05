@@ -209,13 +209,14 @@ describe('auth — POST /auth/cambiar-contrasena (autoservicio)', () => {
     expect(await hashDe(atacante.id)).not.toBe(hashAtacanteAntes); // solo cambió el atacante
   });
 
-  // ── Guard B1: cuentas de PLATAFORMA (super-admin) ──────────────────────────
-  // Un super-admin no tiene empresa (empresaId null). Su auto-cambio reventaba más
-  // adentro al auditar (empresa_id NOT NULL + RLS) → 500 opaco. El guard lo rechaza
-  // en la ENTRADA con 403 de dominio, ANTES de abrir transacción: cero efectos.
+  // ── B5: cuentas de PLATAFORMA (super-admin) cambian su PROPIA contraseña ─────
+  // Antes (guard B1) el auto-cambio del super-admin se rechazaba con 403: auditar en la
+  // bitácora de TENANT (empresa_id NOT NULL, del GUC) reventaba porque no tiene empresa.
+  // B5 lo habilita: el servicio detecta esSuperAdmin y audita en AuditoriaPlataforma (sin
+  // tenant), lo que permite cerrar el cambio FORZADO de su clave inicial (nace con el flag).
 
   // Super-admin REAL: esSuperAdmin=true y SIN membresía (no pertenece a ninguna empresa).
-  async function nuevoSuperAdmin(clave = CLAVE) {
+  async function nuevoSuperAdmin(clave = CLAVE, debeCambiarContrasena = false) {
     return semilla().usuario.create({
       data: {
         nombre: 'Plataforma',
@@ -223,41 +224,101 @@ describe('auth — POST /auth/cambiar-contrasena (autoservicio)', () => {
         rol: 'empleado', // mínimo privilegio; su poder viene de esSuperAdmin
         esSuperAdmin: true,
         passwordHash: await hashearContrasena(clave),
+        debeCambiarContrasena,
       },
     });
   }
 
   // Token con la forma exacta de un super-admin sin empresa activa: empresaId null.
-  function tokenSuperAdmin(usuarioId: string): string {
-    return app.jwt.sign({ sub: usuarioId, rol: 'empleado', empresaId: null, esSuperAdmin: true });
+  function tokenSuperAdmin(usuarioId: string, debeCambiarContrasena = false): string {
+    return app.jwt.sign({
+      sub: usuarioId,
+      rol: 'empleado',
+      empresaId: null,
+      esSuperAdmin: true,
+      debeCambiarContrasena,
+    });
   }
 
-  it('super-admin (esSuperAdmin=true, empresaId=null) → 403 de dominio (NO 500); hash intacto y SIN auditoría', async () => {
+  async function auditoriasPlataformaDe(actorUsuarioId: string): Promise<number> {
+    return semilla().auditoriaPlataforma.count({
+      where: { actorUsuarioId, accion: 'cambiar_contrasena' },
+    });
+  }
+
+  it('B5 — super-admin: 204; el hash cambia y audita en AuditoriaPlataforma (NO en la de tenant), sin empresa ni detalle', async () => {
     const sa = await nuevoSuperAdmin();
     const antes = await hashDe(sa.id);
 
     const res = await app.inject({
       method: 'POST',
       url: '/auth/cambiar-contrasena',
+      // IP propia: el bucket de rate-limit (10/min por IP) es compartido por todo el
+      // archivo; sin esto, las peticiones acumuladas darían 429 (no es lo que se prueba).
+      remoteAddress: '10.20.0.1',
       headers: { authorization: `Bearer ${tokenSuperAdmin(sa.id)}` },
       payload: { contrasenaActual: CLAVE, contrasenaNueva: NUEVA },
     });
+    expect(res.statusCode).toBe(204);
 
-    // Rechazo claro en la entrada: 403, NO el 500 opaco que daba antes.
-    expect(res.statusCode).toBe(403);
-    const cuerpo = res.json() as { mensaje?: string; codigo?: string };
-    expect(cuerpo.mensaje).toMatch(/plataforma/i);
-    // No se reutiliza el contrato del cambio forzado.
-    expect(cuerpo.codigo).toBeUndefined();
-
-    // Cero efectos: el guard corta ANTES de la transacción.
-    expect(await hashDe(sa.id)).toBe(antes); // hash intacto
-    expect(await auditoriasDe(sa.id)).toBe(0); // sin asiento de auditoría
+    expect(await hashDe(sa.id)).not.toBe(antes); // el hash cambió
+    // La bitácora de TENANT no se toca; el asiento va a la de PLATAFORMA.
+    expect(await auditoriasDe(sa.id)).toBe(0);
+    expect(await auditoriasPlataformaDe(sa.id)).toBe(1);
+    const asiento = await semilla().auditoriaPlataforma.findFirstOrThrow({
+      where: { actorUsuarioId: sa.id, accion: 'cambiar_contrasena' },
+    });
+    expect(asiento.empresaAfectadaId).toBeNull(); // acción de la propia cuenta de plataforma
+    expect(asiento.detalle).toBeNull(); // jamás la contraseña
   });
 
-  it('regresión: usuario normal (esSuperAdmin=false) NO se ve afectado por el guard B1 → sigue 204', async () => {
+  it('B5 — cambio FORZADO del super-admin: bloqueado en rutas de plataforma pero PUEDE rotar por /auth/cambiar-contrasena (sin lock-out); limpia el flag y revoca sesiones', async () => {
+    const sa = await nuevoSuperAdmin(CLAVE, true);
+    // Sesión viva real (login funciona aunque deba cambiar la clave): debe ser expulsada.
+    const login = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email: sa.email, password: CLAVE },
+    });
+    expect(login.statusCode).toBe(200);
+    expect(await semilla().sesionRefresco.count({ where: { usuarioId: sa.id } })).toBe(1);
+
+    const tk = tokenSuperAdmin(sa.id, true);
+    // Con el flag activo, una ruta de plataforma NO exenta queda bloqueada (403 DEBE_CAMBIAR).
+    const bloqueada = await app.inject({
+      method: 'GET',
+      url: '/empresas',
+      headers: { authorization: `Bearer ${tk}` },
+    });
+    expect(bloqueada.statusCode).toBe(403);
+    expect((bloqueada.json() as { codigo?: string }).codigo).toBe('DEBE_CAMBIAR_CONTRASENA');
+
+    // Pero /auth/cambiar-contrasena SÍ está en la allowlist → puede cerrar el cambio forzado.
+    const cambio = await app.inject({
+      method: 'POST',
+      url: '/auth/cambiar-contrasena',
+      remoteAddress: '10.20.0.2', // IP propia (ver nota de rate-limit arriba)
+      headers: { authorization: `Bearer ${tk}` },
+      payload: { contrasenaActual: CLAVE, contrasenaNueva: NUEVA },
+    });
+    expect(cambio.statusCode).toBe(204);
+
+    const enBd = await semilla().usuario.findUniqueOrThrow({ where: { id: sa.id } });
+    expect(enBd.debeCambiarContrasena).toBe(false); // flag limpio
+    expect(await semilla().sesionRefresco.count({ where: { usuarioId: sa.id } })).toBe(0); // sesiones revocadas
+  });
+
+  it('regresión: usuario normal (esSuperAdmin=false) sigue auditando en la bitácora de TENANT → 204', async () => {
     const u = await nuevoUsuario();
-    const res = await cambiar(u.id, { contrasenaActual: CLAVE, contrasenaNueva: NUEVA });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/cambiar-contrasena',
+      remoteAddress: '10.20.0.3', // IP propia (ver nota de rate-limit arriba)
+      headers: { authorization: `Bearer ${token(u.id)}` },
+      payload: { contrasenaActual: CLAVE, contrasenaNueva: NUEVA },
+    });
     expect(res.statusCode).toBe(204);
+    expect(await auditoriasDe(u.id)).toBe(1); // en la de tenant, no en la de plataforma
+    expect(await auditoriasPlataformaDe(u.id)).toBe(0);
   });
 });

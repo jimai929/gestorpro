@@ -118,6 +118,9 @@ async function main(): Promise<void> {
     );
     await prisma.usuario.upsert({
       where: { email: superAdminEmail },
+      // Idempotente: NO se re-fuerza el cambio en un super-admin ya existente (solo se
+      // reafirma el flag esSuperAdmin). Forzar el cambio en cada seed expulsaría sus
+      // sesiones y le pediría rotar de nuevo sin motivo.
       update: { esSuperAdmin: true },
       create: {
         nombre: 'Super Admin',
@@ -125,6 +128,10 @@ async function main(): Promise<void> {
         rol: Rol.empleado, // mínimo privilegio; su poder viene de esSuperAdmin
         esSuperAdmin: true,
         passwordHash: superAdminHash,
+        // B5: la clave INICIAL (env/demo) es de arranque; el primer login DEBE rotarla.
+        // El guard de cambio forzado permite /auth/cambiar-contrasena (allowlist), y el
+        // servicio audita esa rotación en AuditoriaPlataforma. Sin membresías → plataforma.
+        debeCambiarContrasena: true,
       },
     });
     // NO se crea membresía: el super-admin no pertenece a ninguna empresa (§4.2).
