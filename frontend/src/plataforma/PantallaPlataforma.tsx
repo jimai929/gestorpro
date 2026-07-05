@@ -11,6 +11,7 @@ import { useAuth } from '../core/auth/ContextoAuth';
 import { useTraduccion } from '../core/i18n/ContextoIdioma';
 import { FormularioCrearEmpresa } from './FormularioCrearEmpresa';
 import { ListaEmpresas } from './ListaEmpresas';
+import { DialogoAnadirMembresia } from './DialogoAnadirMembresia';
 import { cambiarEstadoEmpresaApi, listarEmpresasApi } from './servicioPlataforma';
 import type { EmpresaListada } from './tipos';
 import styles from './PantallaPlataforma.module.css';
@@ -26,6 +27,8 @@ export function PantallaPlataforma() {
   const [entrandoId, setEntrandoId] = useState<string | null>(null);
   const [errorEntrar, setErrorEntrar] = useState<string | null>(null);
   const [actualizandoId, setActualizandoId] = useState<string | null>(null);
+  // Empresa destino del diálogo "Añadir membresía" (null = cerrado).
+  const [empresaMembresia, setEmpresaMembresia] = useState<EmpresaListada | null>(null);
 
   // Guardia contra respuestas fuera de orden (mismo patrón que PantallaUsuarios): solo
   // la recarga MÁS RECIENTE escribe estado. Sin esto, una recarga vieja que resolviera
@@ -115,7 +118,21 @@ export function PantallaPlataforma() {
           entrandoId={entrandoId}
           onAlternarActivo={(e) => void alternarActivo(e)}
           actualizandoId={actualizandoId}
+          onAnadirMembresia={(e) => setEmpresaMembresia(e)}
         />
+
+        {empresaMembresia && (
+          <DialogoAnadirMembresia
+            /* key: al cambiar de empresa destino React REMONTA el diálogo (estado
+               limpio). Sin ella, pasar de un éxito con A a la fila de B conservaría
+               exito=true y anunciaría una membresía que no se creó. */
+            key={empresaMembresia.id}
+            empresa={empresaMembresia}
+            onCerrar={() => setEmpresaMembresia(null)}
+            /* La lista de empresas no cambia con una membresía nueva: basta cerrar. */
+            onExito={() => setEmpresaMembresia(null)}
+          />
+        )}
       </div>
     </LayoutPrincipal>
   );

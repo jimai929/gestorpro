@@ -34,6 +34,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
       />,
     );
     expect(screen.getByText('Acme Panamá')).toBeTruthy();
@@ -52,6 +53,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
       />,
     );
     expect(screen.getByText('Cargando…')).toBeTruthy();
@@ -66,6 +68,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
       />,
     );
     expect(screen.getByText('Falló la carga')).toBeTruthy();
@@ -80,6 +83,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
       />,
     );
     expect(screen.getByText('Aún no hay empresas. Crea la primera arriba.')).toBeTruthy();
@@ -96,6 +100,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={onEntrar}
         onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
       />,
     );
 
@@ -114,6 +119,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
       />,
     );
     const botones = screen.getAllByRole('button', { name: 'Entrar' }) as HTMLButtonElement[];
@@ -130,6 +136,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
         entrandoId="e1"
       />,
     );
@@ -140,6 +147,11 @@ describe('ListaEmpresas', () => {
       name: /Desactivar|Reactivar/,
     }) as HTMLButtonElement[];
     expect(estado.every((b) => b.disabled)).toBe(true);
+    // Y el botón de membresía: TODA la tabla se congela con una acción en vuelo.
+    const membresia = screen.getAllByRole('button', {
+      name: 'Añadir membresía',
+    }) as HTMLButtonElement[];
+    expect(membresia.every((b) => b.disabled)).toBe(true);
   });
 
   it('"Desactivar" exige DOS clics (armar → confirmar); "Reactivar" es directo', async () => {
@@ -153,6 +165,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
         onAlternarActivo={onAlternarActivo}
+        onAnadirMembresia={vi.fn()}
       />,
     );
     // Primer clic en Desactivar (Acme, activa): solo ARMA — un misclic junto a
@@ -167,6 +180,31 @@ describe('ListaEmpresas', () => {
     expect(onAlternarActivo).toHaveBeenCalledWith(EMPRESAS[1]);
   });
 
+  it('"Añadir membresía" llama a onAnadirMembresia con la empresa; deshabilitado en una inactiva', async () => {
+    const onAnadirMembresia = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ListaEmpresas
+        empresas={EMPRESAS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        onAnadirMembresia={onAnadirMembresia}
+      />,
+    );
+    const botones = screen.getAllByRole('button', {
+      name: 'Añadir membresía',
+    }) as HTMLButtonElement[];
+    expect(botones).toHaveLength(2); // uno por fila
+    // Beta está dada de baja: el backend respondería 409, el botón ni se ofrece.
+    expect(botones[0]!.disabled).toBe(false);
+    expect(botones[1]!.disabled).toBe(true);
+    await user.click(botones[0]!);
+    expect(onAnadirMembresia).toHaveBeenCalledWith(EMPRESAS[0]);
+  });
+
   it('mientras un cambio de estado está en curso, TODAS las acciones quedan deshabilitadas', () => {
     render(
       <ListaEmpresas
@@ -176,6 +214,7 @@ describe('ListaEmpresas', () => {
         onReintentar={vi.fn()}
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
         actualizandoId="e2"
       />,
     );
@@ -185,5 +224,36 @@ describe('ListaEmpresas', () => {
       name: /Desactivar|Reactivar/,
     }) as HTMLButtonElement[];
     expect(estado.every((b) => b.disabled)).toBe(true);
+    const membresia = screen.getAllByRole('button', {
+      name: 'Añadir membresía',
+    }) as HTMLButtonElement[];
+    expect(membresia.every((b) => b.disabled)).toBe(true);
+  });
+
+  it('abrir "Añadir membresía" DESARMA una baja pendiente (no queda un clic-a-un-paso de desactivar)', async () => {
+    const onAlternarActivo = vi.fn();
+    const onAnadirMembresia = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ListaEmpresas
+        empresas={EMPRESAS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onEntrar={vi.fn()}
+        onAlternarActivo={onAlternarActivo}
+        onAnadirMembresia={onAnadirMembresia}
+      />,
+    );
+    // Armar la baja de Acme (primer clic: pasa a "¿Confirmar baja?").
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
+    expect(screen.getByRole('button', { name: '¿Confirmar baja?' })).toBeTruthy();
+    // Abrir el diálogo de membresía en la misma fila: DEBE desarmar.
+    await user.click(screen.getAllByRole('button', { name: 'Añadir membresía' })[0]!);
+    expect(onAnadirMembresia).toHaveBeenCalledWith(EMPRESAS[0]);
+    // El botón volvió a "Desactivar": un clic ya NO da de baja (vuelve a armar).
+    expect(screen.queryByRole('button', { name: '¿Confirmar baja?' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
+    expect(onAlternarActivo).not.toHaveBeenCalled();
   });
 });

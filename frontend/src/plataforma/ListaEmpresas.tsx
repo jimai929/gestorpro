@@ -23,6 +23,8 @@ interface PropiedadesLista {
   onAlternarActivo: (empresa: EmpresaListada) => void;
   /** Empresa cuyo cambio de estado está en curso (congela las acciones). */
   actualizandoId?: string | null;
+  /** Abre el diálogo de añadir membresía (usuario existente) en esa empresa. */
+  onAnadirMembresia: (empresa: EmpresaListada) => void;
 }
 
 export function ListaEmpresas({
@@ -34,6 +36,7 @@ export function ListaEmpresas({
   entrandoId = null,
   onAlternarActivo,
   actualizandoId = null,
+  onAnadirMembresia,
 }: PropiedadesLista) {
   const { t } = useTraduccion();
   // Cualquier acción en vuelo (entrar, cambiar estado) O una recarga en curso congela
@@ -46,6 +49,14 @@ export function ListaEmpresas({
   // botón vive pegado a "Entrar" — un misclick no debe dar de baja una empresa.
   // Reactivar no arma (restaurar acceso no es destructivo).
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
+  // Abrir el diálogo de membresía DESARMA cualquier baja pendiente: el estado armado
+  // ("¿Confirmar baja?") no caduca, y con un flujo modal interpuesto el operador podría
+  // olvidarlo y desactivar el tenant con un solo clic posterior. Desarmar al abrir el
+  // diálogo restaura la garantía de dos pasos.
+  const manejarAnadirMembresia = (e: EmpresaListada) => {
+    setConfirmandoId(null);
+    onAnadirMembresia(e);
+  };
   const manejarToggle = (e: EmpresaListada) => {
     if (!e.activo) {
       onAlternarActivo(e); // reactivar: directo
@@ -117,6 +128,16 @@ export function ListaEmpresas({
                     cargando={entrandoId === e.id}
                   >
                     {t('plataforma.entrar')}
+                  </Boton>
+                  {/* Añadir membresía: solo tiene sentido sobre una empresa activa
+                      (el backend responde 409 sobre una desactivada). */}
+                  <Boton
+                    variante="secundario"
+                    type="button"
+                    onClick={() => manejarAnadirMembresia(e)}
+                    disabled={!e.activo || accionEnVuelo}
+                  >
+                    {t('plataforma.anadirMembresia')}
                   </Boton>
                   {/* Baja / reactivación lógica (nunca se borra el tenant). */}
                   <Boton

@@ -65,6 +65,20 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.confirmarBaja': '¿Confirmar baja?',
     'plataforma.reactivar': 'Reactivar',
     'plataforma.errActualizar': 'No se pudo actualizar la empresa.',
+
+    // Añadir membresía (usuario existente, multi-empresa)
+    'plataforma.anadirMembresia': 'Añadir membresía',
+    'plataforma.am.titulo': 'Añadir membresía en {empresa}',
+    'plataforma.am.intro':
+      'Da acceso a esta empresa a un usuario que YA existe en otra, con el rol elegido. Su contraseña y su empresa predeterminada no cambian.',
+    'plataforma.am.email': 'Correo del usuario',
+    'plataforma.am.emailAyuda': 'El correo exacto con el que el usuario inicia sesión.',
+    'plataforma.am.rol': 'Rol en esta empresa',
+    'plataforma.am.anadir': 'Añadir',
+    'plataforma.am.errGenerico': 'No se pudo añadir la membresía.',
+    'plataforma.am.exitoTitulo': 'Membresía añadida',
+    'plataforma.am.exitoMensaje':
+      '{email} ya puede entrar a {empresa}. La verá en su selector de empresa al volver a iniciar sesión.',
   },
   en: {
     'inicio.plataforma': 'Platform',
@@ -118,6 +132,19 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.confirmarBaja': 'Confirm deactivation?',
     'plataforma.reactivar': 'Reactivate',
     'plataforma.errActualizar': 'Could not update the company.',
+
+    'plataforma.anadirMembresia': 'Add membership',
+    'plataforma.am.titulo': 'Add membership in {empresa}',
+    'plataforma.am.intro':
+      'Grant access to this company to a user who ALREADY exists in another one, with the chosen role. Their password and default company do not change.',
+    'plataforma.am.email': 'User email',
+    'plataforma.am.emailAyuda': 'The exact email the user signs in with.',
+    'plataforma.am.rol': 'Role in this company',
+    'plataforma.am.anadir': 'Add',
+    'plataforma.am.errGenerico': 'Could not add the membership.',
+    'plataforma.am.exitoTitulo': 'Membership added',
+    'plataforma.am.exitoMensaje':
+      '{email} can now enter {empresa}. It will appear in their company selector on their next sign-in.',
   },
   zh: {
     'inicio.plataforma': '平台',
@@ -169,5 +196,16 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.confirmarBaja': '确认停用？',
     'plataforma.reactivar': '重新启用',
     'plataforma.errActualizar': '无法更新公司。',
+
+    'plataforma.anadirMembresia': '添加成员',
+    'plataforma.am.titulo': '在 {empresa} 中添加成员',
+    'plataforma.am.intro': '将已存在于其他公司的用户加入本公司，并指定角色。其密码和默认公司不会改变。',
+    'plataforma.am.email': '用户邮箱',
+    'plataforma.am.emailAyuda': '该用户登录时使用的准确邮箱。',
+    'plataforma.am.rol': '在本公司的角色',
+    'plataforma.am.anadir': '添加',
+    'plataforma.am.errGenerico': '无法添加成员。',
+    'plataforma.am.exitoTitulo': '成员已添加',
+    'plataforma.am.exitoMensaje': '{email} 现在可以进入 {empresa}。下次登录时将出现在其公司选择器中。',
   },
 };

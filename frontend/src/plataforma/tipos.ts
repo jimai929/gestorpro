@@ -39,3 +39,15 @@ export interface EmpresaEstado {
   slug: string;
   activo: boolean;
 }
+
+/** Rol asignable en una membresía (misma lista blanca que el backend). */
+export type RolMembresia = 'administrador' | 'empleado';
+
+/** Respuesta 201 de POST /empresas/:id/membresias (alta multi-empresa). */
+export interface MembresiaCreada {
+  id: string;
+  usuarioId: string;
+  empresaId: string;
+  email: string;
+  rol: RolMembresia;
+}

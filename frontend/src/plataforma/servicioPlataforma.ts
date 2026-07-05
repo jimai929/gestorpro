@@ -3,7 +3,14 @@
  */
 
 import { api } from '../core/api';
-import type { DatosNuevaEmpresa, EmpresaCreada, EmpresaEstado, EmpresaListada } from './tipos';
+import type {
+  DatosNuevaEmpresa,
+  EmpresaCreada,
+  EmpresaEstado,
+  EmpresaListada,
+  MembresiaCreada,
+  RolMembresia,
+} from './tipos';
 
 /**
  * Crea una empresa (tenant) con su primer administrador (POST /empresas).
@@ -28,4 +35,17 @@ export function listarEmpresasApi(): Promise<EmpresaListada[]> {
  */
 export function cambiarEstadoEmpresaApi(empresaId: string, activo: boolean): Promise<EmpresaEstado> {
   return api.patch<EmpresaEstado>(`/empresas/${empresaId}`, { activo });
+}
+
+/**
+ * Añade una MEMBRESÍA a un usuario EXISTENTE (por email) en la empresa dada
+ * (POST /empresas/:id/membresias → 201). Solo super-admin. 404 si el email no
+ * existe; 409 si ya es miembro o la cuenta/empresa está desactivada.
+ */
+export function crearMembresiaApi(
+  empresaId: string,
+  email: string,
+  rol: RolMembresia,
+): Promise<MembresiaCreada> {
+  return api.post<MembresiaCreada>(`/empresas/${empresaId}/membresias`, { email, rol });
 }
