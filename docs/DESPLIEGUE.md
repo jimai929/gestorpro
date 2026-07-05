@@ -110,7 +110,11 @@ Si una sede pierde internet, el kiosco no puede fichar. Dos etapas:
      modo `global:false` sobre `/auth/*` (login 10/min, refresh·logout 30/min) y
      la superficie del kiosco (`/fichajes` 30/min, `/kioscos` 60/min). La clave
      es la IP — defensa en profundidad, NO sustituye la restricción de red/token
-     (una sede comparte IP de salida).
+     (una sede comparte IP de salida). Detrás de Caddy, backend usa
+     `trustProxy: 'uniquelocal'` (nunca `true` a secas): solo confía en el
+     `X-Forwarded-For` cuando el socket que conecta cae en un rango privado (la
+     red docker interna donde vive Caddy, el único proceso que alcanza el
+     puerto), así `request.ip` es la IP real del cliente y no la de Caddy.
    - **Verificador facial** — **DECIDIDO: riesgo aceptado** con el simulador. El
      verificador es enchufable por env (`VERIFICADOR_FACIAL`, hoy solo
      'simulado'; un valor no soportado aborta el arranque) y, con

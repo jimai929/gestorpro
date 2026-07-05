@@ -26,7 +26,15 @@ import { cobroRoutes } from './asistencia/cobro/cobro.routes.js';
  * los plugins de cada área (finanzas, asistencia).
  */
 export function construirApp(): FastifyInstance {
-  const app = Fastify({ logger: true });
+  // trustProxy: SOLO se confía en la IP inmediata del socket cuando cae en un rango
+  // privado (incluye la red docker interna 172.16.0.0/12 donde vive Caddy — el ÚNICO
+  // proceso que puede alcanzar este puerto, ver docs/DESPLIEGUE.md). Con eso, Fastify
+  // toma `request.ip` del `X-Forwarded-For` que Caddy antepone (IP real del cliente),
+  // no de la IP del contenedor de Caddy — corrige que @fastify/rate-limit compartiera
+  // un único bucket para toda la plataforma. NUNCA `true` a secas: un cliente que
+  // conectara DIRECTO (fuera del rango privado) podría forjar el header y evadir el
+  // límite; con 'uniquelocal' su IP pública no calificaría como proxy de confianza.
+  const app = Fastify({ logger: true, trustProxy: 'uniquelocal' });
 
   // Contexto de tenant (RLS): en el PUNTO MÁS TEMPRANO de cada request, dale su
   // propio store en la AsyncLocalStorage (fail-closed: empresaId null). `autenticar`

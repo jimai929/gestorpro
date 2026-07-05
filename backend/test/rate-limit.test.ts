@@ -50,4 +50,55 @@ describe('rate limiting — superficies sensibles', () => {
     }
     expect(codigos.every((c) => c === 200)).toBe(true);
   });
+
+  // trustProxy: 'uniquelocal' — detrás de Caddy, la clave del rate-limit (request.ip)
+  // debe ser el cliente real, no la IP del contenedor de Caddy (que compartiría un
+  // único bucket entre TODOS los tenants). Los 3 tests de arriba siguen usando
+  // 127.0.0.1 SIN X-Forwarded-For: 'uniquelocal' no cambia su resultado (sin el
+  // header no hay nada que resolver, manda la IP directa del socket) — confirman
+  // que el fix no rompe el comportamiento existente.
+  it('con trustProxy: dos "clientes" detrás del MISMO proxy (X-Forwarded-For distinto) tienen buckets INDEPENDIENTES', async () => {
+    const credenciales = { email: 'inexistente@gestorpro.local', password: 'noexiste' };
+    // Cliente A agota su límite de 10/min.
+    let codigosA: number[] = [];
+    for (let i = 0; i < 11; i++) {
+      const r = await app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        remoteAddress: '172.18.0.4', // socket de Caddy (docker interno, confiable)
+        headers: { 'x-forwarded-for': '203.0.113.11' }, // cliente real A
+        payload: credenciales,
+      });
+      codigosA.push(r.statusCode);
+    }
+    expect(codigosA[10]).toBe(429);
+
+    // Cliente B, mismo socket de Caddy, IP real DISTINTA: bucket propio, no hereda el 429 de A.
+    const rB = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      remoteAddress: '172.18.0.4',
+      headers: { 'x-forwarded-for': '203.0.113.12' }, // cliente real B
+      payload: credenciales,
+    });
+    expect(rB.statusCode).toBe(401); // no 429: su propio bucket sigue con cupo
+  });
+
+  it('anti-spoof: un cliente PÚBLICO no puede forjar X-Forwarded-For para escapar de su propio límite', async () => {
+    const credenciales = { email: 'inexistente@gestorpro.local', password: 'noexiste' };
+    let ultimo = 0;
+    for (let i = 0; i < 11; i++) {
+      const r = await app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        remoteAddress: '203.0.113.20', // socket público, NO confiable
+        headers: { 'x-forwarded-for': `1.2.3.${i}` }, // header distinto cada vez — intento de evasión
+        payload: credenciales,
+      });
+      ultimo = r.statusCode;
+    }
+    // El header forjado se ignora (socket no confiable): todas las peticiones caen
+    // en el bucket real de 203.0.113.20 y la número 11 se corta igual que sin proxy.
+    expect(ultimo).toBe(429);
+  });
 });
