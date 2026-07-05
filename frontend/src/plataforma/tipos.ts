@@ -51,3 +51,13 @@ export interface MembresiaCreada {
   email: string;
   rol: RolMembresia;
 }
+
+/**
+ * Respuesta 200 de POST /empresas/:id/restablecer-admin. Superficie MÍNIMA, IDÉNTICA al
+ * contrato del backend: SOLO la temporal (en claro, se muestra UNA vez) y el flag. NO trae
+ * `usuarioId` ni `email` (la identidad del admin solo se registra en AuditoriaPlataforma).
+ */
+export interface AdminRestablecido {
+  contrasenaTemporal: string;
+  debeCambiarContrasena: true;
+}

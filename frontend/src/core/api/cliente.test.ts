@@ -151,3 +151,44 @@ describe('cliente HTTP — 403 DEBE_CAMBIAR_CONTRASENA y 429', () => {
     expect(debeCambiar).not.toHaveBeenCalled();
   });
 });
+
+describe('cliente HTTP — Content-Type según haya cuerpo', () => {
+  beforeEach(() => {
+    fijarAccessToken(null);
+    fijarManejadorRefresh(null);
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    fijarAccessToken(null);
+    fijarManejadorRefresh(null);
+  });
+
+  /** Headers e init del primer (y único) fetch registrado. */
+  function primerFetch(fetchMock: ReturnType<typeof vi.spyOn>) {
+    const init = (fetchMock.mock.calls[0]![1] ?? {}) as RequestInit;
+    return { init, cabeceras: (init.headers ?? {}) as Record<string, string> };
+  }
+
+  it('petición SIN cuerpo (POST solo con method) NO envía body ni Content-Type: application/json', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(respuesta(200, { ok: true }));
+    await peticion('/empresas/e1/restablecer-admin', { method: 'POST' });
+    const { init, cabeceras } = primerFetch(fetchMock);
+    // No se declara JSON (evita FST_ERR_CTP_EMPTY_JSON_BODY en Fastify) y no hay cuerpo.
+    expect(cabeceras['Content-Type']).toBeUndefined();
+    expect(init.body).toBeUndefined();
+  });
+
+  it('GET tampoco envía Content-Type: application/json (no tiene cuerpo)', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(respuesta(200, []));
+    await api.get('/empresas');
+    expect(primerFetch(fetchMock).cabeceras['Content-Type']).toBeUndefined();
+  });
+
+  it('petición CON cuerpo (POST con datos) SÍ envía Content-Type: application/json y el body serializado', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(respuesta(200, { ok: true }));
+    await api.post('/empresas', { nombre: 'x' });
+    const { init, cabeceras } = primerFetch(fetchMock);
+    expect(cabeceras['Content-Type']).toBe('application/json');
+    expect(init.body).toBe(JSON.stringify({ nombre: 'x' }));
+  });
+});

@@ -2,8 +2,9 @@
  * Servicio de plataforma (super-admin). Encapsula las llamadas al backend.
  */
 
-import { api } from '../core/api';
+import { api, peticion } from '../core/api';
 import type {
+  AdminRestablecido,
   DatosNuevaEmpresa,
   EmpresaCreada,
   EmpresaEstado,
@@ -48,4 +49,19 @@ export function crearMembresiaApi(
   rol: RolMembresia,
 ): Promise<MembresiaCreada> {
   return api.post<MembresiaCreada>(`/empresas/${empresaId}/membresias`, { email, rol });
+}
+
+/**
+ * Restablece la contraseña del admin PRINCIPAL de una empresa SIN entrar al tenant
+ * (POST /empresas/:id/restablecer-admin → 200). Solo super-admin. El servidor GENERA la
+ * contraseña temporal y la devuelve EN CLARO UNA vez. 404 si la empresa/admin no existe;
+ * 409 si la empresa o la cuenta admin están desactivadas.
+ *
+ * SIN BODY REAL: se usa `peticion` con solo `method: 'POST'` (no `api.post`, que forzaría
+ * `JSON.stringify(cuerpo)`). Así no se envía ni cuerpo ni `Content-Type: application/json`
+ * (ver construirCabeceras): la ruta no acepta datos del cliente y un body vacío con ese
+ * header daría 400 en Fastify.
+ */
+export function restablecerAdminApi(empresaId: string): Promise<AdminRestablecido> {
+  return peticion<AdminRestablecido>(`/empresas/${empresaId}/restablecer-admin`, { method: 'POST' });
 }

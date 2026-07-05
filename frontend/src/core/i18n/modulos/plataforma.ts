@@ -79,6 +79,20 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.am.exitoTitulo': 'Membresía añadida',
     'plataforma.am.exitoMensaje':
       '{email} ya puede entrar a {empresa}. La verá en su selector de empresa al volver a iniciar sesión.',
+
+    // Restablecer contraseña del admin principal (plataforma, sin entrar al tenant)
+    'plataforma.restablecerAdmin': 'Restablecer contraseña del admin',
+    'plataforma.ra.titulo': 'Restablecer contraseña del admin de {empresa}',
+    'plataforma.ra.intro':
+      'Se generará una contraseña temporal nueva para el administrador principal, se cerrarán sus sesiones activas y deberá cambiarla en su primer inicio de sesión. Esta acción no se puede deshacer.',
+    'plataforma.ra.confirmar': 'Restablecer contraseña',
+    'plataforma.ra.errGenerico': 'No se pudo restablecer la contraseña del admin.',
+    'plataforma.ra.exitoTitulo': 'Contraseña restablecida',
+    'plataforma.ra.exitoIntro': 'Comunica esta contraseña temporal al administrador de {empresa}:',
+    'plataforma.ra.copiar': 'Copiar',
+    'plataforma.ra.copiada': 'Copiada',
+    'plataforma.ra.avisoCambio':
+      'El administrador DEBE cambiar esta contraseña en su primer inicio de sesión.',
   },
   en: {
     'inicio.plataforma': 'Platform',
@@ -145,6 +159,19 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.am.exitoTitulo': 'Membership added',
     'plataforma.am.exitoMensaje':
       '{email} can now enter {empresa}. It will appear in their company selector on their next sign-in.',
+
+    'plataforma.restablecerAdmin': 'Reset admin password',
+    'plataforma.ra.titulo': 'Reset the admin password for {empresa}',
+    'plataforma.ra.intro':
+      'A new temporary password will be generated for the primary administrator, their active sessions will be closed, and they must change it on their first sign-in. This action cannot be undone.',
+    'plataforma.ra.confirmar': 'Reset password',
+    'plataforma.ra.errGenerico': 'Could not reset the admin password.',
+    'plataforma.ra.exitoTitulo': 'Password reset',
+    'plataforma.ra.exitoIntro': 'Share this temporary password with the administrator of {empresa}:',
+    'plataforma.ra.copiar': 'Copy',
+    'plataforma.ra.copiada': 'Copied',
+    'plataforma.ra.avisoCambio':
+      'The administrator MUST change this password on their first sign-in.',
   },
   zh: {
     'inicio.plataforma': '平台',
@@ -207,5 +234,17 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.am.errGenerico': '无法添加成员。',
     'plataforma.am.exitoTitulo': '成员已添加',
     'plataforma.am.exitoMensaje': '{email} 现在可以进入 {empresa}。下次登录时将出现在其公司选择器中。',
+
+    'plataforma.restablecerAdmin': '重置 admin 密码',
+    'plataforma.ra.titulo': '重置 {empresa} 的 admin 密码',
+    'plataforma.ra.intro':
+      '将为主管理员生成一个新的临时密码，其活动会话将被关闭，并且他必须在首次登录时修改密码。此操作无法撤销。',
+    'plataforma.ra.confirmar': '重置密码',
+    'plataforma.ra.errGenerico': '无法重置 admin 密码。',
+    'plataforma.ra.exitoTitulo': '密码已重置',
+    'plataforma.ra.exitoIntro': '请将此临时密码转达给 {empresa} 的管理员：',
+    'plataforma.ra.copiar': '复制',
+    'plataforma.ra.copiada': '已复制',
+    'plataforma.ra.avisoCambio': '管理员必须在首次登录时修改此密码。',
   },
 };

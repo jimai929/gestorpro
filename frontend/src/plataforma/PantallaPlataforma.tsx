@@ -12,6 +12,7 @@ import { useTraduccion } from '../core/i18n/ContextoIdioma';
 import { FormularioCrearEmpresa } from './FormularioCrearEmpresa';
 import { ListaEmpresas } from './ListaEmpresas';
 import { DialogoAnadirMembresia } from './DialogoAnadirMembresia';
+import { DialogoRestablecerAdmin } from './DialogoRestablecerAdmin';
 import { cambiarEstadoEmpresaApi, listarEmpresasApi } from './servicioPlataforma';
 import type { EmpresaListada } from './tipos';
 import styles from './PantallaPlataforma.module.css';
@@ -29,6 +30,8 @@ export function PantallaPlataforma() {
   const [actualizandoId, setActualizandoId] = useState<string | null>(null);
   // Empresa destino del diálogo "Añadir membresía" (null = cerrado).
   const [empresaMembresia, setEmpresaMembresia] = useState<EmpresaListada | null>(null);
+  // Empresa destino del diálogo "Restablecer admin" (null = cerrado).
+  const [empresaResetAdmin, setEmpresaResetAdmin] = useState<EmpresaListada | null>(null);
 
   // Guardia contra respuestas fuera de orden (mismo patrón que PantallaUsuarios): solo
   // la recarga MÁS RECIENTE escribe estado. Sin esto, una recarga vieja que resolviera
@@ -119,6 +122,7 @@ export function PantallaPlataforma() {
           onAlternarActivo={(e) => void alternarActivo(e)}
           actualizandoId={actualizandoId}
           onAnadirMembresia={(e) => setEmpresaMembresia(e)}
+          onRestablecerAdmin={(e) => setEmpresaResetAdmin(e)}
         />
 
         {empresaMembresia && (
@@ -131,6 +135,18 @@ export function PantallaPlataforma() {
             onCerrar={() => setEmpresaMembresia(null)}
             /* La lista de empresas no cambia con una membresía nueva: basta cerrar. */
             onExito={() => setEmpresaMembresia(null)}
+          />
+        )}
+
+        {empresaResetAdmin && (
+          <DialogoRestablecerAdmin
+            /* key por empresa: remonta el diálogo (estado limpio: sin temporal vieja)
+               al cambiar de fila objetivo. */
+            key={empresaResetAdmin.id}
+            empresa={empresaResetAdmin}
+            onCerrar={() => setEmpresaResetAdmin(null)}
+            /* El listado no cambia con un reset de contraseña: basta cerrar. */
+            onExito={() => setEmpresaResetAdmin(null)}
           />
         )}
       </div>

@@ -25,6 +25,8 @@ interface PropiedadesLista {
   actualizandoId?: string | null;
   /** Abre el diálogo de añadir membresía (usuario existente) en esa empresa. */
   onAnadirMembresia: (empresa: EmpresaListada) => void;
+  /** Abre el diálogo de reset de contraseña del admin principal de esa empresa. */
+  onRestablecerAdmin: (empresa: EmpresaListada) => void;
 }
 
 export function ListaEmpresas({
@@ -37,6 +39,7 @@ export function ListaEmpresas({
   onAlternarActivo,
   actualizandoId = null,
   onAnadirMembresia,
+  onRestablecerAdmin,
 }: PropiedadesLista) {
   const { t } = useTraduccion();
   // Cualquier acción en vuelo (entrar, cambiar estado) O una recarga en curso congela
@@ -56,6 +59,11 @@ export function ListaEmpresas({
   const manejarAnadirMembresia = (e: EmpresaListada) => {
     setConfirmandoId(null);
     onAnadirMembresia(e);
+  };
+  // Igual que añadir membresía: abrir el diálogo de reset DESARMA una baja pendiente.
+  const manejarRestablecerAdmin = (e: EmpresaListada) => {
+    setConfirmandoId(null);
+    onRestablecerAdmin(e);
   };
   const manejarToggle = (e: EmpresaListada) => {
     if (!e.activo) {
@@ -138,6 +146,16 @@ export function ListaEmpresas({
                     disabled={!e.activo || accionEnVuelo}
                   >
                     {t('plataforma.anadirMembresia')}
+                  </Boton>
+                  {/* Reset de la contraseña del admin principal: solo sobre empresa activa
+                      (el backend responde 409 sobre una desactivada). */}
+                  <Boton
+                    variante="secundario"
+                    type="button"
+                    onClick={() => manejarRestablecerAdmin(e)}
+                    disabled={!e.activo || accionEnVuelo}
+                  >
+                    {t('plataforma.restablecerAdmin')}
                   </Boton>
                   {/* Baja / reactivación lógica (nunca se borra el tenant). */}
                   <Boton

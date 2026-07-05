@@ -116,9 +116,16 @@ export async function peticion<T>(
   // Se reconstruye en cada intento para releer el access token (cambia tras un refresco).
   const construirCabeceras = (): Record<string, string> => {
     const cabeceras: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(cabecerasExtra as Record<string, string>),
     };
+    // `Content-Type: application/json` SOLO cuando se envía cuerpo. Un POST sin body con
+    // ese header dispara FST_ERR_CTP_EMPTY_JSON_BODY (400) en Fastify ("Body cannot be
+    // empty when content-type is set to 'application/json'"). Sin body → sin ese header,
+    // así una petición sin cuerpo (GET/DELETE, o un POST de acción sin datos) es válida.
+    // Las peticiones CON cuerpo (post/put/patch con datos) no cambian.
+    if (restoOpciones.body !== undefined) {
+      cabeceras['Content-Type'] = 'application/json';
+    }
     if (!omitirAuth && accessTokenEnMemoria) {
       cabeceras['Authorization'] = `Bearer ${accessTokenEnMemoria}`;
     }

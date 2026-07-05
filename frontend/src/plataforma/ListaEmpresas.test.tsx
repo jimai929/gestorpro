@@ -35,6 +35,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
     expect(screen.getByText('Acme Panamá')).toBeTruthy();
@@ -54,6 +55,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
     expect(screen.getByText('Cargando…')).toBeTruthy();
@@ -69,6 +71,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
     expect(screen.getByText('Falló la carga')).toBeTruthy();
@@ -84,6 +87,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
     expect(screen.getByText('Aún no hay empresas. Crea la primera arriba.')).toBeTruthy();
@@ -101,6 +105,7 @@ describe('ListaEmpresas', () => {
         onEntrar={onEntrar}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
 
@@ -120,6 +125,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
     const botones = screen.getAllByRole('button', { name: 'Entrar' }) as HTMLButtonElement[];
@@ -137,6 +143,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
         entrandoId="e1"
       />,
     );
@@ -166,6 +173,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={onAlternarActivo}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
     // Primer clic en Desactivar (Acme, activa): solo ARMA — un misclic junto a
@@ -192,6 +200,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={onAnadirMembresia}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
     const botones = screen.getAllByRole('button', {
@@ -215,6 +224,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={vi.fn()}
         actualizandoId="e2"
       />,
     );
@@ -228,6 +238,61 @@ describe('ListaEmpresas', () => {
       name: 'Añadir membresía',
     }) as HTMLButtonElement[];
     expect(membresia.every((b) => b.disabled)).toBe(true);
+    const resetAdmin = screen.getAllByRole('button', {
+      name: 'Restablecer contraseña del admin',
+    }) as HTMLButtonElement[];
+    expect(resetAdmin.every((b) => b.disabled)).toBe(true);
+  });
+
+  it('"Restablecer contraseña del admin" llama a onRestablecerAdmin con la empresa; deshabilitado en una inactiva', async () => {
+    const onRestablecerAdmin = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ListaEmpresas
+        empresas={EMPRESAS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onEntrar={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={onRestablecerAdmin}
+      />,
+    );
+    const botones = screen.getAllByRole('button', {
+      name: 'Restablecer contraseña del admin',
+    }) as HTMLButtonElement[];
+    expect(botones).toHaveLength(2); // uno por fila
+    // Beta está dada de baja: el backend respondería 409, el botón ni se ofrece.
+    expect(botones[0]!.disabled).toBe(false);
+    expect(botones[1]!.disabled).toBe(true);
+    await user.click(botones[0]!);
+    expect(onRestablecerAdmin).toHaveBeenCalledWith(EMPRESAS[0]);
+  });
+
+  it('abrir "Restablecer contraseña del admin" DESARMA una baja pendiente', async () => {
+    const onAlternarActivo = vi.fn();
+    const onRestablecerAdmin = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ListaEmpresas
+        empresas={EMPRESAS}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onEntrar={vi.fn()}
+        onAlternarActivo={onAlternarActivo}
+        onAnadirMembresia={vi.fn()}
+        onRestablecerAdmin={onRestablecerAdmin}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
+    expect(screen.getByRole('button', { name: '¿Confirmar baja?' })).toBeTruthy();
+    await user.click(screen.getAllByRole('button', { name: 'Restablecer contraseña del admin' })[0]!);
+    expect(onRestablecerAdmin).toHaveBeenCalledWith(EMPRESAS[0]);
+    expect(screen.queryByRole('button', { name: '¿Confirmar baja?' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }));
+    expect(onAlternarActivo).not.toHaveBeenCalled();
   });
 
   it('abrir "Añadir membresía" DESARMA una baja pendiente (no queda un clic-a-un-paso de desactivar)', async () => {
@@ -243,6 +308,7 @@ describe('ListaEmpresas', () => {
         onEntrar={vi.fn()}
         onAlternarActivo={onAlternarActivo}
         onAnadirMembresia={onAnadirMembresia}
+        onRestablecerAdmin={vi.fn()}
       />,
     );
     // Armar la baja de Acme (primer clic: pasa a "¿Confirmar baja?").
