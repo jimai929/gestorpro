@@ -15,10 +15,6 @@ interface PropiedadesLista {
   cargando: boolean;
   error: string | null;
   onReintentar: () => void;
-  /** "Entrar" a una empresa (cambiar-empresa). El padre hace la llamada y navega. */
-  onEntrar: (empresaId: string) => void;
-  /** Empresa cuyo "Entrar" está en curso (deshabilita los botones mientras tanto). */
-  entrandoId?: string | null;
   /** Baja / reactivación lógica del tenant. El padre llama al backend y recarga. */
   onAlternarActivo: (empresa: EmpresaListada) => void;
   /** Empresa cuyo cambio de estado está en curso (congela las acciones). */
@@ -34,23 +30,19 @@ export function ListaEmpresas({
   cargando,
   error,
   onReintentar,
-  onEntrar,
-  entrandoId = null,
   onAlternarActivo,
   actualizandoId = null,
   onAnadirMembresia,
   onRestablecerAdmin,
 }: PropiedadesLista) {
   const { t } = useTraduccion();
-  // Cualquier acción en vuelo (entrar, cambiar estado) O una recarga en curso congela
-  // TODA la tabla: un solo slot de estado en el padre no soporta mutaciones
-  // concurrentes, y disparar un toggle sobre una lista a medio recargar mezclaría
-  // respuestas fuera de orden.
-  const accionEnVuelo = entrandoId !== null || actualizandoId !== null || cargando;
+  // Cualquier acción en vuelo (cambiar estado) O una recarga en curso congela TODA la
+  // tabla: un solo slot de estado en el padre no soporta mutaciones concurrentes, y
+  // disparar un toggle sobre una lista a medio recargar mezclaría respuestas fuera de orden.
+  const accionEnVuelo = actualizandoId !== null || cargando;
 
-  // DESACTIVAR exige dos clics (armar → confirmar): expulsa al tenant COMPLETO y el
-  // botón vive pegado a "Entrar" — un misclick no debe dar de baja una empresa.
-  // Reactivar no arma (restaurar acceso no es destructivo).
+  // DESACTIVAR exige dos clics (armar → confirmar): expulsa al tenant COMPLETO — un
+  // misclick no debe dar de baja una empresa. Reactivar no arma (no es destructivo).
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
   // Abrir el diálogo de membresía DESARMA cualquier baja pendiente: el estado armado
   // ("¿Confirmar baja?") no caduca, y con un flujo modal interpuesto el operador podría
@@ -127,16 +119,6 @@ export function ListaEmpresas({
                 <td>{new Date(e.creadoEn).toLocaleDateString()}</td>
                 <td>{e.activo ? t('plataforma.estadoActiva') : t('plataforma.estadoInactiva')}</td>
                 <td className={styles.celdaAcciones}>
-                  {/* A una empresa dada de baja no se entra (el backend también lo veta). */}
-                  <Boton
-                    variante="secundario"
-                    type="button"
-                    onClick={() => onEntrar(e.id)}
-                    disabled={!e.activo || accionEnVuelo}
-                    cargando={entrandoId === e.id}
-                  >
-                    {t('plataforma.entrar')}
-                  </Boton>
                   {/* Añadir membresía: solo tiene sentido sobre una empresa activa
                       (el backend responde 409 sobre una desactivada). */}
                   <Boton

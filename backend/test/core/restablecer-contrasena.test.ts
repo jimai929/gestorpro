@@ -204,7 +204,7 @@ describe('Fase 4c — POST /usuarios/:id/restablecer-contrasena', () => {
     }
   });
 
-  it('super-admin EN PLATAFORMA (empresaId null): 403 — debe entrar a la empresa primero', async () => {
+  it('super-admin EN PLATAFORMA (empresaId null): 403 en la ruta de TENANT — usa el endpoint de PLATAFORMA (B2), no ésta', async () => {
     const empresa = await nuevaEmpresa();
     const objetivo = await nuevoUsuario();
     await conMembresia(objetivo.id, empresa.id, 'empleado');
@@ -215,34 +215,24 @@ describe('Fase 4c — POST /usuarios/:id/restablecer-contrasena', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('super-admin DENTRO de la empresa (vía cambiar-empresa): 204 y asiento con su usuarioId real', async () => {
+  it('B4 — super-admin NO entra a la empresa para usar esta ruta de tenant (cambiar-empresa → 403); el reset de admin va por el endpoint de PLATAFORMA', async () => {
     const empresa = await nuevaEmpresa();
     const objetivo = await nuevoUsuario();
     await conMembresia(objetivo.id, empresa.id, 'empleado');
     const superAdmin = await nuevoUsuario({ esSuperAdmin: true });
 
-    // Entra a la empresa (dos niveles: el poder llega ENTRANDO, no desde plataforma).
     const tkPlataforma = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
+    // B4: ya no puede ENTRAR (dos niveles eliminado).
     const entrar = await app.inject({
       method: 'POST',
       url: '/auth/cambiar-empresa',
       headers: { authorization: `Bearer ${tkPlataforma}` },
       payload: { empresaId: empresa.id },
     });
-    expect(entrar.statusCode).toBe(200);
-    const { accessToken } = entrar.json() as { accessToken: string };
-
-    const res = await restablecer(accessToken, objetivo.id);
-    expect(res.statusCode).toBe(204);
-
+    expect(entrar.statusCode).toBe(403);
+    // Nada se restableció por la vía de tenant.
     const enBd = await semilla().usuario.findUniqueOrThrow({ where: { id: objetivo.id } });
-    expect(enBd.debeCambiarContrasena).toBe(true);
-    const asientos = await semilla().auditoria.findMany({
-      where: { entidad: 'usuario', entidadId: objetivo.id, accion: 'restablecer_contrasena' },
-    });
-    expect(asientos).toHaveLength(1);
-    expect(asientos[0]?.usuarioId).toBe(superAdmin.id); // el operador REAL, del token
-    expect(asientos[0]?.empresaId).toBe(empresa.id);
+    expect(enBd.debeCambiarContrasena).toBe(false);
   });
 
   it('cuenta DESACTIVADA: 409 (reactivar primero) y nada cambia — sin 204 engañoso', async () => {
@@ -306,32 +296,6 @@ describe('Fase 4c — POST /usuarios/:id/restablecer-contrasena', () => {
         where: { entidadId: dual.id, accion: 'restablecer_contrasena' },
       }),
     ).toBe(0);
-  });
-
-  it('cuenta MULTI-EMPRESA, dos niveles: el SUPER-ADMIN dentro de la empresa SÍ la restablece (204)', async () => {
-    const empresa = await nuevaEmpresa();
-    const otra = await nuevaEmpresa();
-    const dual = await nuevoUsuario();
-    await conMembresia(dual.id, empresa.id, 'empleado');
-    await semilla().membresia.create({
-      data: { usuarioId: dual.id, empresaId: otra.id, rol: 'empleado' },
-    });
-    const superAdmin = await nuevoUsuario({ esSuperAdmin: true });
-    const tkPlataforma = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
-    const entrar = await app.inject({
-      method: 'POST',
-      url: '/auth/cambiar-empresa',
-      headers: { authorization: `Bearer ${tkPlataforma}` },
-      payload: { empresaId: empresa.id },
-    });
-    expect(entrar.statusCode).toBe(200);
-    const { accessToken } = entrar.json() as { accessToken: string };
-
-    const res = await restablecer(accessToken, dual.id);
-    expect(res.statusCode).toBe(204);
-    const enBd = await semilla().usuario.findUniqueOrThrow({ where: { id: dual.id } });
-    expect(enBd.debeCambiarContrasena).toBe(true);
-    expect(enBd.passwordHash.startsWith('$argon2')).toBe(true);
   });
 
   it('validación en la puerta: temporal corta → 400; uuid malformado → 400', async () => {

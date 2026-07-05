@@ -204,7 +204,11 @@ describe('Fase 4c — PATCH /usuarios/:id (baja/reactivación)', () => {
     ).toBe(0);
   });
 
-  it('cuenta multi-empresa, dos niveles: el SUPER-ADMIN dentro de la empresa SÍ la desactiva/reactiva (autoridad cross-tenant)', async () => {
+  it('B4 — cuenta multi-empresa: el super-admin YA NO puede gestionarla por "dos niveles" (no entra: cambiar-empresa → 403)', async () => {
+    // Tras B4 desaparece el escape "dos niveles": el super-admin no entra a ningún tenant.
+    // El admin de tenant sigue recibiendo 409 sobre una cuenta multi-empresa (probado en
+    // otro it). La gestión de cuentas multi-empresa quedaría para un endpoint de plataforma
+    // futuro; B4 solo cierra el acceso, no lo reemplaza.
     const empresa = await nuevaEmpresa();
     const otra = await nuevaEmpresa();
     const dual = await nuevoUsuario({ conClave: true });
@@ -220,43 +224,18 @@ describe('Fase 4c — PATCH /usuarios/:id (baja/reactivación)', () => {
       esSuperAdmin: true,
     });
 
-    // Sesión viva del dual: la baja del super-admin SÍ debe expulsarla (global).
-    const login = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
-      payload: { email: dual.email, password: CLAVE },
-    });
-    expect(login.statusCode).toBe(200);
-
+    // No puede ENTRAR a la empresa.
     const entrar = await app.inject({
       method: 'POST',
       url: '/auth/cambiar-empresa',
       headers: { authorization: `Bearer ${tkPlataforma}` },
       payload: { empresaId: empresa.id },
     });
-    expect(entrar.statusCode).toBe(200);
-    const { accessToken } = entrar.json() as { accessToken: string };
+    expect(entrar.statusCode).toBe(403);
 
-    // Donde el admin de tenant recibe 409 (probado arriba), el super-admin pasa:
-    // "se gestiona desde la plataforma" se materializa con el dos-niveles.
-    const baja = await cambiarEstado(accessToken, dual.id, false);
-    expect(baja.statusCode).toBe(200);
-    expect((await semilla().usuario.findUniqueOrThrow({ where: { id: dual.id } })).activo).toBe(false);
-    expect(await semilla().sesionRefresco.count({ where: { usuarioId: dual.id } })).toBe(0);
-
-    const alta = await cambiarEstado(accessToken, dual.id, true);
-    expect(alta.statusCode).toBe(200);
+    // Y desde plataforma (empresaId=null) tampoco pasa el guard de tenant.
+    expect((await cambiarEstado(tkPlataforma, dual.id, false)).statusCode).toBe(403);
     expect((await semilla().usuario.findUniqueOrThrow({ where: { id: dual.id } })).activo).toBe(true);
-
-    // Asientos con el usuarioId REAL del super-admin, bajo la empresa donde entró.
-    const asientos = await semilla().auditoria.findMany({
-      where: { entidadId: dual.id, accion: { in: ['desactivar_usuario', 'reactivar_usuario'] } },
-    });
-    expect(asientos).toHaveLength(2);
-    for (const asiento of asientos) {
-      expect(asiento.usuarioId).toBe(superAdmin.id);
-      expect(asiento.empresaId).toBe(empresa.id);
-    }
   });
 
   it('auto-baja: 400 (también con el propio id en MAYÚSCULAS) y nada cambia', async () => {
@@ -276,7 +255,7 @@ describe('Fase 4c — PATCH /usuarios/:id (baja/reactivación)', () => {
     expect(enBd.activo).toBe(true); // sigue activo: el tenant no pierde a su admin
   });
 
-  it('empleado y supervisor: 403; super-admin en plataforma: 403; DENTRO (cambiar-empresa): 200 con su usuarioId real en el asiento', async () => {
+  it('B4 — empleado, supervisor y super-admin (plataforma): 403; el super-admin ya no entra para gestionar usuarios', async () => {
     const empresa = await nuevaEmpresa();
     const objetivo = await nuevoUsuario();
     await conMembresia(objetivo.id, empresa.id, 'empleado');
@@ -287,26 +266,20 @@ describe('Fase 4c — PATCH /usuarios/:id (baja/reactivación)', () => {
       expect((await cambiarEstado(tk, objetivo.id, false)).statusCode).toBe(403);
     }
 
+    // Super-admin en plataforma (su único estado tras B4): el guard de tenant lo rechaza.
     const tkPlataforma = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
     expect((await cambiarEstado(tkPlataforma, objetivo.id, false)).statusCode).toBe(403);
 
-    // Dos niveles: ENTRANDO a la empresa sí puede, y el asiento lleva su id real.
+    // Y NO puede entrar para hacerlo (cambiar-empresa → 403).
     const entrar = await app.inject({
       method: 'POST',
       url: '/auth/cambiar-empresa',
       headers: { authorization: `Bearer ${tkPlataforma}` },
       payload: { empresaId: empresa.id },
     });
-    expect(entrar.statusCode).toBe(200);
-    const { accessToken } = entrar.json() as { accessToken: string };
-    const res = await cambiarEstado(accessToken, objetivo.id, false);
-    expect(res.statusCode).toBe(200);
-    const asientos = await semilla().auditoria.findMany({
-      where: { entidadId: objetivo.id, accion: 'desactivar_usuario' },
-    });
-    expect(asientos).toHaveLength(1);
-    expect(asientos[0]?.usuarioId).toBe(superAdmin.id);
-    expect(asientos[0]?.empresaId).toBe(empresa.id);
+    expect(entrar.statusCode).toBe(403);
+    // Nada cambió: el objetivo sigue activo.
+    expect((await semilla().usuario.findUniqueOrThrow({ where: { id: objetivo.id } })).activo).toBe(true);
   });
 
   it('validación en la puerta: uuid malformado y activo no coercible → 400; extras del body se DESPOJAN sin efecto', async () => {

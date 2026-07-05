@@ -113,51 +113,21 @@ describe('LayoutPrincipal — empresa activa en la barra superior', () => {
     expect(screen.queryByRole('button', { name: 'Volver a plataforma' })).toBeNull();
   });
 
-  it('super-admin DENTRO de una empresa: muestra su nombre y "Volver a plataforma" llama a cambiarEmpresa(null)', async () => {
-    const cambiarEmpresa = vi.fn().mockResolvedValue(undefined);
-    const user = userEvent.setup();
-    renderConUsuario(
-      {
-        id: 'sa',
-        nombre: 'Super Admin',
-        email: 'sa@x.local',
-        rol: 'empleado',
-        esSuperAdmin: true,
-        empresaId: 'e1',
-        empresaNombre: 'Acme Panamá',
-        debeCambiarContrasena: false,
-        membresias: [],
-      },
-      cambiarEmpresa,
-    );
-    // La empresa a la que ENTRÓ gana sobre el badge "Plataforma".
-    expect(screen.getByText('Acme Panamá')).toBeTruthy();
-    expect(screen.queryByText('Plataforma')).toBeNull();
-
-    await user.click(screen.getByRole('button', { name: 'Volver a plataforma' }));
-    expect(cambiarEmpresa).toHaveBeenCalledWith(null);
-  });
-
-  it('si "Volver a plataforma" falla, el error queda VISIBLE en la barra', async () => {
-    const cambiarEmpresa = vi.fn().mockRejectedValue(new Error('Sesión expirada'));
-    const user = userEvent.setup();
-    renderConUsuario(
-      {
-        id: 'sa',
-        nombre: 'Super Admin',
-        email: 'sa@x.local',
-        rol: 'empleado',
-        esSuperAdmin: true,
-        empresaId: 'e1',
-        empresaNombre: 'Acme Panamá',
-        debeCambiarContrasena: false,
-        membresias: [],
-      },
-      cambiarEmpresa,
-    );
-    await user.click(screen.getByRole('button', { name: 'Volver a plataforma' }));
-    expect(await screen.findByRole('alert')).toBeTruthy();
-    expect(screen.getByText('Sesión expirada')).toBeTruthy();
+  it('B4 — NO existe el botón "Volver a plataforma" (el super-admin nunca está dentro de una empresa)', () => {
+    // Incluso si un usuario super-admin llegara con empresaId (estado imposible tras B4),
+    // el layout ya no ofrece "Volver": el botón se eliminó por completo.
+    renderConUsuario({
+      id: 'sa',
+      nombre: 'Super Admin',
+      email: 'sa@x.local',
+      rol: 'empleado',
+      esSuperAdmin: true,
+      empresaId: 'e1',
+      empresaNombre: 'Acme Panamá',
+      debeCambiarContrasena: false,
+      membresias: [],
+    });
+    expect(screen.queryByRole('button', { name: 'Volver a plataforma' })).toBeNull();
   });
 });
 

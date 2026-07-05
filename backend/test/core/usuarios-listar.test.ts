@@ -143,30 +143,23 @@ describe('Fase 4c — GET /usuarios (listado del tenant)', () => {
     }
   });
 
-  it('super-admin EN PLATAFORMA (empresaId null): 403; DENTRO de la empresa (cambiar-empresa): 200 con el listado', async () => {
+  it('B4 — super-admin EN PLATAFORMA (empresaId null): 403; y ya NO puede ENTRAR para listar (cambiar-empresa → 403)', async () => {
     const empresa = await nuevaEmpresa();
     const empleado = await nuevoUsuario({ nombre: 'Solo Uno' });
     await conMembresia(empleado.id, empresa.id, 'empleado');
     const superAdmin = await nuevoUsuario({ esSuperAdmin: true });
 
     const tkPlataforma = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
-    const fuera = await listar(tkPlataforma);
-    expect(fuera.statusCode).toBe(403);
+    // Desde plataforma: el guard de tenant lo rechaza.
+    expect((await listar(tkPlataforma)).statusCode).toBe(403);
 
-    // Entra a la empresa (dos niveles: el poder llega ENTRANDO, no desde plataforma).
+    // B4: no puede entrar a la empresa para listar sus usuarios (dos niveles eliminado).
     const entrar = await app.inject({
       method: 'POST',
       url: '/auth/cambiar-empresa',
       headers: { authorization: `Bearer ${tkPlataforma}` },
       payload: { empresaId: empresa.id },
     });
-    expect(entrar.statusCode).toBe(200);
-    const { accessToken } = entrar.json() as { accessToken: string };
-
-    const dentro = await listar(accessToken);
-    expect(dentro.statusCode).toBe(200);
-    const ids = new Set((dentro.json() as Fila[]).map((f) => f.id));
-    // Ve a la gente del tenant; su propia cuenta de plataforma NO se lista.
-    expect(ids).toEqual(new Set([empleado.id]));
+    expect(entrar.statusCode).toBe(403);
   });
 });

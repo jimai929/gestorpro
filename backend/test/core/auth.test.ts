@@ -292,62 +292,47 @@ describe('auth — cambiarEmpresa (Fase 4c)', () => {
     );
   });
 
-  it('super-admin: entra SIN membresía con rol empleado y el refresh CONSERVA la empresa', async () => {
+  it('B4 — super-admin: NO puede entrar a ningún tenant (cambiarEmpresa a una empresa → ErrorAutorizacion); login da empresaId=null', async () => {
     const e1 = await nuevaEmpresa();
     const superAdmin = await nuevoUsuario(true);
     const login = await servicio.iniciarSesion(superAdmin.email, CLAVE);
     expect(JSON.parse(login.accessToken).empresaId).toBeNull();
 
-    const res = await servicio.cambiarEmpresa(superAdmin.id, e1.id, null);
-    const payload = JSON.parse(res.accessToken);
-    expect(payload.empresaId).toBe(e1.id);
-    expect(payload.rol).toBe('empleado'); // mínimo privilegio: su poder viene de esSuperAdmin
-    expect(payload.esSuperAdmin).toBe(true);
-    expect(res.usuario.empresaNombre).toBe(e1.nombre);
-
-    // La sesión de soporte sobrevive al refresh (resolverContextoActivo honra la
-    // preferida del super-admin aunque no tenga membresía).
+    // B4: se exige membresía SIEMPRE; el super-admin nunca la tiene → 403, no entra.
+    await expect(servicio.cambiarEmpresa(superAdmin.id, e1.id, null)).rejects.toThrow(
+      'No tienes acceso a esa empresa.',
+    );
+    // Su sesión sigue en plataforma.
     const ref = await servicio.refrescarAcceso(login.refreshToken);
-    expect(JSON.parse(ref.accessToken).empresaId).toBe(e1.id);
+    expect(JSON.parse(ref.accessToken).empresaId).toBeNull();
   });
 
-  it('super-admin: la baja de la empresa lo expulsa al siguiente refresh (vuelve a plataforma)', async () => {
+  it('B4 — super-admin: aunque una sesión llevara empresaIdActiva (residuo), el refresh SIEMPRE da empresaId=null', async () => {
     const e1 = await nuevaEmpresa();
     const superAdmin = await nuevoUsuario(true);
     const login = await servicio.iniciarSesion(superAdmin.email, CLAVE);
-    await servicio.cambiarEmpresa(superAdmin.id, e1.id, null);
-
-    await semilla().empresa.update({ where: { id: e1.id }, data: { activo: false } });
-
+    // Estado residual sembrado a mano: la sesión "recuerda" una empresa (pre-B4 o SQL).
+    await prisma.sesionRefresco.updateMany({
+      where: { usuarioId: superAdmin.id },
+      data: { empresaIdActiva: e1.id },
+    });
+    // B4: resolverContextoActivo ya NO honra la preferida del super-admin → null.
     const ref = await servicio.refrescarAcceso(login.refreshToken);
-    expect(JSON.parse(ref.accessToken).empresaId).toBeNull(); // expulsado, sin lock-out
+    expect(JSON.parse(ref.accessToken).empresaId).toBeNull();
   });
 
-  it('super-admin: empresaId null lo devuelve a la plataforma y audita bajo la empresa que deja', async () => {
-    const e1 = await nuevaEmpresa();
+  it('B4 — super-admin: cambiarEmpresa(null) es no-op estando ya en plataforma (sin asiento)', async () => {
     const superAdmin = await nuevoUsuario(true);
     await servicio.iniciarSesion(superAdmin.email, CLAVE);
-    await servicio.cambiarEmpresa(superAdmin.id, e1.id, null);
-
-    const res = await servicio.cambiarEmpresa(superAdmin.id, null, e1.id);
+    const res = await servicio.cambiarEmpresa(superAdmin.id, null, null);
     const payload = JSON.parse(res.accessToken);
     expect(payload.empresaId).toBeNull();
-    expect(payload.rol).toBe('empleado');
     expect(res.usuario.empresaNombre).toBeNull();
-
-    const sesiones = await prisma.sesionRefresco.findMany({
-      where: { usuarioId: superAdmin.id },
-    });
-    expect(sesiones.every((s) => s.empresaIdActiva === null)).toBe(true);
-
-    // Asiento del "salir" bajo la empresa que se DEJA (la auditoría exige empresa).
+    // Sin empresa que dejar → no hay asiento de cambiar_empresa.
     const asientos = await semilla().auditoria.findMany({
       where: { accion: 'cambiar_empresa', usuarioId: superAdmin.id },
-      orderBy: { creadoEn: 'asc' },
     });
-    expect(asientos).toHaveLength(2); // entrar + salir
-    expect(asientos[1]?.empresaId).toBe(e1.id);
-    expect(asientos[1]?.detalle).toMatchObject({ desde: e1.id, hacia: null });
+    expect(asientos).toHaveLength(0);
   });
 
   it('deja asiento de auditoría cambiar_empresa bajo la empresa DESTINO con el usuario real', async () => {

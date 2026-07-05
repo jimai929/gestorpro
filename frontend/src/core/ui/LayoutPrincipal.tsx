@@ -20,22 +20,16 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
   const { t } = useTraduccion();
   const navigate = useNavigate();
   const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false);
-  const [volviendo, setVolviendo] = useState(false);
   const [errorVolver, setErrorVolver] = useState<string | null>(null);
   const [cambiandoEmpresa, setCambiandoEmpresa] = useState(false);
 
-  // Empresa activa a mostrar en la barra: si hay empresa activa se muestra su nombre
-  // (también para el super-admin que ENTRÓ a una empresa); el super-admin sin empresa
-  // muestra "Plataforma". Un usuario normal sin nombre no muestra nada (evita un
-  // hueco vacío/undefined).
+  // Empresa activa a mostrar en la barra: el usuario normal muestra el nombre de su
+  // empresa; el super-admin (siempre en plataforma tras B4) muestra "Plataforma".
   const etiquetaEmpresa = usuario
     ? (usuario.empresaNombre ?? (usuario.esSuperAdmin ? t('plataforma.badge') : null))
     : null;
 
-  // Super-admin DENTRO de una empresa: botón para soltar el contexto del tenant.
-  const puedeVolverAPlataforma =
-    usuario !== null && usuario.esSuperAdmin && usuario.empresaId !== null;
-
+  // B4: el super-admin NUNCA está dentro de una empresa → no hay "Volver a plataforma".
   // Usuario con MÁS de una membresía activa: la etiqueta de empresa se vuelve un
   // selector. `?? []` cubre un `usuario` guardado antes de este deploy (sin el campo).
   const membresias = usuario?.membresias ?? [];
@@ -48,28 +42,13 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
     try {
       await cambiarEmpresa(empresaId);
       // La pantalla actual puede no existir/denegarse bajo el rol de la otra empresa:
-      // se navega al inicio (mismo criterio que el "Entrar" de plataforma).
+      // se navega al inicio.
       navigate('/');
     } catch (err) {
       // El <select> sigue mostrando la empresa REAL (usuario.empresaId no cambió).
       setErrorVolver(err instanceof Error ? err.message : t('plataforma.errEntrar'));
     } finally {
       setCambiandoEmpresa(false);
-    }
-  };
-
-  const manejarVolverAPlataforma = async () => {
-    setVolviendo(true);
-    setErrorVolver(null);
-    try {
-      await cambiarEmpresa(null);
-      // Sin empresa activa, la página de tenant actual solo daría 403/datos huérfanos:
-      // se lleva al super-admin a su pantalla (simétrico al "Entrar", que navega a /).
-      navigate('/plataforma');
-    } catch (err) {
-      setErrorVolver(err instanceof Error ? err.message : t('plataforma.errVolver'));
-    } finally {
-      setVolviendo(false);
     }
   };
 
@@ -122,16 +101,6 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
                 {t(`rol.${usuario.rol}`)}
               </span>
             </div>
-          )}
-          {puedeVolverAPlataforma && (
-            <button
-              type="button"
-              className={styles.botonAccion}
-              onClick={() => void manejarVolverAPlataforma()}
-              disabled={volviendo}
-            >
-              {t('plataforma.volver')}
-            </button>
           )}
           <SelectorIdioma />
           {usuario && (

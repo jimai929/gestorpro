@@ -5,9 +5,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { LayoutPrincipal } from '../core/ui/LayoutPrincipal';
-import { useAuth } from '../core/auth/ContextoAuth';
 import { useTraduccion } from '../core/i18n/ContextoIdioma';
 import { FormularioCrearEmpresa } from './FormularioCrearEmpresa';
 import { ListaEmpresas } from './ListaEmpresas';
@@ -19,14 +17,12 @@ import styles from './PantallaPlataforma.module.css';
 
 export function PantallaPlataforma() {
   const { t } = useTraduccion();
-  const { cambiarEmpresa } = useAuth();
-  const navigate = useNavigate();
 
   const [empresas, setEmpresas] = useState<EmpresaListada[] | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [entrandoId, setEntrandoId] = useState<string | null>(null);
-  const [errorEntrar, setErrorEntrar] = useState<string | null>(null);
+  // B4: el super-admin NO entra a empresas; solo queda el error de mutaciones de plataforma.
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
   const [actualizandoId, setActualizandoId] = useState<string | null>(null);
   // Empresa destino del diálogo "Añadir membresía" (null = cerrado).
   const [empresaMembresia, setEmpresaMembresia] = useState<EmpresaListada | null>(null);
@@ -42,8 +38,8 @@ export function PantallaPlataforma() {
     const version = ++versionCarga.current;
     setCargando(true);
     setError(null);
-    // También el error de un "Entrar" o cambio de estado fallido: recargar refresca todo.
-    setErrorEntrar(null);
+    // También el error de un cambio de estado fallido: recargar refresca todo.
+    setErrorAccion(null);
     try {
       const lista = await listarEmpresasApi();
       if (version !== versionCarga.current) return; // llegó tarde: hay una carga más nueva
@@ -63,34 +59,17 @@ export function PantallaPlataforma() {
     void recargar();
   }, [recargar]);
 
-  // "Entrar" a una empresa (cambiar-empresa): el contexto reemplaza token y usuario;
-  // solo se navega tras el ÉXITO real (si el backend deniega, el error queda visible).
-  const manejarEntrar = useCallback(
-    async (empresaId: string) => {
-      setEntrandoId(empresaId);
-      setErrorEntrar(null);
-      try {
-        await cambiarEmpresa(empresaId);
-        navigate('/');
-      } catch (err) {
-        setErrorEntrar(err instanceof Error ? err.message : t('plataforma.errEntrar'));
-        setEntrandoId(null);
-      }
-    },
-    [cambiarEmpresa, navigate, t],
-  );
-
   // Baja / reactivación lógica del tenant. Error visible; solo se recarga tras el
   // éxito real del backend (que además expulsa las sesiones del tenant al desactivar).
   const alternarActivo = useCallback(
     async (empresa: EmpresaListada) => {
       setActualizandoId(empresa.id);
-      setErrorEntrar(null);
+      setErrorAccion(null);
       try {
         await cambiarEstadoEmpresaApi(empresa.id, !empresa.activo);
         await recargar();
       } catch (err) {
-        setErrorEntrar(err instanceof Error ? err.message : t('plataforma.errActualizar'));
+        setErrorAccion(err instanceof Error ? err.message : t('plataforma.errActualizar'));
       } finally {
         setActualizandoId(null);
       }
@@ -114,11 +93,9 @@ export function PantallaPlataforma() {
         <ListaEmpresas
           empresas={empresas}
           cargando={cargando}
-          // Un solo hueco de error visible: carga, "Entrar" denegado o cambio de estado.
-          error={error ?? errorEntrar}
+          // Un solo hueco de error visible: carga o cambio de estado.
+          error={error ?? errorAccion}
           onReintentar={() => void recargar()}
-          onEntrar={(id) => void manejarEntrar(id)}
-          entrandoId={entrandoId}
           onAlternarActivo={(e) => void alternarActivo(e)}
           actualizandoId={actualizandoId}
           onAnadirMembresia={(e) => setEmpresaMembresia(e)}

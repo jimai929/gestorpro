@@ -8,6 +8,7 @@ import { ProveedorIdioma } from './core/i18n/ContextoIdioma';
 import { ProveedorAuth } from './core/auth/ContextoAuth';
 import { RutaProtegida } from './core/auth/RutaProtegida';
 import { RutaSoloPlataforma } from './core/auth/RutaSoloPlataforma';
+import { RutaNegocio } from './core/auth/RutaNegocio';
 import { PantallaLogin } from './core/auth/PantallaLogin';
 import { PantallaInicio } from './PantallaInicio';
 import { PantallaPlataforma } from './plataforma';
@@ -54,55 +55,62 @@ const router = createBrowserRouter([
   {
     element: <RutaProtegida />,
     children: [
+      // ── Negocio (tenant): el super-admin NO entra aquí (B4) → RutaNegocio lo
+      //    redirige a /plataforma. El usuario normal opera con normalidad. ──
       {
-        path: '/',
-        element: <PantallaInicio />,
-      },
-      {
-        path: '/cuentas-por-pagar',
-        element: <PantallaCuentasPorPagar />,
-      },
-      {
-        path: '/proveedores',
-        element: <PantallaProveedores />,
-      },
-      {
-        path: '/gastos',
-        element: <PantallaGastos />,
-      },
-      {
-        path: '/dashboard',
-        element: <PantallaDashboard />,
-      },
-      // ── Administración ──
-      {
-        path: '/sedes',
-        element: <PantallaSedes />,
-      },
-      {
-        path: '/empleados',
-        element: <PantallaEmpleados />,
-      },
-      {
-        path: '/kioscos',
-        element: <PantallaKioscos />,
-      },
-      {
-        path: '/usuarios',
-        element: <PantallaUsuarios />,
-      },
-      // ── Asistencia (Fases 4-6) ──
-      {
-        path: '/asistencia/revision',
-        element: <PantallaRevision />,
-      },
-      {
-        path: '/asistencia/jornadas',
-        element: <PantallaJornadas />,
-      },
-      {
-        path: '/asistencia/cobros',
-        element: <PantallaCobros />,
+        element: <RutaNegocio />,
+        children: [
+          {
+            path: '/',
+            element: <PantallaInicio />,
+          },
+          {
+            path: '/cuentas-por-pagar',
+            element: <PantallaCuentasPorPagar />,
+          },
+          {
+            path: '/proveedores',
+            element: <PantallaProveedores />,
+          },
+          {
+            path: '/gastos',
+            element: <PantallaGastos />,
+          },
+          {
+            path: '/dashboard',
+            element: <PantallaDashboard />,
+          },
+          // ── Administración ──
+          {
+            path: '/sedes',
+            element: <PantallaSedes />,
+          },
+          {
+            path: '/empleados',
+            element: <PantallaEmpleados />,
+          },
+          {
+            path: '/kioscos',
+            element: <PantallaKioscos />,
+          },
+          {
+            path: '/usuarios',
+            element: <PantallaUsuarios />,
+          },
+          // ── Asistencia (Fases 4-6) ──
+          {
+            path: '/asistencia/revision',
+            element: <PantallaRevision />,
+          },
+          {
+            path: '/asistencia/jornadas',
+            element: <PantallaJornadas />,
+          },
+          {
+            path: '/asistencia/cobros',
+            element: <PantallaCobros />,
+          },
+        ],
       },
       // ── Plataforma (solo super-admin; el backend lo refuerza con soloPlataforma) ──
       {

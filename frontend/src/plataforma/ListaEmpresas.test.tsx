@@ -32,7 +32,6 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
         onRestablecerAdmin={vi.fn()}
@@ -52,7 +51,6 @@ describe('ListaEmpresas', () => {
         cargando={true}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
         onRestablecerAdmin={vi.fn()}
@@ -68,7 +66,6 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error="Falló la carga"
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
         onRestablecerAdmin={vi.fn()}
@@ -84,81 +81,12 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
         onRestablecerAdmin={vi.fn()}
       />,
     );
     expect(screen.getByText('Aún no hay empresas. Crea la primera arriba.')).toBeTruthy();
-  });
-
-  it('"Entrar" en una empresa activa llama a onEntrar con su id', async () => {
-    const onEntrar = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <ListaEmpresas
-        empresas={EMPRESAS}
-        cargando={false}
-        error={null}
-        onReintentar={vi.fn()}
-        onEntrar={onEntrar}
-        onAlternarActivo={vi.fn()}
-        onAnadirMembresia={vi.fn()}
-        onRestablecerAdmin={vi.fn()}
-      />,
-    );
-
-    const botones = screen.getAllByRole('button', { name: 'Entrar' });
-    expect(botones).toHaveLength(2); // uno por fila
-    await user.click(botones[0]!);
-    expect(onEntrar).toHaveBeenCalledWith('e1');
-  });
-
-  it('"Entrar" está deshabilitado para una empresa dada de baja', () => {
-    render(
-      <ListaEmpresas
-        empresas={EMPRESAS}
-        cargando={false}
-        error={null}
-        onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
-        onAlternarActivo={vi.fn()}
-        onAnadirMembresia={vi.fn()}
-        onRestablecerAdmin={vi.fn()}
-      />,
-    );
-    const botones = screen.getAllByRole('button', { name: 'Entrar' }) as HTMLButtonElement[];
-    expect(botones[0]!.disabled).toBe(false); // Acme: activa
-    expect(botones[1]!.disabled).toBe(true); // Beta: inactiva
-  });
-
-  it('mientras hay un "Entrar" en curso, TODOS los botones quedan deshabilitados', () => {
-    render(
-      <ListaEmpresas
-        empresas={EMPRESAS}
-        cargando={false}
-        error={null}
-        onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
-        onAlternarActivo={vi.fn()}
-        onAnadirMembresia={vi.fn()}
-        onRestablecerAdmin={vi.fn()}
-        entrandoId="e1"
-      />,
-    );
-    const botones = screen.getAllByRole('button', { name: 'Entrar' }) as HTMLButtonElement[];
-    expect(botones.every((b) => b.disabled)).toBe(true);
-    // La acción de estado también queda congelada (un solo slot en el padre).
-    const estado = screen.getAllByRole('button', {
-      name: /Desactivar|Reactivar/,
-    }) as HTMLButtonElement[];
-    expect(estado.every((b) => b.disabled)).toBe(true);
-    // Y el botón de membresía: TODA la tabla se congela con una acción en vuelo.
-    const membresia = screen.getAllByRole('button', {
-      name: 'Añadir membresía',
-    }) as HTMLButtonElement[];
-    expect(membresia.every((b) => b.disabled)).toBe(true);
   });
 
   it('"Desactivar" exige DOS clics (armar → confirmar); "Reactivar" es directo', async () => {
@@ -170,7 +98,6 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={onAlternarActivo}
         onAnadirMembresia={vi.fn()}
         onRestablecerAdmin={vi.fn()}
@@ -197,7 +124,6 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={onAnadirMembresia}
         onRestablecerAdmin={vi.fn()}
@@ -221,15 +147,12 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
         onRestablecerAdmin={vi.fn()}
         actualizandoId="e2"
       />,
     );
-    const entrar = screen.getAllByRole('button', { name: 'Entrar' }) as HTMLButtonElement[];
-    expect(entrar.every((b) => b.disabled)).toBe(true);
     const estado = screen.getAllByRole('button', {
       name: /Desactivar|Reactivar/,
     }) as HTMLButtonElement[];
@@ -253,7 +176,6 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={vi.fn()}
         onAnadirMembresia={vi.fn()}
         onRestablecerAdmin={onRestablecerAdmin}
@@ -280,7 +202,6 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={onAlternarActivo}
         onAnadirMembresia={vi.fn()}
         onRestablecerAdmin={onRestablecerAdmin}
@@ -305,7 +226,6 @@ describe('ListaEmpresas', () => {
         cargando={false}
         error={null}
         onReintentar={vi.fn()}
-        onEntrar={vi.fn()}
         onAlternarActivo={onAlternarActivo}
         onAnadirMembresia={onAnadirMembresia}
         onRestablecerAdmin={vi.fn()}

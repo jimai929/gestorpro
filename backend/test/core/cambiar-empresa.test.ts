@@ -126,32 +126,22 @@ describe('Fase 4c — POST /auth/cambiar-empresa (HTTP)', () => {
     expect((res.json() as { codigo?: string }).codigo).toBe('DEBE_CAMBIAR_CONTRASENA');
   });
 
-  it('super-admin: entra sin membresía y `autorizar` le abre rutas de admin DENTRO del tenant', async () => {
+  it('B4 — super-admin: NO puede entrar a ningún tenant (cambiar-empresa → 403, mismo mensaje anti-enumeración)', async () => {
     const e1 = await nuevaEmpresa();
     const superAdmin = await nuevoUsuario(true);
     const tk = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
 
     const res = await cambiar(tk, e1.id);
-    expect(res.statusCode).toBe(200);
-    const body = res.json() as RespCambio;
-    expect(body.usuario.rol).toBe('empleado'); // mínimo privilegio
-    expect(body.usuario.esSuperAdmin).toBe(true);
-    expect(body.usuario.empresaId).toBe(e1.id);
-
-    // Con el access NUEVO, una ruta autorizar('administrador') responde 201 dentro
-    // del tenant: crea un usuario en e1 (operación real de soporte, con auditoría).
-    const email = `soporte-${randomUUID()}@x.local`;
-    const resCrear = await app.inject({
-      method: 'POST',
-      url: '/usuarios',
-      headers: { authorization: `Bearer ${body.accessToken}` },
-      payload: { nombre: 'Soporte', email, password: 'Clave123*', rol: 'empleado' },
+    // B4: sin membresía → 403 (el super-admin nunca la tiene). No obtiene contexto de tenant.
+    expect(res.statusCode).toBe(403);
+    // Mismo cuerpo que "sin membresía"/"inexistente": indistinguible (anti-enumeración).
+    const usuarioNormal = await nuevoUsuario();
+    await semilla().membresia.create({
+      data: { usuarioId: usuarioNormal.id, empresaId: e1.id, rol: 'administrador', predeterminada: true },
     });
-    expect(resCrear.statusCode).toBe(201);
-    const creado = resCrear.json() as { id: string };
-    const membresias = await semilla().membresia.findMany({ where: { usuarioId: creado.id } });
-    expect(membresias).toHaveLength(1);
-    expect(membresias[0]?.empresaId).toBe(e1.id); // en el tenant al que ENTRÓ
+    const tkNormal = app.jwt.sign({ sub: usuarioNormal.id, rol: 'administrador', empresaId: e1.id, esSuperAdmin: false });
+    const resSinMembresia = await cambiar(tkNormal, randomUUID());
+    expect(res.body).toBe(resSinMembresia.body);
   });
 
   it('super-admin EN PLATAFORMA (empresaId null): `autorizar` NO le abre rutas de tenant', async () => {
@@ -171,15 +161,10 @@ describe('Fase 4c — POST /auth/cambiar-empresa (HTTP)', () => {
     expect(res.statusCode).toBe(403); // fuera de un tenant no hay nada que autorizar
   });
 
-  it('super-admin: empresaId null = volver a plataforma (200, sin empresa activa)', async () => {
-    const e1 = await nuevaEmpresa();
+  it('B4 — super-admin con token empresaId=null: cambiar-empresa(null) → 200 no-op (queda en plataforma)', async () => {
     const superAdmin = await nuevoUsuario(true);
-    const tk = app.jwt.sign({
-      sub: superAdmin.id,
-      rol: 'empleado',
-      empresaId: e1.id,
-      esSuperAdmin: true,
-    });
+    // Tras B4 el token del super-admin SIEMPRE trae empresaId=null (su único estado).
+    const tk = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
     const res = await cambiar(tk, null);
     expect(res.statusCode).toBe(200);
     const body = res.json() as RespCambio;
@@ -187,5 +172,18 @@ describe('Fase 4c — POST /auth/cambiar-empresa (HTTP)', () => {
     expect(body.usuario.empresaNombre).toBeNull();
     const payload = app.jwt.verify<PayloadAccess>(body.accessToken);
     expect(payload.empresaId).toBeNull();
+  });
+
+  it('B4 — token RESIDUAL esSuperAdmin=true + empresaId≠null es RECHAZADO (403) en cualquier ruta autenticada', async () => {
+    const e1 = await nuevaEmpresa();
+    const superAdmin = await nuevoUsuario(true);
+    // Token firmado ANTES de B4 (o forjado): super-admin con contexto de tenant. autenticar
+    // lo rechaza con 403 sin esperar su TTL — no puede portar contexto de negocio.
+    const tkResidual = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: e1.id, esSuperAdmin: true });
+    // cambiar-empresa (ruta [autenticar]):
+    expect((await cambiar(tkResidual, e1.id)).statusCode).toBe(403);
+    // /auth/me (ruta [autenticar]): también 403.
+    const me = await app.inject({ method: 'GET', url: '/auth/me', headers: { authorization: `Bearer ${tkResidual}` } });
+    expect(me.statusCode).toBe(403);
   });
 });

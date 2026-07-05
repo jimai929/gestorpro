@@ -175,9 +175,8 @@ describe('Fase 4c — PATCH /empresas/:id (baja/reactivación del tenant)', () =
     expect(await semilla().sesionRefresco.count({ where: { usuarioId: ajeno.id } })).toBe(1);
   });
 
-  it('sesión de SOPORTE del super-admin dentro de la empresa dada de baja: el refresh cae a plataforma (no 401)', async () => {
+  it('B4 — el super-admin NO entra a la empresa (cambiar-empresa → 403): la baja/reactivación se hace desde PLATAFORMA (empresaId=null)', async () => {
     const empresa = await nuevaEmpresa();
-    // El super-admin entra a la empresa con una sesión REAL (login + cambiar-empresa).
     await semilla().usuario.update({
       where: { id: superAdminId },
       data: { passwordHash: await hashearContrasena(CLAVE) },
@@ -189,40 +188,30 @@ describe('Fase 4c — PATCH /empresas/:id (baja/reactivación del tenant)', () =
       payload: { email: superEmail, password: CLAVE },
     });
     expect(login.statusCode).toBe(200);
-    const { accessToken, refreshToken } = login.json() as { accessToken: string; refreshToken: string };
+    const { accessToken } = login.json() as { accessToken: string };
+    // El login del super-admin da empresaId=null (plataforma).
+    const mePost = await app.inject({ method: 'GET', url: '/auth/me', headers: { authorization: `Bearer ${accessToken}` } });
+    expect((mePost.json() as { empresaId: string | null }).empresaId).toBeNull();
+
+    // B4: NO puede ENTRAR a la empresa.
     const entrar = await app.inject({
       method: 'POST',
       url: '/auth/cambiar-empresa',
       headers: { authorization: `Bearer ${accessToken}` },
       payload: { empresaId: empresa.id },
     });
-    expect(entrar.statusCode).toBe(200);
+    expect(entrar.statusCode).toBe(403);
 
-    // Da de baja la empresa DESDE DENTRO de esa sesión de soporte.
-    const tkDentro = (entrar.json() as { accessToken: string }).accessToken;
+    // Pero SÍ puede darla de baja DESDE PLATAFORMA (soloPlataforma, empresaId=null): la
+    // gestión de empresas es una operación de plataforma, no requiere entrar al tenant.
     const res = await app.inject({
       method: 'PATCH',
       url: `/empresas/${empresa.id}`,
-      headers: { authorization: `Bearer ${tkDentro}` },
+      headers: { authorization: `Bearer ${accessToken}` },
       payload: { activo: false },
     });
     expect(res.statusCode).toBe(200);
-
-    // Su sesión NO fue expulsada (no tiene membresía) y el refresh no muere:
-    // resolverContextoActivo deja de honrar la preferida inactiva → cae a plataforma.
-    const refresco = await app.inject({
-      method: 'POST',
-      url: '/auth/refresh',
-      payload: { refreshToken },
-    });
-    expect(refresco.statusCode).toBe(200);
-    const me = await app.inject({
-      method: 'GET',
-      url: '/auth/me',
-      headers: { authorization: `Bearer ${(refresco.json() as { accessToken: string }).accessToken}` },
-    });
-    expect(me.statusCode).toBe(200);
-    expect((me.json() as { empresaId: string | null }).empresaId).toBeNull();
+    expect((await semilla().empresa.findUniqueOrThrow({ where: { id: empresa.id } })).activo).toBe(false);
   });
 
   it('anti-enumeración con input MALFORMADO: los guards cortan ANTES que la validación de schema', async () => {

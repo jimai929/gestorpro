@@ -53,11 +53,9 @@ interface ContextoActivo {
  * - Prefiere `preferidaEmpresaId` si el usuario tiene membresía ahí (lo usa el
  *   refresh para conservar la empresa de la sesión); si no, la membresía marcada
  *   `predeterminada` (orden: predeterminada primero, luego la más antigua).
- * - Super-admin sin membresía válida: `empresaId = null`, `rol = empleado`
- *   (mínimo privilegio; su poder viene de `esSuperAdmin`, no del rol).
- * - Super-admin con `preferidaEmpresaId` (entró a esa empresa vía cambiar-empresa,
- *   §4.4 modo 1): se honra AUNQUE no tenga membresía —nunca la tiene—, para que la
- *   sesión de soporte sobreviva al refresh; mismo mínimo privilegio (`empleado`).
+ * - Super-admin: SIEMPRE `empresaId = null` (su lugar es la plataforma). B4 eliminó el
+ *   "honrar la preferida" que dejaba entrar/sobrevivir la sesión de soporte a un tenant;
+ *   sin membresía activa cae a `sinTenant()`. Su poder viene de `esSuperAdmin`, no del rol.
  * - Usuario normal sin contexto elegible: NO puede operar → `ErrorAutenticacion`.
  * Devuelve además las membresías activas (para el selector del front).
  */
@@ -108,22 +106,9 @@ async function resolverContextoActivo(
   };
 
   if (!activa) {
-    // Super-admin "dentro" de una empresa (sesión de soporte): sin membresía, pero la
-    // sesión trae la empresa preferida. Se honra solo si la empresa sigue activa (la
-    // baja del tenant lo expulsa al siguiente refresh, igual que a un usuario normal).
-    if (usuario.esSuperAdmin && preferidaEmpresaId != null) {
-      const preferida = await prisma.empresa.findUnique({
-        where: { id: preferidaEmpresaId },
-      });
-      if (preferida?.activo) {
-        return {
-          empresaId: preferida.id,
-          empresaNombre: preferida.nombre,
-          rol: Rol.empleado,
-          membresias: [],
-        };
-      }
-    }
+    // B4: el super-admin NUNCA entra a un tenant. Ya NO se honra `preferidaEmpresaId`
+    // para él (antes sobrevivía la "sesión de soporte" al refresh): sin membresía activa
+    // cae SIEMPRE a `sinTenant()` → empresaId=null. Su lugar es la plataforma.
     return sinTenant();
   }
 
@@ -261,11 +246,12 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
      * y el aislamiento sigue saliendo del TOKEN emitido, nunca de lo que pida el
      * cliente. `usuarioId` y `empresaIdAnterior` salen del token (request.user).
      *
-     * Reglas:
-     * - Usuario normal: necesita membresía en la destino; `null` (plataforma) le está
-     *   vedado. Super-admin: entra a cualquier empresa activa SIN membresía (§4.4
-     *   modo 1) con rol `empleado` (mínimo privilegio; `autorizar` respeta
-     *   `esSuperAdmin` dentro de un tenant), y `null` lo devuelve a la plataforma.
+     * Reglas (B4):
+     * - Entrar a un tenant (destino != null) EXIGE membresía SIEMPRE. El super-admin
+     *   NUNCA tiene membresía → 403: no puede entrar a ninguna empresa (queda en la
+     *   plataforma). Usuario normal sin membresía en la destino → mismo 403.
+     * - `null` (volver a plataforma) sigue siendo solo del super-admin (no-op cuando ya
+     *   está en plataforma, que es su único estado tras B4); a un usuario normal se le veda.
      * - Denegación con mensaje ÚNICO (inexistente = inactiva = sin membresía): no
      *   revela la existencia de otros tenants (anti-enumeración, §6).
      * - Actualiza `empresaIdActiva` de TODAS las sesiones del usuario: la empresa
@@ -309,7 +295,10 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         const membresia = await prisma.membresia.findUnique({
           where: { usuarioId_empresaId: { usuarioId, empresaId: empresaIdDestino } },
         });
-        if (!membresia && !usuario.esSuperAdmin) {
+        // B4: se EXIGE membresía SIEMPRE (se quitó la exención de super-admin). El
+        // super-admin nunca tiene membresía → 403: no puede entrar a ningún tenant. Un
+        // usuario normal sin membresía en la destino → mismo 403 (anti-enumeración).
+        if (!membresia) {
           throw new ErrorAutorizacion('No tienes acceso a esa empresa.');
         }
         const empresa = await prisma.empresa.findUnique({
@@ -322,8 +311,7 @@ export function crearServicioAuth(firmarAccess: FirmadorAccess) {
         contexto = {
           empresaId: empresa.id,
           empresaNombre: empresa.nombre,
-          // Super-admin sin membresía: mínimo privilegio (su poder viene de esSuperAdmin).
-          rol: membresia?.rol ?? Rol.empleado,
+          rol: membresia.rol,
           membresias: membresiasPublicas,
         };
       }

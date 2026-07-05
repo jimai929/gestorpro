@@ -71,6 +71,19 @@ async function pluginAuth(app: FastifyInstance): Promise<void> {
         await reply.code(401).send({ mensaje: 'No autenticado.' });
         return;
       }
+      // B4 — SUPER-ADMIN NUNCA EN CONTEXTO DE TENANT (cierre central). Un access token
+      // con esSuperAdmin=true Y empresaId!=null NO debería existir tras B4 (cambiarEmpresa
+      // lo rechaza y resolverContextoActivo resuelve a null para el super-admin), PERO un
+      // token RESIDUAL firmado ANTES del despliegue podría llevarlo. Se rechaza aquí con
+      // 403 —"las cuentas de plataforma no operan dentro de una empresa"— SIN esperar su
+      // TTL: el super-admin solo opera la plataforma y jamás porta contexto de negocio.
+      // Va ANTES de poblar la ALS: ese contexto de tenant nunca llega a fijarse.
+      if (request.user.esSuperAdmin === true && request.user.empresaId !== null) {
+        await reply
+          .code(403)
+          .send({ mensaje: 'Las cuentas de plataforma no operan dentro de una empresa.' });
+        return;
+      }
       // Tras verificar, transportar el contexto de tenant del TOKEN (nunca del
       // body) al store que `onRequest` (iniciarContextoTenant) ya creó para esta
       // request: se MUTA, no se re-entra, para no perder el contexto bajo
@@ -142,14 +155,11 @@ async function pluginAuth(app: FastifyInstance): Promise<void> {
   app.decorate('autorizar', function (...roles: Rol[]) {
     return async function (request: FastifyRequest, reply: FastifyReply) {
       const usuario = request.user;
-      // Super-admin DENTRO de una empresa (entró vía cambiar-empresa, §4.4 modo 1):
-      // pasa cualquier guard de rol — su poder viene de `esSuperAdmin`, no del rol
-      // del token (que viaja como `empleado`, mínimo privilegio). Con empresaId=null
-      // NO pasa: fuera de un tenant no opera rutas de tenant (fail-closed, igual que
-      // la RLS); sus rutas propias van por `soloPlataforma`.
-      if (usuario?.esSuperAdmin === true && usuario.empresaId != null) {
-        return;
-      }
+      // B4: NO hay bypass de super-admin. El super-admin NUNCA porta un contexto de
+      // tenant (autenticar rechaza esSuperAdmin+empresaId!=null; su token siempre trae
+      // empresaId=null), así que cae aquí como cualquier otro y su rol `empleado` no
+      // abre rutas de tenant → fail-closed. Sus operaciones de plataforma van por
+      // `soloPlataforma`, no por `autorizar`.
       if (!usuario || !roles.includes(usuario.rol)) {
         await reply.code(403).send({ mensaje: new ErrorAutorizacion().message });
       }

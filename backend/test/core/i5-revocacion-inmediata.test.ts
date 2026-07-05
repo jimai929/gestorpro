@@ -88,29 +88,23 @@ describe('I5 — revocación inmediata del access token vivo', () => {
     expect(despues.statusCode).toBe(200);
   });
 
-  it('super-admin revocado en BD: su token vivo con claim esSuperAdmin pasa a 401 (plataforma Y dentro de empresa)', async () => {
+  it('super-admin revocado en BD: su token vivo (empresaId=null) pasa a 401 en la siguiente request', async () => {
     const superAdmin = await nuevoUsuario({ esSuperAdmin: true });
-    const empresa = await nuevaEmpresa();
+    // Tras B4 el super-admin SIEMPRE tiene empresaId=null; un token con empresaId≠null ya
+    // lo rechaza B4 con 403 (ver cambiar-empresa.test). Aquí se pinea el corte I5 del token
+    // de plataforma cuando se le revoca el flag esSuperAdmin en BD.
     const tkPlataforma = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: null, esSuperAdmin: true });
-    const tkDentro = app.jwt.sign({ sub: superAdmin.id, rol: 'empleado', empresaId: empresa.id, esSuperAdmin: true });
 
-    // Antes de revocar: opera en plataforma y dentro de la empresa (bypass de autorizar).
     expect(
       (await app.inject({ method: 'GET', url: '/empresas', headers: { authorization: `Bearer ${tkPlataforma}` } })).statusCode,
-    ).toBe(200);
-    expect(
-      (await app.inject({ method: 'GET', url: '/usuarios', headers: { authorization: `Bearer ${tkDentro}` } })).statusCode,
     ).toBe(200);
 
     // Revocación (mantenimiento: no hay endpoint; se hace en BD).
     await semilla().usuario.update({ where: { id: superAdmin.id }, data: { esSuperAdmin: false } });
 
-    // Sus DOS tokens vivos mueren en la siguiente request: nada de ≤15 min de poder residual.
+    // El token vivo muere en la siguiente request: nada de ≤15 min de poder residual.
     expect(
       (await app.inject({ method: 'GET', url: '/empresas', headers: { authorization: `Bearer ${tkPlataforma}` } })).statusCode,
-    ).toBe(401);
-    expect(
-      (await app.inject({ method: 'GET', url: '/usuarios', headers: { authorization: `Bearer ${tkDentro}` } })).statusCode,
     ).toBe(401);
   });
 
