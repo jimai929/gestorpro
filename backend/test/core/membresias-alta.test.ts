@@ -176,8 +176,9 @@ describe('Plataforma — POST /empresas/:id/membresias (alta multi-empresa)', ()
     const destinoRaro = await nuevaEmpresa();
 
     // rol fuera de la lista blanca y uuid malformado siguen cortados en la puerta.
+    // (M3a: `supervisor` YA es válido; el rol inválido de prueba es uno de plataforma).
     expect(
-      (await altaMembresia(tokenSuper(), empresa.id, { email: usuario.email, rol: 'supervisor' })).statusCode,
+      (await altaMembresia(tokenSuper(), empresa.id, { email: usuario.email, rol: 'plataforma' })).statusCode,
     ).toBe(400);
     expect(
       (await altaMembresia(tokenSuper(), 'no-es-uuid', { email: usuario.email, rol: 'empleado' })).statusCode,
@@ -192,6 +193,24 @@ describe('Plataforma — POST /empresas/:id/membresias (alta multi-empresa)', ()
 
     expect(await semilla().membresia.count({ where: { usuarioId: usuario.id } })).toBe(1);
     expect(await semilla().membresia.count({ where: { usuarioId: raro.id } })).toBe(1);
+  });
+
+  it('M3a: la plataforma puede asignar una membresía con rol=supervisor (rol interno de empresa)', async () => {
+    const empresa = await nuevaEmpresa();
+    const usuario = await nuevoUsuario();
+    // El usuario ya es de OTRA empresa (multi-empresa): se le añade membresía supervisor aquí.
+    const otra = await nuevaEmpresa();
+    await conMembresia(usuario.id, otra.id);
+
+    const res = await altaMembresia(tokenSuper(), empresa.id, {
+      email: usuario.email,
+      rol: 'supervisor',
+    });
+    expect(res.statusCode).toBe(201);
+    const membresia = await semilla().membresia.findUnique({
+      where: { usuarioId_empresaId: { usuarioId: usuario.id, empresaId: empresa.id } },
+    });
+    expect(membresia?.rol).toBe('supervisor');
   });
 
   it('empresa inexistente → 404; empresa desactivada → 409; email inexistente → 404 (sin membresía creada)', async () => {

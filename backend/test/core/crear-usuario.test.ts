@@ -7,7 +7,7 @@ import type { Rol } from '../../src/generated/prisma/enums.js';
 
 /**
  * Fase 4c — POST /usuarios: un administrador del tenant crea usuarios (administrador|
- * empleado) en su PROPIA empresa. Reglas de seguridad: empresaId SIEMPRE del token
+ * supervisor|empleado, M3a) en su PROPIA empresa. Reglas de seguridad: empresaId SIEMPRE del token
  * (nunca del body); esSuperAdmin intocable (default false); rol en lista blanca;
  * email UNIQUE GLOBAL. Corre contra Postgres real (Testcontainers) bajo gestorpro_app.
  */
@@ -115,11 +115,25 @@ describe('Fase 4c — POST /usuarios (alta de usuarios en el tenant)', () => {
     expect(ms[0]?.rol).toBe('administrador');
   });
 
-  it('rol fuera de la lista blanca → 400 (schema): supervisor y cualquier string arbitrario', async () => {
-    const sup = await crear(token('administrador', empresaA), cuerpo(`u-${randomUUID()}@x.local`, 'supervisor'));
-    expect(sup.statusCode).toBe(400); // rol válido del sistema pero NO asignable aquí
+  it('M3a: admin crea un supervisor → 201; la membresía en SU tenant queda con rol=supervisor', async () => {
+    const email = `u-${randomUUID()}@x.local`;
+    const res = await crear(token('administrador', empresaA), cuerpo(email, 'supervisor'));
+    expect(res.statusCode).toBe(201);
+    const body = res.json() as RespUsuario;
+    expect(body.rol).toBe('supervisor');
+    const ms = await semilla().membresia.findMany({ where: { usuarioId: body.id } });
+    expect(ms).toHaveLength(1);
+    expect(ms[0]?.empresaId).toBe(empresaA);
+    expect(ms[0]?.rol).toBe('supervisor');
+  });
+
+  it('rol fuera de la lista blanca → 400 (schema): un string arbitrario o un rol de plataforma', async () => {
+    // M3a: `supervisor` YA es asignable; lo que sigue cortado es cualquier valor que
+    // no sea un rol INTERNO de empresa (administrador|supervisor|empleado).
     const arb = await crear(token('administrador', empresaA), cuerpo(`u-${randomUUID()}@x.local`, 'root'));
     expect(arb.statusCode).toBe(400);
+    const plat = await crear(token('administrador', empresaA), cuerpo(`u-${randomUUID()}@x.local`, 'plataforma'));
+    expect(plat.statusCode).toBe(400);
   });
 
   it('empleado (no admin) → 403 y NO crea ningún usuario', async () => {

@@ -26,8 +26,8 @@ function conflictoMultiEmpresa(que: 'estado' | 'contraseña'): ErrorConflicto {
   );
 }
 
-/** Roles que un admin de tenant PUEDE asignar (lista blanca; nunca de plataforma). */
-export type RolAsignable = 'administrador' | 'empleado';
+/** Roles INTERNOS de empresa que un admin de tenant PUEDE asignar (lista blanca; nunca de plataforma). */
+export type RolAsignable = 'administrador' | 'supervisor' | 'empleado';
 
 export interface DatosNuevoUsuario {
   nombre: string;

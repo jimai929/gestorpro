@@ -56,8 +56,9 @@ const esquemaMembresia = {
       // loguea; un patrón estricto aquí lo dejaría inalcanzable por API. La comparación
       // real la hace crearMembresia (findUnique por email exacto).
       email: { type: 'string', minLength: 3 },
-      // Lista BLANCA: la plataforma asigna administrador o empleado, nunca otro valor.
-      rol: { type: 'string', enum: ['administrador', 'empleado'] },
+      // Lista BLANCA (M3a): la plataforma asigna roles INTERNOS de empresa
+      // —administrador, supervisor o empleado—, nunca un rol de plataforma.
+      rol: { type: 'string', enum: ['administrador', 'supervisor', 'empleado'] },
     },
   },
 } as const;
@@ -159,7 +160,7 @@ export async function empresaRoutes(app: FastifyInstance): Promise<void> {
   // empresa del path con rol per-tenant. Única vía que crea segundas membresías;
   // el estado/contraseña de una cuenta multi-empresa se gestiona con el super-admin
   // ENTRANDO a la empresa (dos niveles, ver usuarios.service).
-  app.post<{ Params: { empresaId: string }; Body: { email: string; rol: 'administrador' | 'empleado' } }>(
+  app.post<{ Params: { empresaId: string }; Body: { email: string; rol: 'administrador' | 'supervisor' | 'empleado' } }>(
     '/empresas/:empresaId/membresias',
     { ...soloSuper, schema: esquemaMembresia },
     async (request, reply) => {

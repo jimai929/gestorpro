@@ -22,9 +22,11 @@ const esquemaUsuario = {
       email: { type: 'string', pattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' },
       // Misma regla de fortaleza que al crear la cuenta (adminPassword/cambiar): mínimo 8.
       password: { type: 'string', minLength: 8 },
-      // Lista BLANCA: un admin de tenant solo crea administrador o empleado. ajv rechaza
-      // cualquier otro valor (supervisor, roles de plataforma, strings arbitrarios).
-      rol: { type: 'string', enum: ['administrador', 'empleado'] },
+      // Lista BLANCA (M3a): un admin de tenant crea roles INTERNOS de su empresa
+      // —administrador, supervisor o empleado—. `supervisor` es rol de empresa (no de
+      // plataforma). ajv rechaza cualquier otro valor (esSuperAdmin no es un rol; se
+      // fija aparte y queda en su default false).
+      rol: { type: 'string', enum: ['administrador', 'supervisor', 'empleado'] },
     },
   },
 } as const;
@@ -108,7 +110,7 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.post<{
-    Body: { nombre: string; email: string; password: string; rol: 'administrador' | 'empleado' };
+    Body: { nombre: string; email: string; password: string; rol: 'administrador' | 'supervisor' | 'empleado' };
   }>(
     '/usuarios',
     { preHandler: [app.autenticar, app.autorizar('administrador')], schema: esquemaUsuario },

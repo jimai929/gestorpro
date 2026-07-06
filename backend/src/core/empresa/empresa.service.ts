@@ -227,8 +227,8 @@ export async function cambiarEstadoEmpresa(
   return { id: empresa.id, nombre: empresa.nombre, slug: empresa.slug, estado: destino };
 }
 
-/** Roles que la plataforma puede asignar en una membresía (misma lista blanca que el alta del tenant). */
-export type RolMembresia = 'administrador' | 'empleado';
+/** Roles INTERNOS de empresa que la plataforma puede asignar en una membresía (misma lista blanca que el alta del tenant, M3a). */
+export type RolMembresia = 'administrador' | 'supervisor' | 'empleado';
 
 export interface MembresiaCreada {
   id: string;
