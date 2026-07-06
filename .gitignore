@@ -1,10 +1,11 @@
 # Dependencias
 node_modules/
 
-# Variables de entorno: nunca se commitean los .env reales, solo la plantilla.
+# Variables de entorno: nunca se commitean los .env reales, solo las plantillas.
 .env
 .env.*
 !.env.example
+!.env.e2e.example
 
 # Fichero local con secretos (copia de deploy/.env): nunca versionar.
 PAS.txt
@@ -30,6 +31,15 @@ Thumbs.db
 # Salidas de Playwright (capturas, trazas de verificación)
 .playwright-mcp/
 gestorpro-*.png
+# Suite E2E VISIBLE (frontend/e2e): artefactos y navegadores, nunca versionar.
+playwright-report/
+test-results/
+frontend/playwright-report/
+frontend/test-results/
+# Estado de sesión guardado por global-setup (contiene el refresh token): NUNCA versionar.
+frontend/e2e/.auth/
+.env.e2e
+.env.e2e.local
 
 # Claude Code (ajustes locales personales)
 .claude/settings.local.json
