@@ -6,8 +6,20 @@
 
 import type { Rol } from '../../core/auth/tipos';
 
-/** Roles que un admin de tenant puede asignar (lista blanca del backend). */
-export type RolAsignable = 'administrador' | 'empleado';
+/**
+ * Roles INTERNOS de empresa que un admin de tenant puede asignar (lista blanca del
+ * backend: POST /usuarios, PATCH /usuarios/:id/rol y POST /empresas/:id/membresias).
+ * NUNCA incluye roles de plataforma ni `esSuperAdmin` (que no es un valor de rol).
+ */
+export type RolAsignable = 'administrador' | 'supervisor' | 'empleado';
+
+/** Fuente ÚNICA de la lista blanca de roles asignables (orden de presentación). */
+export const ROLES_ASIGNABLES: RolAsignable[] = ['administrador', 'supervisor', 'empleado'];
+
+/** ¿`rol` es uno de los tres roles asignables conocidos? (evita mapear un valor raro a un rol seguro). */
+export function esRolAsignable(rol: string): rol is RolAsignable {
+  return (ROLES_ASIGNABLES as string[]).includes(rol);
+}
 
 /** Fila de GET /usuarios. `rol` es el de la MEMBRESÍA en esta empresa; `creadoEn` ISO. */
 export interface UsuarioListado {

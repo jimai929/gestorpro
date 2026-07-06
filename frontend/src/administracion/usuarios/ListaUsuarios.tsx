@@ -8,7 +8,7 @@
 
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { Boton } from '../../core/ui/Boton';
-import type { UsuarioListado } from './tipos';
+import { ROLES_ASIGNABLES, esRolAsignable, type RolAsignable, type UsuarioListado } from './tipos';
 import styles from './ListaUsuarios.module.css';
 
 interface PropiedadesLista {
@@ -20,6 +20,13 @@ interface PropiedadesLista {
   onRestablecer: (usuario: UsuarioListado) => void;
   /** Baja / reactivación lógica de la cuenta. El padre llama al backend y recarga. */
   onAlternarActivo: (usuario: UsuarioListado) => void;
+  /**
+   * Cambia el rol de la MEMBRESÍA del usuario (M3b). El padre llama al backend y recarga.
+   * Solo se ofrece el control si `puedeCambiarRol` y la fila NO es la propia.
+   */
+  onCambiarRol?: (usuario: UsuarioListado, rol: RolAsignable) => void;
+  /** ¿El usuario de la sesión es administrador? Sin esto, la columna Rol es solo texto. */
+  puedeCambiarRol?: boolean;
   /** Usuario cuyo cambio de estado está en curso (deshabilita sus acciones). */
   actualizandoId?: string | null;
   /** Id del usuario de la sesión (su propia fila no ofrece acciones). */
@@ -33,10 +40,16 @@ export function ListaUsuarios({
   onReintentar,
   onRestablecer,
   onAlternarActivo,
+  onCambiarRol,
+  puedeCambiarRol = false,
   actualizandoId = null,
   idActual,
 }: PropiedadesLista) {
   const { t } = useTraduccion();
+
+  // Etiqueta segura del rol: traducida si es uno de los tres conocidos; si el backend
+  // enviara un valor raro, se muestra EN CRUDO (nunca se mapea silenciosamente a un rol).
+  const etiquetaRol = (rol: string) => (esRolAsignable(rol) ? t(`rol.${rol}`) : rol);
 
   return (
     <div className={styles.tarjeta}>
@@ -75,7 +88,34 @@ export function ListaUsuarios({
               <tr key={u.id} className={u.activo ? undefined : styles.filaInactiva}>
                 <td>{u.nombre}</td>
                 <td className={styles.contacto}>{u.email}</td>
-                <td>{t(`rol.${u.rol}`)}</td>
+                <td>
+                  {/* Cambio de rol (M3b): solo para un admin de la sesión, sobre filas
+                      AJENAS y con un rol conocido. La propia fila y los valores raros
+                      se muestran como texto (nunca un select que oculte el valor real).
+                      El propio rol NO se puede cambiar (evita la auto-degradación; el
+                      backend lo refuerza con 400). */}
+                  {puedeCambiarRol && u.id !== idActual && esRolAsignable(u.rol) ? (
+                    <select
+                      className={styles.selectRol}
+                      aria-label={t('adm.usu.cambiarRol')}
+                      value={u.rol}
+                      onChange={(e) => onCambiarRol?.(u, e.target.value as RolAsignable)}
+                      // Con CUALQUIER mutación en vuelo se congela toda la tabla (mismo
+                      // criterio que el resto de acciones: un solo slot de estado).
+                      disabled={actualizandoId !== null}
+                    >
+                      {ROLES_ASIGNABLES.map((r) => (
+                        <option key={r} value={r}>
+                          {t(`rol.${r}`)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span title={u.id === idActual ? t('adm.usu.rolPropioAyuda') : undefined}>
+                      {etiquetaRol(u.rol)}
+                    </span>
+                  )}
+                </td>
                 <td>
                   <span className={u.activo ? styles.badgeActivo : styles.badgeInactivo}>
                     {u.activo ? t('adm.usu.activo') : t('adm.usu.inactivo')}

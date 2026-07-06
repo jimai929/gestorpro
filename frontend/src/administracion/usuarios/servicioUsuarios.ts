@@ -5,7 +5,7 @@
  */
 
 import { api } from '../../core/api';
-import type { CuerpoCrearUsuario, UsuarioCreado, UsuarioListado } from './tipos';
+import type { CuerpoCrearUsuario, RolAsignable, UsuarioCreado, UsuarioListado } from './tipos';
 
 /** Lista los usuarios de la empresa del token (GET /usuarios). */
 export function listarUsuariosApi(): Promise<UsuarioListado[]> {
@@ -24,6 +24,17 @@ export function crearUsuarioApi(cuerpo: CuerpoCrearUsuario): Promise<UsuarioCrea
  */
 export function cambiarEstadoUsuarioApi(usuarioId: string, activo: boolean): Promise<UsuarioListado> {
   return api.patch<UsuarioListado>(`/usuarios/${usuarioId}`, { activo });
+}
+
+/**
+ * Cambia el ROL de la membresía de un usuario en ESTA empresa (M3b, PATCH
+ * /usuarios/:id/rol → 200 con la fila actualizada). Solo afecta la Membresia de la
+ * empresa del token, nunca el Usuario.rol global ni otras empresas. La propia cuenta
+ * la rechaza el backend (400); un rol fuera de la lista blanca → 400; multi-empresa
+ * SÍ permitido (el cambio es per-membresía).
+ */
+export function cambiarRolUsuarioApi(usuarioId: string, rol: RolAsignable): Promise<UsuarioListado> {
+  return api.patch<UsuarioListado>(`/usuarios/${usuarioId}/rol`, { rol });
 }
 
 /**

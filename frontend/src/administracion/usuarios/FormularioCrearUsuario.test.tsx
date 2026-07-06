@@ -102,6 +102,23 @@ describe('FormularioCrearUsuario', () => {
     );
   });
 
+  it('M3a: el select ofrece supervisor y se puede crear con ese rol', async () => {
+    vi.mocked(servicio.crearUsuarioApi).mockResolvedValue({ ...CREADO, rol: 'supervisor' });
+    render(<FormularioCrearUsuario />);
+    const select = screen.getByLabelText('Rol *');
+    // Las TRES opciones de empresa están; ningún rol de plataforma.
+    const valores = Array.from((select as HTMLSelectElement).options).map((o) => o.value);
+    expect(valores).toEqual(['administrador', 'supervisor', 'empleado']);
+    const user = userEvent.setup();
+    await user.selectOptions(select, 'supervisor');
+    await llenar();
+    await waitFor(() =>
+      expect(servicio.crearUsuarioApi).toHaveBeenCalledWith(
+        expect.objectContaining({ rol: 'supervisor' }),
+      ),
+    );
+  });
+
   it('error 409 (email en uso) → muestra el mensaje del backend y NO marca éxito', async () => {
     vi.mocked(servicio.crearUsuarioApi).mockRejectedValue(
       new ErrorHttp(409, 'El email ya está en uso.'),

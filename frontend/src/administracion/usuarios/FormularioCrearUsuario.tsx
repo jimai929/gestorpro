@@ -12,15 +12,12 @@ import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { crearUsuarioApi } from './servicioUsuarios';
-import type { RolAsignable, UsuarioCreado } from './tipos';
+import { ROLES_ASIGNABLES, type RolAsignable, type UsuarioCreado } from './tipos';
 import styles from './FormularioCrearUsuario.module.css';
 
 // Mismos refuerzos que el schema del backend (email con forma real, mínimo 8).
 const PATRON_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LONGITUD_MINIMA = 8;
-
-/** Roles asignables por un admin de tenant (misma lista blanca que el backend). */
-const ROLES_ASIGNABLES: RolAsignable[] = ['empleado', 'administrador'];
 
 interface Propiedades {
   /** Se llama tras crear con éxito, para que el contenedor refresque la lista. */

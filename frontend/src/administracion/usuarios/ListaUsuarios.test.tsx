@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ListaUsuarios } from './ListaUsuarios';
 import type { UsuarioListado } from './tipos';
@@ -231,5 +231,147 @@ describe('ListaUsuarios', () => {
     // debe ocultar el listado que ya se tenía (el admin sigue viendo los datos).
     expect(screen.getByText('Falló el refresh')).toBeTruthy();
     expect(screen.getByText('Ana Empleada')).toBeTruthy();
+  });
+
+  // ── M3b: cambio de rol de la membresía ───────────────────────────────────
+  const CON_SUPERVISOR: UsuarioListado[] = [
+    ...USUARIOS,
+    {
+      id: 'u4',
+      nombre: 'Diana Supervisora',
+      email: 'diana@acme.com',
+      rol: 'supervisor',
+      activo: true,
+      debeCambiarContrasena: false,
+      creadoEn: '2026-06-27T00:00:00.000Z',
+    },
+  ];
+
+  it('sin puedeCambiarRol: la columna Rol es solo texto (sin select), incluido supervisor', () => {
+    render(
+      <ListaUsuarios
+        usuarios={CON_SUPERVISOR}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        idActual={null}
+      />,
+    );
+    // supervisor se muestra traducido y NO como administrador ni empleado.
+    expect(screen.getByText('Supervisor')).toBeTruthy();
+    expect(screen.queryByRole('combobox', { name: 'Cambiar rol' })).toBeNull();
+  });
+
+  it('con puedeCambiarRol (admin): cada fila AJENA con rol conocido ofrece el select de rol', () => {
+    render(
+      <ListaUsuarios
+        usuarios={CON_SUPERVISOR}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        onCambiarRol={vi.fn()}
+        puedeCambiarRol
+        idActual={null}
+      />,
+    );
+    const selects = screen.getAllByRole('combobox', { name: 'Cambiar rol' }) as HTMLSelectElement[];
+    expect(selects).toHaveLength(4); // uno por fila (ninguna es la sesión)
+    // Cada select trae exactamente las tres opciones de empresa, sin roles de plataforma.
+    expect(Array.from(selects[3]!.options).map((o) => o.value)).toEqual([
+      'administrador',
+      'supervisor',
+      'empleado',
+    ]);
+    expect(selects[3]!.value).toBe('supervisor'); // el valor refleja el rol actual
+  });
+
+  it('cambiar el select llama a onCambiarRol con (usuario, rolNuevo)', async () => {
+    const onCambiarRol = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ListaUsuarios
+        usuarios={CON_SUPERVISOR}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        onCambiarRol={onCambiarRol}
+        puedeCambiarRol
+        idActual={null}
+      />,
+    );
+    // Fila de Ana (empleado) → promover a administrador.
+    const selects = screen.getAllByRole('combobox', { name: 'Cambiar rol' });
+    await user.selectOptions(selects[0]!, 'administrador');
+    expect(onCambiarRol).toHaveBeenCalledWith(USUARIOS[0], 'administrador');
+  });
+
+  it('la fila PROPIA no ofrece select de rol (auto-degradación bloqueada), muestra el rol como texto', () => {
+    render(
+      <ListaUsuarios
+        usuarios={CON_SUPERVISOR}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        onCambiarRol={vi.fn()}
+        puedeCambiarRol
+        idActual="u2" // Berta Admin es la sesión
+      />,
+    );
+    // 4 filas, pero la propia (u2) no tiene select → 3 selects.
+    expect(screen.getAllByRole('combobox', { name: 'Cambiar rol' })).toHaveLength(3);
+    // En la fila PROPIA (Berta): el rol se muestra como TEXTO y NO hay select ahí.
+    const filaPropia = screen.getByText('Berta Admin').closest('tr') as HTMLElement;
+    expect(within(filaPropia).queryByRole('combobox', { name: 'Cambiar rol' })).toBeNull();
+    expect(within(filaPropia).getByText('Administrador')).toBeTruthy();
+  });
+
+  it('mientras una fila se actualiza, los selects de rol también quedan deshabilitados', () => {
+    render(
+      <ListaUsuarios
+        usuarios={CON_SUPERVISOR}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        onCambiarRol={vi.fn()}
+        puedeCambiarRol
+        actualizandoId="u1"
+        idActual={null}
+      />,
+    );
+    const selects = screen.getAllByRole('combobox', { name: 'Cambiar rol' }) as HTMLSelectElement[];
+    expect(selects.every((s) => s.disabled)).toBe(true);
+  });
+
+  it('un rol DESCONOCIDO del backend se muestra EN CRUDO, nunca mapeado a empleado', () => {
+    const raro = [
+      { ...USUARIOS[0]!, id: 'ux', rol: 'root' as unknown as UsuarioListado['rol'] },
+    ];
+    render(
+      <ListaUsuarios
+        usuarios={raro}
+        cargando={false}
+        error={null}
+        onReintentar={vi.fn()}
+        onRestablecer={vi.fn()}
+        onAlternarActivo={vi.fn()}
+        onCambiarRol={vi.fn()}
+        puedeCambiarRol
+        idActual={null}
+      />,
+    );
+    // No hay select (rol no conocido) y el valor crudo se muestra tal cual.
+    expect(screen.queryByRole('combobox', { name: 'Cambiar rol' })).toBeNull();
+    expect(screen.getByText('root')).toBeTruthy();
+    expect(screen.queryByText('Empleado')).toBeNull(); // NO se mapeó a empleado
   });
 });

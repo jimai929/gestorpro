@@ -19,8 +19,8 @@ import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioCrearUsuario } from './FormularioCrearUsuario';
 import { DialogoRestablecerContrasena } from './DialogoRestablecerContrasena';
 import { ListaUsuarios } from './ListaUsuarios';
-import { cambiarEstadoUsuarioApi, listarUsuariosApi } from './servicioUsuarios';
-import type { UsuarioListado } from './tipos';
+import { cambiarEstadoUsuarioApi, cambiarRolUsuarioApi, listarUsuariosApi } from './servicioUsuarios';
+import type { RolAsignable, UsuarioListado } from './tipos';
 import styles from './PantallaUsuarios.module.css';
 
 export function PantallaUsuarios() {
@@ -89,6 +89,25 @@ export function PantallaUsuarios() {
     }
   };
 
+  // Cambio de rol de la membresía (M3b). Mismo patrón que alternarActivo: error visible
+  // (400 propia cuenta, 404, 403…), recarga solo tras el éxito real del backend.
+  const cambiarRol = async (u: UsuarioListado, rol: RolAsignable) => {
+    setActualizandoId(u.id);
+    setErrorAccion(null);
+    try {
+      await cambiarRolUsuarioApi(u.id, rol);
+      await cargar();
+    } catch (err) {
+      setErrorAccion(err instanceof Error ? err.message : t('adm.usu.errActualizar'));
+    } finally {
+      setActualizandoId(null);
+    }
+  };
+
+  // Solo un administrador de la sesión ve el control de cambio de rol (el super-admin
+  // post-B4 nunca opera dentro de un tenant; un supervisor/empleado no debe cambiar roles).
+  const puedeCambiarRol = usuarioSesion?.rol === 'administrador';
+
   const claseNav = ({ isActive }: { isActive: boolean }) =>
     isActive ? `${styles.enlaceNav} ${styles.enlaceNavActivo}` : styles.enlaceNav;
 
@@ -137,6 +156,8 @@ export function PantallaUsuarios() {
           onReintentar={() => void cargar()}
           onRestablecer={(u) => setUsuarioRestablecer(u)}
           onAlternarActivo={(u) => void alternarActivo(u)}
+          onCambiarRol={(u, rol) => void cambiarRol(u, rol)}
+          puedeCambiarRol={puedeCambiarRol}
           actualizandoId={actualizandoId}
           idActual={usuarioSesion?.id ?? null}
         />
