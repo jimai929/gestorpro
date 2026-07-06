@@ -1,8 +1,8 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { requireWritesAllowed, requireAdmin } from '../helpers/env';
-import { login } from '../helpers/auth';
 import { goto } from '../helpers/nav';
-import { CLAVE_E2E, CLAVE_E2E_2, nuevoUsuario } from '../helpers/test-data';
+import { CLAVE_E2E, CLAVE_E2E_2 } from '../helpers/test-data';
+import { crearUsuarioConRol, loginConCambioForzado, irComoRol } from '../helpers/roles';
 
 /**
  * @full — PERMISOS por rol (administrador / supervisor / empleado). ESCRIBE datos: crea
@@ -22,56 +22,8 @@ import { CLAVE_E2E, CLAVE_E2E_2, nuevoUsuario } from '../helpers/test-data';
  *
  * Aislamiento: cada rol se prueba en un CONTEXTO nuevo (browser.newContext()), sin tocar
  * el storageState del admin. La navegación tolera la carrera de rehidratación (cold session).
+ * Helpers de rol compartidos en e2e/helpers/roles.ts.
  */
-
-/** Crea un usuario `e2e-*` con el rol dado, usando la sesión de admin (storageState). */
-async function crearUsuarioConRol(pageAdmin: Page, rol: 'supervisor' | 'empleado') {
-  const u = nuevoUsuario(rol);
-  await goto.usuarios(pageAdmin);
-  await pageAdmin.getByRole('button', { name: '+ Crear usuario' }).click();
-  await pageAdmin.getByLabel('Nombre *').fill(u.nombre);
-  await pageAdmin.getByLabel('Correo electrónico *').fill(u.email);
-  await pageAdmin.getByLabel('Contraseña temporal *').fill(u.password);
-  await pageAdmin.getByLabel('Rol *').selectOption(rol);
-  await pageAdmin.getByRole('button', { name: 'Crear usuario' }).click();
-  await expect(pageAdmin.getByText('Usuario creado')).toBeVisible();
-  return u;
-}
-
-/**
- * Inicia sesión como un rol recién creado: login con la clave inicial → resuelve el
- * cambio de contraseña FORZADO → re-login con la clave nueva → sesión desbloqueada.
- */
-async function loginConCambioForzado(page: Page, email: string, iniPass: string, nuevaPass: string) {
-  await login(page, email, iniPass); // la URL sale de /login pero RutaProtegida muestra el diálogo forzado
-  const dlg = page.getByRole('dialog');
-  await dlg.getByLabel('Contraseña actual').fill(iniPass);
-  await dlg.getByLabel('Nueva contraseña', { exact: true }).fill(nuevaPass); // "Confirmar nueva contraseña" también contiene "Nueva contraseña"
-  await dlg.getByLabel('Confirmar nueva contraseña').fill(nuevaPass);
-  await dlg.getByRole('button', { name: 'Cambiar contraseña' }).click();
-  await dlg.getByRole('button', { name: 'Ir a iniciar sesión' }).click();
-  await page.waitForURL((u) => u.pathname.startsWith('/login'));
-  await login(page, email, nuevaPass); // sesión con debeCambiarContrasena=false
-}
-
-/**
- * Navega a `ruta` en una sesión de rol y devuelve el PATHNAME final tras rehidratar y tras
- * los guards. Tolera la carrera de rehidratación (cold session, full reload → /login): si
- * cae a /login reintenta el goto. Un pathname distinto de la ruta pedida es un REDIRECT de
- * guard (p. ej. /plataforma → /).
- */
-async function irComoRol(page: Page, ruta: string): Promise<string> {
-  let pathname = '';
-  for (let i = 0; i < 4; i++) {
-    await page.goto(ruta);
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(800); // deja resolver un posible redirect de guard
-    pathname = new URL(page.url()).pathname;
-    if (pathname !== '/login') return pathname;
-    await page.waitForTimeout(1000); // fue la carrera de rehidratación: reintentar
-  }
-  return pathname;
-}
 
 test.describe('@full — permisos por rol', () => {
   requireWritesAllowed();

@@ -118,6 +118,14 @@ sembrada (seed base).
 - `e2e/specs/permisos-roles.spec.ts` (`@full`) — **crea** usuarios `e2e-*` con rol
   supervisor/empleado y los usa para iniciar sesión (resolviendo el cambio de contraseña
   forzado) en contextos aislados, para verificar límites de permiso por rol. Solo con escritura.
+- `e2e/specs/permisos-operaciones.spec.ts` (`@full`) — **crea** empleado + usuarios `e2e-*`;
+  verifica que operaciones admin-only (desactivar empleado) disparadas por supervisor/empleado
+  reciben **403** y NO tienen efecto. Solo con escritura.
+- `e2e/specs/plataforma-superadmin.spec.ts` (`@full`) — parte NEGATIVA (corre): admin de
+  tenant → /plataforma redirige a `/`. Parte super-admin (crea empresa `e2e-*` + suspende↔
+  reactiva): **SKIPEA** sin `E2E_SUPERADMIN_*` (no hay super-admin en dev local).
+- Los helpers de rol (crear usuario con rol, login con cambio forzado, navegación de rol)
+  están en `e2e/helpers/roles.ts`, compartidos por `permisos-roles` y `permisos-operaciones`.
 - Los helpers de UI de asistencia (crear empleado/kiosco, fichar) están en
   `e2e/helpers/asistencia.ts`, compartidos por `fichaje`, `jornada-cobro` y `empleado-editar-baja`.
 - El resto de specs actuales (`production-smoke`, `negocio-estructura`) son de **lectura**
@@ -142,13 +150,27 @@ Tras una corrida con fallos:
 Config (`playwright.config.ts`): `screenshot: only-on-failure`, `video: retain-on-failure`,
 `trace: on-first-retry`.
 
-## 9. Limpiar datos de prueba
+## 9. Limpiar datos de prueba — `global-teardown` (IMPLEMENTADO, dev-only)
 
-Los `@full` crean cuentas con email `e2e-YYYYMMDD-HHMMSS-NNN@e2e.local` y datos con el
-mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cuentas se
-**desactivan**, no se borran, por diseño): en dev/staging se identifican por el prefijo
-`e2e-` para darlas de baja o recrear la BD (`prisma migrate reset` en dev). **Pendiente
-(Phase 2):** un `global-teardown` que desactive por API las cuentas `e2e-` de la corrida.
+`e2e/global-teardown.ts` (conectado en `playwright.config.ts`) corre al terminar la suite y
+da de **BAJA LÓGICA** (reversible, idempotente, **NUNCA borrado físico**) los datos `e2e-*`
+que puede retirar por API existente:
+- **Usuarios** `e2e-*`: `PATCH /usuarios/:id { activo:false }` (admin-only).
+- **Empleados** `e2e-*`: `PUT /empleados/:id { activo:false }` (admin-only).
+
+Barrera **fail-safe** (idéntica a los `@full`): solo actúa si `E2E_MODE != production` **y**
+`E2E_ALLOW_WRITES=true` y hay credenciales de admin; en producción o sin permiso NO hace nada.
+Solo toca el prefijo `e2e-`; jamás datos reales. Es best-effort (un error no tumba la corrida).
+Verificado: tras una corrida completa, usuarios y empleados `e2e-*` quedan en 0 activos.
+
+**Residual aceptado en dev** (sin API segura de retiro — NO se borra nada a mano):
+- **Kioscos "E2E Kiosco ..."**: no hay endpoint de baja/borrado (solo rotación de token);
+  quedan listados pero inertes (sin dispositivo real). Identificables por nombre.
+- **Fichajes / Jornadas / Cobros / Auditoría**: inmutables / append-only por diseño; quedan
+  como histórico dev.
+
+La única limpieza **TOTAL** en dev es `npm run db:reset` (backend: `prisma migrate reset` +
+seed), que recrea toda la BD y **solo es válida en desarrollo** — nunca contra producción.
 
 ## 10. Cobertura actual y lo que FALTA
 
@@ -162,6 +184,8 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 | `jornada-cobro` (Phase 2) | `@full` | tras fichar, verifica los campos de la jornada (empleado/fecha/horas trabajadas `Xh Ym`/estado) en `/asistencia/jornadas`, y el saldo calculado del empleado (Saldo acumulado / % cobrable / Disponible) en `/asistencia/cobros`. |
 | `empleado-editar-baja` (Phase 2) | `@full` | crea un empleado `e2e-*`; lo **edita** (nombre + salario fijo) y confirma los valores nuevos en la fila (localizada por número); lo **desactiva** (baja LÓGICA) y confirma el badge "Inactivo" + botón "Activar". Sin borrado físico. |
 | `permisos-roles` (Phase 2) | `@full` | límites de permiso por rol. **admin**: accede a /empleados, /usuarios (con datos, sin 403) y /asistencia/jornadas. **supervisor** y **empleado**: /plataforma redirige a `/`; /usuarios muestra el 403 "No tiene permiso para esta operación."; supervisor SÍ ve /empleados y /jornadas. Login de rol nuevo resuelve el cambio de contraseña FORZADO; cada rol en contexto aislado. |
+| `permisos-operaciones` (Phase 2) | `@full` | permiso a nivel de OPERACIÓN. **admin** crea un empleado e2e (gestión OK). **supervisor** y **empleado** pulsan "Desactivar" empleado (admin-only): el backend responde **403** "No tiene permiso para esta operación." y, al recargar, el empleado sigue **Activo** (sin efecto). Prueba el 403 real del submit, no el ocultamiento de botón (los botones de /empleados son estáticos). |
+| `plataforma-superadmin` (Phase 2) | `@full` | **admin de tenant** → /plataforma redirige a `/` (RutaSoloPlataforma). Parte **super-admin** (accede a /plataforma, ve empresas, crea empresa e2e, suspende↔reactiva — seguro/reversible, NUNCA cancela ni resetea admin): tras `requireSuperAdmin()`, **SKIPEA** sin credenciales (no hay super-admin en dev local; andamiaje LISTO, no verificado en local). |
 
 ### Personas / roles del sistema
 - **plataforma / super-admin** — gestiona empresas y cuentas globales (`/plataforma`).
@@ -182,9 +206,10 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 | **gastos (crear)** | pendiente | `/gastos` tiene alta; requiere categoría+sede sembradas. |
 | **correcciones de dinero** | **API-only** | `POST /correcciones` no tiene consumidor en el front; probar por API o cuando haya UI. |
 | **auditoría** | **API-only / sin UI** | la `Auditoria`/`AuditoriaPlataforma` es append-only sin pantalla de lectura. |
-| **plataforma (baja/reset global)** | pendiente | `@full` de plataforma con usuarios `e2e-` dedicados en dos empresas de prueba; requiere super-admin y flujo de alta seguro. |
+| **plataforma / super-admin (flujo de escritura)** | **PENDIENTE por falta de cuenta** | `plataforma-superadmin.spec.ts` tiene el andamiaje LISTO (crear empresa e2e + suspender↔reactivar, seguro) tras `requireSuperAdmin()`, pero **HOY SKIPEA**: no hay super-admin sembrado en dev local (`backend/.env` sin `SUPER_ADMIN_EMAIL`; `global-setup` solo crea storageState de admin de tenant). Para habilitarlo (fuera del código de test): sembrar un super-admin (seed con `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`), exportar `E2E_SUPERADMIN_EMAIL`/`PASSWORD`, y manejar su cambio de contraseña forzado (patrón `loginConCambioForzado`). El caso NEGATIVO (no-super-admin → redirect) SÍ está cubierto. NO se cubren acciones IRREVERSIBLES por diseño: "Cancelar empresa" (terminal) ni "Restablecer admin" (destruye sesiones). Endpoints `PATCH /plataforma/usuarios/:id/estado` y `.../restablecer-contrasena` existen en backend pero **no tienen UI** (no testeables por UI). |
+| **riesgo hallado (no es cobertura, es nota)** | **revisar** | `POST /cobros` (solicitar adelanto) NO tiene restricción de rol (solo `autenticar`) y NO valida que el `empleadoId` del body sea el del propio solicitante: un empleado autenticado podría solicitar cobros a nombre de OTRO empleado (solo se valida saldo). Posible riesgo menor; documentado, no cubierto por E2E. Backend, no tocado. |
 | **permisos por rol** | **cubierto (Phase 2)** | `permisos-roles.spec.ts`. **Hallazgo honesto del comportamiento REAL** (observado, no asumido): el FRONTEND solo guarda `/plataforma` (RutaSoloPlataforma → cualquier NO super-admin va a `/`). NO restringe /empleados, /usuarios ni /asistencia/* por rol de tenant — esas páginas CARGAN para supervisor y empleado. La frontera real es el BACKEND: `/usuarios` es admin-only (GET → 403, la UI muestra "No tiene permiso para esta operación."); GET /empleados y /jornadas NO son admin-only (supervisor y empleado sí los ven). El botón "+ Crear usuario" se renderiza estático para todos los roles (no distingue permiso). Por eso los asserts son sobre el redirect de /plataforma y el 403 de /usuarios, NO sobre "empleado no puede abrir /empleados" (que sería falso). |
-| **limpieza de datos e2e** | pendiente | `global-teardown` por API (ver §9). |
+| **limpieza de datos e2e** | **cubierto (parcial, §9)** | `global-teardown` implementado: baja lógica de usuarios + empleados `e2e-*` (verificado: 0 activos tras la corrida). Residual dev sin API segura: kioscos `e2e-*` + histórico inmutable (fichajes/jornadas/cobros). Limpieza total dev = `npm run db:reset`. |
 
 ---
 

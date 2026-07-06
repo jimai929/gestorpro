@@ -55,6 +55,21 @@ export function nuevoKiosco() {
   return { nombre: `E2E Kiosco ${id}` };
 }
 
+/**
+ * Empresa de prueba para el flujo super-admin de PLATAFORMA. slug solo [a-z0-9-] (validación
+ * del formulario). Usado por plataforma-superadmin.spec.ts (skipea sin super-admin local).
+ */
+export function nuevaEmpresa() {
+  const id = siguiente(); // e2e-YYYYMMDD-HHMMSS-NNN → válido como slug
+  return {
+    nombre: `E2E Empresa ${id}`,
+    slug: id,
+    adminNombre: `E2E Admin ${id}`,
+    adminEmail: `${id}-admin@e2e.local`,
+    adminPassword: CLAVE_E2E,
+  };
+}
+
 export function nuevoGasto() {
   const id = siguiente();
   return { descripcion: `E2E Gasto ${id}`, monto: 12.34 };

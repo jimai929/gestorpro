@@ -19,6 +19,9 @@ export default defineConfig({
   // Inicia sesión UNA vez y guarda el estado (localStorage con refresh token): todos los
   // tests arrancan autenticados, sin la carrera de rehidratación por-test.
   globalSetup: './e2e/global-setup.ts',
+  // Teardown dev-only: da de BAJA LÓGICA (reversible, nunca borra) las cuentas/empleados
+  // e2e-* al terminar. Fail-safe: no hace nada en producción ni sin E2E_ALLOW_WRITES.
+  globalTeardown: './e2e/global-teardown.ts',
   // Reintentos: la rehidratación de sesión (async, /auth/refresh + /auth/me) puede
   // abortarse bajo carga del backend dev de una sola instancia → caída transitoria a
   // /login. Es flakiness de ENTORNO (en aislamiento la página carga bien, verificado),
