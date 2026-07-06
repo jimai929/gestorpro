@@ -110,6 +110,10 @@ sembrada (seed base).
   roles. Solo corre con escritura habilitada.
 - `e2e/specs/fichaje.spec.ts` (`@full`) — **crea** un empleado y un kiosco `e2e-*` y
   **registra fichajes** (entrada/pausa/salida + excepción por PIN). Solo con escritura.
+- `e2e/specs/jornada-cobro.spec.ts` (`@full`) — **crea** empleado + kiosco `e2e-*`, ficha,
+  y verifica la **jornada** calculada y el **saldo/cobro** del empleado. Solo con escritura.
+- Los helpers de UI de asistencia (crear empleado/kiosco, fichar) están en
+  `e2e/helpers/asistencia.ts`, compartidos por `fichaje` y `jornada-cobro`.
 - El resto de specs actuales (`production-smoke`, `negocio-estructura`) son de **lectura**
   y no mutan nada.
 
@@ -149,6 +153,7 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 | `usuarios-roles` | `@full` | alta de empleado/supervisor, lista muestra Supervisor, cambio de rol vía select, propia fila sin control, solo roles de empresa. |
 | `negocio-estructura` | `@readonly` | render + estructura de dashboard, gastos, cuentas-por-pagar, proveedores, sedes, empleados, kioscos, jornadas, revisión, cobros. |
 | `fichaje` (Phase 2) | `@full` | crea empleado + kiosco `e2e-*`; ficha Entrada→Salida comida→Vuelta de comida→Salida (facial simulado) y verifica la Jornada en `/asistencia/jornadas`; fichaje de excepción (facial rechazado→PIN) que entra en `/asistencia/revision`. |
+| `jornada-cobro` (Phase 2) | `@full` | tras fichar, verifica los campos de la jornada (empleado/fecha/horas trabajadas `Xh Ym`/estado) en `/asistencia/jornadas`, y el saldo calculado del empleado (Saldo acumulado / % cobrable / Disponible) en `/asistencia/cobros`. |
 
 ### Personas / roles del sistema
 - **plataforma / super-admin** — gestiona empresas y cuentas globales (`/plataforma`).
@@ -162,8 +167,8 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 | Área | Estado | Motivo |
 |---|---|---|
 | **empleados (alta)** | **cubierto (Phase 2)** | `fichaje.spec.ts` crea un empleado `e2e-*` por la UI de `/empleados` (edición/baja siguen pendientes). |
-| **fichaje → jornada** | **cubierto (Phase 2)** | `fichaje.spec.ts`: kiosco con device token (creado por UI), entrada/pausa/salida y verificación de la Jornada. |
-| **salario / nómina** | pendiente | el salario se calcula en backend; no hay página de nómina dedicada. Cubrir a nivel API o cuando exista pantalla. |
+| **fichaje → jornada** | **cubierto (Phase 2)** | `fichaje.spec.ts` + `jornada-cobro.spec.ts`: kiosco con device token (creado por UI), entrada/pausa/salida y verificación de la Jornada y sus campos. |
+| **salario / cobro** | **cubierto (parcial, Phase 2)** | NO hay página de nómina dedicada; el salario/horas-extra se hace visible en `/asistencia/cobros` (saldo, % cobrable, disponible). `jornada-cobro.spec.ts` verifica ese saldo calculado del empleado. El cálculo de nómina completo sigue en backend (cubrible a nivel API). |
 | **ventas / cierre de cajera** | **sin ruta UI dedicada** | no hay `/ventas`; el cierre de caja se teclea desde Firestec. Cubrir a nivel API o cuando exista pantalla. |
 | **compras** | dentro de `/cuentas-por-pagar` | registrar factura = crear compra; flujo de escritura Phase 2. |
 | **gastos (crear)** | pendiente | `/gastos` tiene alta; requiere categoría+sede sembradas. |
