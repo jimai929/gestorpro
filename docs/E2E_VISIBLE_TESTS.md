@@ -115,6 +115,9 @@ sembrada (seed base).
 - `e2e/specs/empleado-editar-baja.spec.ts` (`@full`) — **crea** un empleado `e2e-*`, **edita**
   nombre y salario, y lo **desactiva** (baja LÓGICA: PUT `activo:false`, nunca borra). Solo
   con escritura.
+- `e2e/specs/permisos-roles.spec.ts` (`@full`) — **crea** usuarios `e2e-*` con rol
+  supervisor/empleado y los usa para iniciar sesión (resolviendo el cambio de contraseña
+  forzado) en contextos aislados, para verificar límites de permiso por rol. Solo con escritura.
 - Los helpers de UI de asistencia (crear empleado/kiosco, fichar) están en
   `e2e/helpers/asistencia.ts`, compartidos por `fichaje`, `jornada-cobro` y `empleado-editar-baja`.
 - El resto de specs actuales (`production-smoke`, `negocio-estructura`) son de **lectura**
@@ -158,6 +161,7 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 | `fichaje` (Phase 2) | `@full` | crea empleado + kiosco `e2e-*`; ficha Entrada→Salida comida→Vuelta de comida→Salida (facial simulado) y verifica la Jornada en `/asistencia/jornadas`; fichaje de excepción (facial rechazado→PIN) que entra en `/asistencia/revision`. |
 | `jornada-cobro` (Phase 2) | `@full` | tras fichar, verifica los campos de la jornada (empleado/fecha/horas trabajadas `Xh Ym`/estado) en `/asistencia/jornadas`, y el saldo calculado del empleado (Saldo acumulado / % cobrable / Disponible) en `/asistencia/cobros`. |
 | `empleado-editar-baja` (Phase 2) | `@full` | crea un empleado `e2e-*`; lo **edita** (nombre + salario fijo) y confirma los valores nuevos en la fila (localizada por número); lo **desactiva** (baja LÓGICA) y confirma el badge "Inactivo" + botón "Activar". Sin borrado físico. |
+| `permisos-roles` (Phase 2) | `@full` | límites de permiso por rol. **admin**: accede a /empleados, /usuarios (con datos, sin 403) y /asistencia/jornadas. **supervisor** y **empleado**: /plataforma redirige a `/`; /usuarios muestra el 403 "No tiene permiso para esta operación."; supervisor SÍ ve /empleados y /jornadas. Login de rol nuevo resuelve el cambio de contraseña FORZADO; cada rol en contexto aislado. |
 
 ### Personas / roles del sistema
 - **plataforma / super-admin** — gestiona empresas y cuentas globales (`/plataforma`).
@@ -179,7 +183,7 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 | **correcciones de dinero** | **API-only** | `POST /correcciones` no tiene consumidor en el front; probar por API o cuando haya UI. |
 | **auditoría** | **API-only / sin UI** | la `Auditoria`/`AuditoriaPlataforma` es append-only sin pantalla de lectura. |
 | **plataforma (baja/reset global)** | pendiente | `@full` de plataforma con usuarios `e2e-` dedicados en dos empresas de prueba; requiere super-admin y flujo de alta seguro. |
-| **permisos (empleado/supervisor bloqueados)** | pendiente | requiere sesiones de cada rol; Phase 2 (`permisos.spec.ts`). |
+| **permisos por rol** | **cubierto (Phase 2)** | `permisos-roles.spec.ts`. **Hallazgo honesto del comportamiento REAL** (observado, no asumido): el FRONTEND solo guarda `/plataforma` (RutaSoloPlataforma → cualquier NO super-admin va a `/`). NO restringe /empleados, /usuarios ni /asistencia/* por rol de tenant — esas páginas CARGAN para supervisor y empleado. La frontera real es el BACKEND: `/usuarios` es admin-only (GET → 403, la UI muestra "No tiene permiso para esta operación."); GET /empleados y /jornadas NO son admin-only (supervisor y empleado sí los ven). El botón "+ Crear usuario" se renderiza estático para todos los roles (no distingue permiso). Por eso los asserts son sobre el redirect de /plataforma y el 403 de /usuarios, NO sobre "empleado no puede abrir /empleados" (que sería falso). |
 | **limpieza de datos e2e** | pendiente | `global-teardown` por API (ver §9). |
 
 ---

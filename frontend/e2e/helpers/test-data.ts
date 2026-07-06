@@ -17,6 +17,13 @@ function siguiente(): string {
 export const CLAVE_E2E = 'E2e-Test-Pw-123*';
 
 /**
+ * Segunda contraseña, para el cambio FORZADO del primer login (POST /usuarios crea con
+ * `debeCambiarContrasena=true`). Debe ser >=8 y DISTINTA de CLAVE_E2E (el backend rechaza
+ * reutilizar la actual). Se usa al iniciar sesión como un rol recién creado.
+ */
+export const CLAVE_E2E_2 = 'E2e-Test-Pw-456*';
+
+/**
  * PIN de 4 dígitos NO trivial para empleados de prueba. `validarPin` (backend) rechaza
  * repeticiones (0000) y secuencias ±1 (1234/4321); `9518` no es ninguna. Sirve para el
  * fichaje de EXCEPCIÓN por PIN (el camino feliz por facial no necesita PIN).
