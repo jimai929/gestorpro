@@ -2,6 +2,7 @@ import { prisma, type ClienteTx } from '../../core/prisma.js';
 import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorNoEncontrado, ErrorValidacion } from '../../core/errors.js';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { EstadoEmpresa } from '../../generated/prisma/enums.js';
 import { acreditarSaldo } from '../cobro/saldo.service.js';
 import {
   calcularJornada,
@@ -178,12 +179,15 @@ export async function barrerHuerfanos(ahora: Date = new Date()): Promise<number>
   const limite = new Date(ahora.getTime() - VENTANA_MS);
 
   // Job de PLATAFORMA, no de request: corre fuera de RLS de tenant. Itera las
-  // empresas activas (empresa está EXCLUIDA de RLS → legible sin GUC) y procesa
+  // empresas ACTIVAS (empresa está EXCLUIDA de RLS → legible sin GUC) y procesa
   // cada una dentro de su PROPIA txEmpresa: el GUC fija el tenant, así RLS acota
   // fichaje/jornada a esa empresa. Antes barría TODAS las sedes sin contexto;
   // bajo RLS eso daría 0 filas y reportaría marcadas:0 en silencio (corrección B2).
+  // B3: se filtra por `estado` (fuente de verdad), NO por el espejo legacy `activo`
+  // — una empresa suspendida/cancelada queda fuera del barrido (sus huérfanos se
+  // marcarán al reactivarla; el job es idempotente).
   const empresas = await prisma.empresa.findMany({
-    where: { activo: true },
+    where: { estado: EstadoEmpresa.activa },
     select: { id: true },
   });
 

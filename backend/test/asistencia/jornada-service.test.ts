@@ -133,6 +133,52 @@ describe('motor de jornada (persistencia)', () => {
   });
 });
 
+describe('barrerHuerfanos filtra por estado B3 (M4): solo empresas ACTIVAS', () => {
+  // Crea una empresa con un fichaje huérfano (entrada sin salida, >16h) y fija su
+  // estado + el espejo legacy `activo` de forma INDEPENDIENTE (para probar drift).
+  async function empresaConHuerfano(
+    estado: 'activa' | 'suspendida' | 'cancelada',
+    activoMirror: boolean,
+  ) {
+    const empresaId = await crearEmpresa();
+    const { empleado, kiosco } = await crearEmpleadoConTurno(empresaId);
+    const hace17h = new Date(Date.now() - 17 * 60 * 60 * 1000);
+    await semilla().fichaje.create({
+      data: { empleadoId: empleado.id, kioscoId: kiosco.id, tipo: 'entrada', momento: hace17h },
+    });
+    await semilla().empresa.update({ where: { id: empresaId }, data: { estado, activo: activoMirror } });
+    return { empresaId, empleado };
+  }
+
+  // ¿El job le creó una jornada-anomalía a ESTE empleado? (lectura POSITIVA bajo RLS)
+  async function tieneAnomalia(empresaId: string, empleadoId: string): Promise<boolean> {
+    const j = await comoEmpresa(empresaId, () =>
+      txEmpresa((tx) => tx.jornada.findFirst({ where: { empleadoId, anomalia: true } })),
+    );
+    return j !== null;
+  }
+
+  it('empresa ACTIVA: el huérfano SÍ se barre', async () => {
+    const { empresaId, empleado } = await empresaConHuerfano('activa', true);
+    await barrerHuerfanos(new Date());
+    expect(await tieneAnomalia(empresaId, empleado.id)).toBe(true);
+  });
+
+  it('empresa SUSPENDIDA: el huérfano NO se barre aunque el espejo activo siga en true (manda estado)', async () => {
+    // Drift deliberado: estado suspendida PERO activo=true. Con el filtro viejo
+    // (where activo=true) se habría barrido; con el nuevo (estado='activa') NO.
+    const { empresaId, empleado } = await empresaConHuerfano('suspendida', true);
+    await barrerHuerfanos(new Date());
+    expect(await tieneAnomalia(empresaId, empleado.id)).toBe(false);
+  });
+
+  it('empresa CANCELADA: el huérfano NO se barre', async () => {
+    const { empresaId, empleado } = await empresaConHuerfano('cancelada', false);
+    await barrerHuerfanos(new Date());
+    expect(await tieneAnomalia(empresaId, empleado.id)).toBe(false);
+  });
+});
+
 describe('alta manual de jornada (día sin fichajes)', () => {
   async function nuevoJefe() {
     n += 1;
