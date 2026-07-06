@@ -435,3 +435,97 @@ export async function restablecerContrasena(
     { empresaId, tx: { isolationLevel: 'ReadCommitted', timeout: 15000 } },
   );
 }
+
+/**
+ * Cambia el ROL de la membresía de un usuario DENTRO del tenant del admin (M3b):
+ * empleado ⇄ supervisor ⇄ administrador. Toca SOLO la fila de `Membresia` de ESTA
+ * empresa (rol per-tenant) — NUNCA el `Usuario.rol` global (espejo legacy) ni las
+ * membresías del usuario en otras empresas. La ejecuta un administrador del tenant.
+ *
+ * Reglas de seguridad:
+ * - `empresaId` y `adminId` SIEMPRE del token (ver ruta), NUNCA del body/path.
+ * - Denegación 404 ÚNICA e indistinguible (inexistente = de otro tenant = cuenta de
+ *   plataforma): no revela la existencia de cuentas ajenas.
+ * - El admin NO puede cambiar su PROPIO rol (400): evita la auto-degradación que lo
+ *   dejaría sin permisos. Como el actor (un admin) queda SIEMPRE intocable, el tenant
+ *   conserva al menos un administrador tras cualquier cambio — sin lock-out del
+ *   "último admin" (a diferencia de la baja, aquí no hace falta guardia extra).
+ * - A DIFERENCIA de la baja/reset: una cuenta MULTI-EMPRESA SÍ se modifica aquí sin
+ *   409, porque el cambio afecta solo a la fila de `Membresia` de ESTA empresa, no a
+ *   un campo GLOBAL del usuario — no hay escalada cross-tenant que cerrar.
+ * - Idempotente sin ruido: pedir el rol que ya tiene devuelve la fila actual SIN
+ *   asiento de auditoría duplicado (updateMany condicional, atómico).
+ */
+export async function cambiarRolMembresia(
+  usuarioObjetivoId: string,
+  empresaId: string,
+  adminId: string,
+  nuevoRol: RolAsignable,
+): Promise<UsuarioListado> {
+  // Normaliza el uuid del path a minúsculas ANTES de comparar (mismo motivo que en
+  // la baja/reset: el patrón de ruta admite hex en MAYÚSCULAS y Postgres resuelve el
+  // uuid case-insensitive; un `===` sensible dejaría al admin cambiar su propio rol
+  // enviando su id en mayúsculas).
+  const objetivoId = usuarioObjetivoId.toLowerCase();
+  if (objetivoId === adminId.toLowerCase()) {
+    throw new ErrorValidacion('Tu propio rol no se puede cambiar desde aquí.');
+  }
+
+  // Mensaje ÚNICO para todo camino de denegación (anti-enumeración). `usuario` y
+  // `membresia` están fuera de RLS: se leen con el cliente plano, sin contexto.
+  const noEncontrado = () => new ErrorNoEncontrado('Usuario no encontrado.');
+
+  const objetivo = await prisma.usuario.findUnique({ where: { id: objetivoId } });
+  if (!objetivo || objetivo.esSuperAdmin) {
+    throw noEncontrado();
+  }
+  const membresia = await prisma.membresia.findUnique({
+    where: { usuarioId_empresaId: { usuarioId: objetivoId, empresaId } },
+  });
+  if (!membresia) {
+    throw noEncontrado();
+  }
+
+  const rol: Rol = nuevoRol;
+  const fila = (): UsuarioListado => ({
+    id: objetivo.id,
+    nombre: objetivo.nombre,
+    email: objetivo.email,
+    rol,
+    activo: objetivo.activo,
+    debeCambiarContrasena: objetivo.debeCambiarContrasena,
+    creadoEn: objetivo.creadoEn.toISOString(),
+  });
+
+  await txEmpresa(
+    async (tx) => {
+      // Idempotencia ATÓMICA: el updateMany solo "gana" si el rol era distinto. Se
+      // acota por la clave compuesta (usuarioId, empresaId) → SOLO la membresía de
+      // ESTA empresa; las de otras empresas quedan intactas. Pedir el rol que ya
+      // tiene → count 0 → no-op sin asiento. NO se toca `Usuario.rol` (espejo legacy).
+      const cambio = await tx.membresia.updateMany({
+        where: { usuarioId: objetivoId, empresaId, rol: { not: rol } },
+        data: { rol },
+      });
+      if (cambio.count === 0) {
+        return; // ya tenía ese rol: no-op
+      }
+      await auditoriaRepo.registrar(
+        {
+          entidad: 'usuario',
+          entidadId: objetivoId,
+          accion: 'cambiar_rol_membresia',
+          usuarioId: adminId,
+          // empresa_id lo rellena el DEFAULT desde el GUC (override de txEmpresa).
+          detalle: { rolAnterior: membresia.rol, rol },
+        },
+        tx,
+      );
+    },
+    // FUENTE ÚNICA del tenant (mismo patrón que el resto del módulo). No hace falta
+    // FOR UPDATE ni isolationLevel explícito: el cambio es de una sola fila per-tenant,
+    // sin invariante cross-entidad que serializar (a diferencia de la baja/reset).
+    { empresaId },
+  );
+  return fila();
+}

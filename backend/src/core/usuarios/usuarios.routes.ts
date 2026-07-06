@@ -3,6 +3,7 @@ import { ErrorAutorizacion } from '../errors.js';
 import { responderError } from '../http.js';
 import {
   cambiarEstadoUsuario,
+  cambiarRolMembresia,
   crearUsuarioEnTenant,
   listarUsuariosDelTenant,
   restablecerContrasena,
@@ -53,6 +54,28 @@ const esquemaEstado = {
   },
 } as const;
 
+const esquemaRol = {
+  params: {
+    type: 'object',
+    required: ['usuarioId'],
+    additionalProperties: false,
+    properties: {
+      // uuid validado en la puerta: un id malformado es 400, nunca llega a Prisma.
+      usuarioId: { type: 'string', pattern: PATRON_UUID },
+    },
+  },
+  body: {
+    type: 'object',
+    required: ['rol'],
+    additionalProperties: false,
+    properties: {
+      // Lista BLANCA (M3a/M3b): roles INTERNOS de empresa. `esSuperAdmin` no es un
+      // valor de Rol; ajv rechaza cualquier otro string.
+      rol: { type: 'string', enum: ['administrador', 'supervisor', 'empleado'] },
+    },
+  },
+} as const;
+
 const esquemaRestablecer = {
   params: {
     type: 'object',
@@ -84,6 +107,7 @@ const esquemaRestablecer = {
  *   GET   /usuarios                                    -> 200 (listado del tenant)
  *   POST  /usuarios                                    -> 201 (alta con membresía)
  *   PATCH /usuarios/:usuarioId                         -> 200 (baja/reactivación lógica)
+ *   PATCH /usuarios/:usuarioId/rol                     -> 200 (rol de la membresía, M3b)
  *   POST  /usuarios/:usuarioId/restablecer-contrasena  -> 204 (contraseña temporal)
  */
 export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
@@ -155,6 +179,36 @@ export async function usuariosRoutes(app: FastifyInstance): Promise<void> {
           sub,
           request.body.activo,
           esSuperAdmin,
+        );
+        return await reply.code(200).send(actualizado);
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Cambiar el ROL de la membresía de un usuario del tenant (M3b: empleado ⇄ supervisor
+  // ⇄ administrador). SOLO toca la Membresia de ESTA empresa (rol per-tenant), nunca el
+  // Usuario.rol global ni las membresías en otras empresas. Denegación 404 ÚNICA
+  // (inexistente = otro tenant = plataforma). El admin no puede cambiar su propio rol
+  // (400). Multi-empresa SÍ permitido (el cambio es per-membresía, sin escalada global).
+  app.patch<{ Params: { usuarioId: string }; Body: { rol: 'administrador' | 'supervisor' | 'empleado' } }>(
+    '/usuarios/:usuarioId/rol',
+    { preHandler: [app.autenticar, app.autorizar('administrador')], schema: esquemaRol },
+    async (request, reply) => {
+      try {
+        // empresaId y el id del admin SIEMPRE del token (request.user), NUNCA del body/path.
+        const { empresaId, sub } = request.user;
+        if (empresaId === null) {
+          // Defensa en profundidad (misma que el resto del módulo): `autorizar` ya
+          // exige empresa activa. Inalcanzable en la práctica.
+          throw new ErrorAutorizacion();
+        }
+        const actualizado = await cambiarRolMembresia(
+          request.params.usuarioId,
+          empresaId,
+          sub,
+          request.body.rol,
         );
         return await reply.code(200).send(actualizado);
       } catch (error) {
