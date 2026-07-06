@@ -1,4 +1,4 @@
-import { txEmpresa } from '../../core/tenant/contexto.js';
+import { contextoTenantActual, txEmpresa } from '../../core/tenant/contexto.js';
 import {
   ErrorAutenticacion,
   ErrorNoEncontrado,
@@ -123,10 +123,35 @@ export function crearServicioFichaje(
         const supervisor = await txEmpresa((tx) =>
           tx.usuario.findUnique({ where: { email: solicitud.supervisorEmail } }),
         );
+        // Frontera de TENANT: la autorización decide por la MEMBRESÍA del
+        // supervisor en la empresa del kiosco (el contexto lo fijó la ruta desde
+        // el token de dispositivo, nunca del body), NO por el Usuario.rol global
+        // (dato legado, retirado de autorización — ARQUITECTURA_MULTITENANT §4.2).
+        // Sin esto, credenciales de un supervisor de la empresa B autorizaban
+        // fichajes en el kiosco de la empresa A. `membresia` está FUERA de RLS:
+        // la consulta va explícita por (usuarioId, empresaId), jamás abierta.
+        // empresaId null → membresia null → rechazo (fail-closed). Una cuenta de
+        // plataforma nunca tiene membresía (§4.2), así que queda excluida sola.
+        const { empresaId } = contextoTenantActual();
+        const membresia =
+          supervisor !== null && empresaId !== null
+            ? await txEmpresa((tx) =>
+                tx.membresia.findUnique({
+                  where: { usuarioId_empresaId: { usuarioId: supervisor.id, empresaId } },
+                }),
+              )
+            : null;
+        // Un solo error para TODOS los fallos (no existe / sin membresía / rol
+        // insuficiente / temporal sin rotar / contraseña mala): sin enumeración.
+        // debeCambiarContrasena: una credencial TEMPORAL fijada por un tercero no
+        // autoriza excepciones — este camino usa credenciales crudas y el guard de
+        // cambio forzado (solo rutas JWT) no lo cubre; se exige aquí (política).
         const autorizado =
           supervisor !== null &&
           supervisor.activo &&
-          (supervisor.rol === 'supervisor' || supervisor.rol === 'administrador') &&
+          !supervisor.debeCambiarContrasena &&
+          membresia !== null &&
+          (membresia.rol === 'supervisor' || membresia.rol === 'administrador') &&
           solicitud.supervisorPassword !== undefined &&
           (await verificarContrasena(supervisor.passwordHash, solicitud.supervisorPassword));
         if (!autorizado) {
