@@ -108,6 +108,8 @@ sembrada (seed base).
 
 - `e2e/specs/usuarios-roles.spec.ts` (`@full`) — **crea** usuarios `e2e-*` y **cambia**
   roles. Solo corre con escritura habilitada.
+- `e2e/specs/fichaje.spec.ts` (`@full`) — **crea** un empleado y un kiosco `e2e-*` y
+  **registra fichajes** (entrada/pausa/salida + excepción por PIN). Solo con escritura.
 - El resto de specs actuales (`production-smoke`, `negocio-estructura`) son de **lectura**
   y no mutan nada.
 
@@ -146,6 +148,7 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 | `production-smoke` | `@smoke @readonly` | login + navegación de dashboard, usuarios, empleados, jornadas, gastos, cuentas-por-pagar, cobros; sin error boundary. |
 | `usuarios-roles` | `@full` | alta de empleado/supervisor, lista muestra Supervisor, cambio de rol vía select, propia fila sin control, solo roles de empresa. |
 | `negocio-estructura` | `@readonly` | render + estructura de dashboard, gastos, cuentas-por-pagar, proveedores, sedes, empleados, kioscos, jornadas, revisión, cobros. |
+| `fichaje` (Phase 2) | `@full` | crea empleado + kiosco `e2e-*`; ficha Entrada→Salida comida→Vuelta de comida→Salida (facial simulado) y verifica la Jornada en `/asistencia/jornadas`; fichaje de excepción (facial rechazado→PIN) que entra en `/asistencia/revision`. |
 
 ### Personas / roles del sistema
 - **plataforma / super-admin** — gestiona empresas y cuentas globales (`/plataforma`).
@@ -158,8 +161,9 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 ### NO cubierto todavía (Phase 2+) y por qué
 | Área | Estado | Motivo |
 |---|---|---|
-| **empleados (alta/edición/baja)** | pendiente | flujo de escritura; requiere sede sembrada + investigar el formulario. |
-| **fichaje → jornada → salario** | pendiente | el fichaje vive en `/kiosco` (device token) y `/asistencia/*`; el salario se calcula en backend (no hay página de nómina dedicada). Requiere empleado+kiosco+turno sembrados. |
+| **empleados (alta)** | **cubierto (Phase 2)** | `fichaje.spec.ts` crea un empleado `e2e-*` por la UI de `/empleados` (edición/baja siguen pendientes). |
+| **fichaje → jornada** | **cubierto (Phase 2)** | `fichaje.spec.ts`: kiosco con device token (creado por UI), entrada/pausa/salida y verificación de la Jornada. |
+| **salario / nómina** | pendiente | el salario se calcula en backend; no hay página de nómina dedicada. Cubrir a nivel API o cuando exista pantalla. |
 | **ventas / cierre de cajera** | **sin ruta UI dedicada** | no hay `/ventas`; el cierre de caja se teclea desde Firestec. Cubrir a nivel API o cuando exista pantalla. |
 | **compras** | dentro de `/cuentas-por-pagar` | registrar factura = crear compra; flujo de escritura Phase 2. |
 | **gastos (crear)** | pendiente | `/gastos` tiene alta; requiere categoría+sede sembradas. |
