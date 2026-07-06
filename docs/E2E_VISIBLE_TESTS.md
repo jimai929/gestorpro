@@ -112,8 +112,11 @@ sembrada (seed base).
   **registra fichajes** (entrada/pausa/salida + excepción por PIN). Solo con escritura.
 - `e2e/specs/jornada-cobro.spec.ts` (`@full`) — **crea** empleado + kiosco `e2e-*`, ficha,
   y verifica la **jornada** calculada y el **saldo/cobro** del empleado. Solo con escritura.
+- `e2e/specs/empleado-editar-baja.spec.ts` (`@full`) — **crea** un empleado `e2e-*`, **edita**
+  nombre y salario, y lo **desactiva** (baja LÓGICA: PUT `activo:false`, nunca borra). Solo
+  con escritura.
 - Los helpers de UI de asistencia (crear empleado/kiosco, fichar) están en
-  `e2e/helpers/asistencia.ts`, compartidos por `fichaje` y `jornada-cobro`.
+  `e2e/helpers/asistencia.ts`, compartidos por `fichaje`, `jornada-cobro` y `empleado-editar-baja`.
 - El resto de specs actuales (`production-smoke`, `negocio-estructura`) son de **lectura**
   y no mutan nada.
 
@@ -154,6 +157,7 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 | `negocio-estructura` | `@readonly` | render + estructura de dashboard, gastos, cuentas-por-pagar, proveedores, sedes, empleados, kioscos, jornadas, revisión, cobros. |
 | `fichaje` (Phase 2) | `@full` | crea empleado + kiosco `e2e-*`; ficha Entrada→Salida comida→Vuelta de comida→Salida (facial simulado) y verifica la Jornada en `/asistencia/jornadas`; fichaje de excepción (facial rechazado→PIN) que entra en `/asistencia/revision`. |
 | `jornada-cobro` (Phase 2) | `@full` | tras fichar, verifica los campos de la jornada (empleado/fecha/horas trabajadas `Xh Ym`/estado) en `/asistencia/jornadas`, y el saldo calculado del empleado (Saldo acumulado / % cobrable / Disponible) en `/asistencia/cobros`. |
+| `empleado-editar-baja` (Phase 2) | `@full` | crea un empleado `e2e-*`; lo **edita** (nombre + salario fijo) y confirma los valores nuevos en la fila (localizada por número); lo **desactiva** (baja LÓGICA) y confirma el badge "Inactivo" + botón "Activar". Sin borrado físico. |
 
 ### Personas / roles del sistema
 - **plataforma / super-admin** — gestiona empresas y cuentas globales (`/plataforma`).
@@ -166,7 +170,7 @@ mismo prefijo. Hoy la limpieza es **manual** (no hay endpoint de borrado; las cu
 ### NO cubierto todavía (Phase 2+) y por qué
 | Área | Estado | Motivo |
 |---|---|---|
-| **empleados (alta)** | **cubierto (Phase 2)** | `fichaje.spec.ts` crea un empleado `e2e-*` por la UI de `/empleados` (edición/baja siguen pendientes). |
+| **empleados (alta/edición/baja)** | **cubierto (Phase 2)** | `fichaje`/`jornada-cobro` crean empleados `e2e-*`; `empleado-editar-baja.spec.ts` cubre **edición** (nombre + salario) y **baja LÓGICA** (soft: PUT `activo:false`, la fila queda con badge "Inactivo"; NO hay borrado físico ni filtro activos/inactivos en la UI). |
 | **fichaje → jornada** | **cubierto (Phase 2)** | `fichaje.spec.ts` + `jornada-cobro.spec.ts`: kiosco con device token (creado por UI), entrada/pausa/salida y verificación de la Jornada y sus campos. |
 | **salario / cobro** | **cubierto (parcial, Phase 2)** | NO hay página de nómina dedicada; el salario/horas-extra se hace visible en `/asistencia/cobros` (saldo, % cobrable, disponible). `jornada-cobro.spec.ts` verifica ese saldo calculado del empleado. El cálculo de nómina completo sigue en backend (cubrible a nivel API). |
 | **ventas / cierre de cajera** | **sin ruta UI dedicada** | no hay `/ventas`; el cierre de caja se teclea desde Firestec. Cubrir a nivel API o cuando exista pantalla. |
