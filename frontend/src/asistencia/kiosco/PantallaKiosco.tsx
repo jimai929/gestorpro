@@ -26,14 +26,17 @@ import type {
   ModoExcepcion,
 } from './tipos';
 import styles from './PantallaKiosco.module.css';
+import { LogIn, Utensils, RotateCcw, LogOut, CheckCircle2, XCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 // ── Constantes de presentación ─────────────────────────────────────────────
 
-const ICONO_TIPO: Record<TipoFichaje, string> = {
-  entrada: '🟢',
-  salida_comida: '🍽',
-  entrada_comida: '🔄',
-  salida: '🔴',
+// Icono por tipo de fichaje (lucide, sin emoji — regla del sistema de diseño).
+const ICONO_TIPO: Record<TipoFichaje, LucideIcon> = {
+  entrada: LogIn,
+  salida_comida: Utensils,
+  entrada_comida: RotateCcw,
+  salida: LogOut,
 };
 
 const TIPOS_FICHAJE: TipoFichaje[] = [
@@ -126,6 +129,20 @@ export function PantallaKiosco() {
   useEffect(() => {
     void cargarKioscos();
   }, [cargarKioscos]);
+
+  // ── Tema oscuro del kiosco ───────────────────────────────────────────────
+  // El kiosco es un dispositivo dedicado y SIEMPRE se muestra en grafito oscuro.
+  // Monta data-theme="dark" en <html> mientras el kiosco está montado y lo retira
+  // al desmontar (no afecta al resto de la app, que sigue en claro por default).
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
 
   // ── Contador regresivo para reiniciar tras resultado ─────────────────────
 
@@ -406,8 +423,9 @@ function PanelTokenDispositivo({
         margin: '0 auto 1rem',
         padding: '0.75rem 1rem',
         borderRadius: 8,
-        background: configurado ? '#f0fdf4' : '#fef2f2',
-        border: `1px solid ${configurado ? '#86efac' : '#fca5a5'}`,
+        background: configurado ? 'var(--color-success-bg)' : 'var(--color-danger-bg)',
+        border: `1px solid ${configurado ? 'var(--color-success)' : 'var(--color-danger)'}`,
+        color: 'var(--color-text)',
         fontSize: '0.85rem',
       }}
     >
@@ -551,7 +569,9 @@ function PasoSeleccion({
               onClick={() => onSeleccionarTipo(tf)}
               type="button"
             >
-              <span className={styles.iconoTipo}>{ICONO_TIPO[tf]}</span>
+              <span className={styles.iconoTipo}>
+                {React.createElement(ICONO_TIPO[tf], { size: 28, 'aria-hidden': true })}
+              </span>
               <span className={styles.nombreTipo}>{t(`asi.tipo.${tf}`)}</span>
             </button>
           ))}
@@ -899,7 +919,13 @@ function PasoResultado({ resultado, contador, onReiniciarAhora }: PropsPasoResul
 
   return (
     <div className={styles.panelResultado}>
-      <span className={styles.iconoResultado}>{esExito ? '✅' : '❌'}</span>
+      <span className={styles.iconoResultado}>
+        {esExito ? (
+          <CheckCircle2 size={64} style={{ color: 'var(--color-success)' }} aria-hidden />
+        ) : (
+          <XCircle size={64} style={{ color: 'var(--color-danger)' }} aria-hidden />
+        )}
+      </span>
 
       <h2 className={styles.tituloResultado}>
         {esExito ? t('asi.kiosco.fichajeRegistradoTitulo') : t('asi.kiosco.noFichar')}
