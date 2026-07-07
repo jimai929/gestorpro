@@ -2,14 +2,18 @@
 
 /*
   Diseño tipo kiosco: pantalla completa, elementos grandes y táctiles.
-  Paleta coherente con el resto de la app (#1a56db, grises, blancos).
+  Fondo OSCURO intencional (#0f172a, se conserva); el acento migra a azul marino
+  tinta (var(--color-primary)) sobre las superficies claras (la tarjeta). El texto
+  que va SOBRE el fondo oscuro se mantiene claro (el marino no se vería). Responsive
+  M2 al final. Los emojis de tipo/resultado y los hex inline del panel de token quedan
+  como follow-up (no en este paso).
 */
 
 /* ── Layout base ── */
 
 .contenedor {
   min-height: 100vh;
-  background: #0f172a;
+  background: #0f172a; /* fondo oscuro del kiosco (se conserva, decisión de diseño) */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -33,7 +37,7 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  background: #1a56db;
+  background: var(--color-primary);
   color: #ffffff;
   border-radius: 14px;
   font-size: 1rem;
@@ -44,7 +48,7 @@
 .tituloKiosco {
   font-size: 1.5rem;
   font-weight: 800;
-  color: #f8fafc;
+  color: #f8fafc; /* texto claro SOBRE el fondo oscuro (no migra a marino) */
   margin: 0;
   letter-spacing: -0.3px;
 }
@@ -52,7 +56,7 @@
 /* ── Tarjeta central (panel del paso actual) ── */
 
 .tarjeta {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 24px;
   padding: 2.5rem 2rem;
   width: 100%;
@@ -72,13 +76,13 @@
 .tituloPaso {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0 0 0.4rem;
 }
 
 .subtituloPaso {
   font-size: 1rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.5;
 }
@@ -94,16 +98,16 @@
 .etiqueta {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .selector {
   padding: 0.875rem 1rem;
-  border: 2px solid #d1d5db;
+  border: 2px solid var(--color-border-strong);
   border-radius: 12px;
   font-size: 1rem;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   width: 100%;
   box-sizing: border-box;
   cursor: pointer;
@@ -112,9 +116,9 @@
 }
 
 .selector:focus {
-  border-color: #1a56db;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
-  background: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  background: var(--color-surface);
 }
 
 /* ── Cuadrícula de tipos de fichaje ── */
@@ -127,9 +131,9 @@
 
 .botonTipo {
   padding: 1rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--color-border);
   border-radius: 14px;
-  background: #f9fafb;
+  background: var(--color-bg);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, transform 0.1s;
   text-align: center;
@@ -140,8 +144,8 @@
 }
 
 .botonTipo:hover {
-  background: #eff6ff;
-  border-color: #93c5fd;
+  background: var(--color-primary-bg);
+  border-color: var(--color-border-strong);
 }
 
 .botonTipo:active {
@@ -149,9 +153,9 @@
 }
 
 .botonTipoSeleccionado {
-  background: #eff6ff;
-  border-color: #1a56db;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.12);
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .iconoTipo {
@@ -161,7 +165,7 @@
 .nombreTipo {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
 }
 
 /* ── Campo grande de identificación ── */
@@ -169,26 +173,26 @@
 .campoGrande {
   font-size: 1.25rem;
   padding: 1rem 1.25rem;
-  border: 2px solid #d1d5db;
+  border: 2px solid var(--color-border-strong);
   border-radius: 12px;
   width: 100%;
   box-sizing: border-box;
   text-align: center;
   letter-spacing: 0.1em;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .campoGrande:focus {
-  border-color: #1a56db;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
-  background: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  background: var(--color-surface);
 }
 
 .campoGrande::placeholder {
-  color: #9ca3af;
+  color: var(--color-text-muted);
   letter-spacing: 0;
 }
 
@@ -198,7 +202,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: #9ca3af;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
 }
 
@@ -207,14 +211,14 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: #e5e7eb;
+  background: var(--color-border);
 }
 
 /* ── Panel de verificación facial simulada ── */
 
 .panelFacial {
-  background: #f0f9ff;
-  border: 2px dashed #93c5fd;
+  background: var(--color-primary-bg);
+  border: 2px dashed var(--color-primary);
   border-radius: 16px;
   padding: 1.5rem 1.25rem;
   display: flex;
@@ -224,8 +228,8 @@
 
 .notaSimulacion {
   font-size: 0.8125rem;
-  color: #1e40af;
-  background: #dbeafe;
+  color: var(--color-primary-text);
+  background: var(--color-surface);
   border-radius: 8px;
   padding: 0.4rem 0.75rem;
   text-align: center;
@@ -235,7 +239,7 @@
 .etiquetaFacial {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
   text-align: center;
 }
 
@@ -247,9 +251,9 @@
 
 .botonSimular {
   padding: 0.875rem 1rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--color-border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--color-surface);
   cursor: pointer;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -260,21 +264,21 @@
 }
 
 .botonSimular:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--color-bg);
+  border-color: var(--color-border-strong);
 }
 
 .botonSimularSeleccionado {
-  border-color: #1a56db;
-  background: #eff6ff;
-  color: #1a56db;
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary-text);
 }
 
 /* ── Panel de excepción ── */
 
 .panelExcepcion {
-  background: #fffbeb;
-  border: 2px solid #fbbf24;
+  background: var(--color-warning-bg);
+  border: 2px solid var(--color-warning);
   border-radius: 16px;
   padding: 1.25rem;
   display: flex;
@@ -284,7 +288,7 @@
 
 .avisoExcepcion {
   font-size: 0.9375rem;
-  color: #92400e;
+  color: var(--color-warning);
   font-weight: 600;
   text-align: center;
 }
@@ -297,25 +301,25 @@
 .pestana {
   flex: 1;
   padding: 0.6rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--color-border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--color-surface);
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   transition: border-color 0.15s, background 0.15s, color 0.15s;
   text-align: center;
 }
 
 .pestana:hover {
-  background: #f3f4f6;
+  background: var(--color-bg);
 }
 
 .pestanaActiva {
-  border-color: #1a56db;
-  background: #eff6ff;
-  color: #1a56db;
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary-text);
 }
 
 /* ── Campo PIN grande (numérico) ── */
@@ -323,22 +327,22 @@
 .campoPIN {
   font-size: 2rem;
   padding: 0.875rem 1rem;
-  border: 2px solid #d1d5db;
+  border: 2px solid var(--color-border-strong);
   border-radius: 12px;
   width: 100%;
   box-sizing: border-box;
   text-align: center;
   letter-spacing: 0.4em;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .campoPIN:focus {
-  border-color: #1a56db;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
-  background: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  background: var(--color-surface);
 }
 
 /* ── Campo de texto normal ── */
@@ -346,20 +350,20 @@
 .campoTexto {
   font-size: 1rem;
   padding: 0.875rem 1rem;
-  border: 2px solid #d1d5db;
+  border: 2px solid var(--color-border-strong);
   border-radius: 12px;
   width: 100%;
   box-sizing: border-box;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .campoTexto:focus {
-  border-color: #1a56db;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
-  background: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  background: var(--color-surface);
 }
 
 /* ── Botón kiosco grande ── */
@@ -368,7 +372,7 @@
   padding: 1.1rem 1.5rem;
   border: none;
   border-radius: 14px;
-  background: #1a56db;
+  background: var(--color-primary);
   color: #ffffff;
   font-size: 1.1rem;
   font-weight: 700;
@@ -379,7 +383,7 @@
 }
 
 .botonKiosco:hover:not(:disabled) {
-  background: #1648c0;
+  background: var(--color-primary-hover);
 }
 
 .botonKiosco:active:not(:disabled) {
@@ -392,21 +396,21 @@
 }
 
 .botonKioscoSecundario {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
   box-shadow: none;
 }
 
 .botonKioscoSecundario:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--color-border);
 }
 
 .botonKioscoPeligro {
-  background: #dc2626;
+  background: var(--color-danger);
 }
 
 .botonKioscoPeligro:hover:not(:disabled) {
-  background: #b91c1c;
+  background: color-mix(in srgb, var(--color-danger) 90%, black);
 }
 
 /* ── Panel de resultado ── */
@@ -428,24 +432,25 @@
 .tituloResultado {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0;
 }
 
 .mensajeResultado {
   font-size: 1rem;
-  color: #374151;
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.5;
 }
 
+/* Badge: pill con fondo -bg + texto del mismo tono. */
 .badgeExcepcion {
   display: inline-block;
   padding: 0.3rem 0.875rem;
-  background: #fffbeb;
-  border: 1.5px solid #fbbf24;
-  color: #92400e;
-  border-radius: 99px;
+  background: var(--color-warning-bg);
+  border: 1.5px solid var(--color-warning);
+  color: var(--color-warning);
+  border-radius: var(--radius-pill);
   font-size: 0.875rem;
   font-weight: 600;
 }
@@ -453,10 +458,10 @@
 .badgeAlertaRRHH {
   display: inline-block;
   padding: 0.3rem 0.875rem;
-  background: #fef2f2;
-  border: 1.5px solid #fca5a5;
-  color: #991b1b;
-  border-radius: 99px;
+  background: var(--color-danger-bg);
+  border: 1.5px solid var(--color-danger);
+  color: var(--color-danger);
+  border-radius: var(--radius-pill);
   font-size: 0.875rem;
   font-weight: 600;
 }
@@ -464,11 +469,11 @@
 /* ── Error genérico ── */
 
 .bannerError {
-  background: #fef2f2;
-  border: 1.5px solid #fca5a5;
+  background: var(--color-danger-bg);
+  border: 1.5px solid var(--color-danger);
   border-radius: 12px;
   padding: 0.875rem 1rem;
-  color: #b91c1c;
+  color: var(--color-danger);
   font-size: 0.9375rem;
   font-weight: 500;
   text-align: center;
@@ -480,7 +485,7 @@
   display: inline-block;
   width: 18px;
   height: 18px;
-  border: 3px solid rgba(255, 255, 255, 0.4);
+  border: 3px solid rgba(255, 255, 255, 0.4); /* spinner blanco sobre botón marino */
   border-top-color: #ffffff;
   border-radius: 50%;
   animation: girar 0.6s linear infinite;
@@ -491,16 +496,43 @@
   to { transform: rotate(360deg); }
 }
 
-/* ── Info del kiosco activo ── */
+/* ── Info del kiosco activo (sobre el fondo oscuro) ── */
 
 .infoKioscoActivo {
   text-align: center;
-  color: #9ca3af;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
   margin-bottom: 0.5rem;
 }
 
 .nombreKioscoActivo {
-  color: #60a5fa;
+  color: #60a5fa; /* acento claro SOBRE el fondo oscuro (el marino no se vería) */
   font-weight: 600;
+}
+
+/* ── Responsive (M2): una sola columna, más ajustado en móvil ── */
+
+@media (max-width: 480px) { /* 480px = --bp-mobile */
+  .contenedor {
+    padding: var(--space-md) var(--space-sm);
+  }
+  .encabezado {
+    margin-bottom: var(--space-xl);
+    gap: var(--space-sm);
+  }
+  .tituloKiosco {
+    font-size: 1.25rem;
+  }
+  .tarjeta {
+    padding: var(--space-xl) var(--space-lg);
+    border-radius: 16px;
+    gap: var(--space-lg);
+  }
+  .tituloPaso {
+    font-size: 1.25rem;
+  }
+  .campoPIN {
+    font-size: 1.5rem;
+    letter-spacing: 0.3em;
+  }
 }

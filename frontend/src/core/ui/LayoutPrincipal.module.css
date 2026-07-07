@@ -1,10 +1,13 @@
 /* ── Layout principal (pantallas autenticadas) ──────────────────── */
+/* Colores por tokens del sistema de diseño (docs/DESIGN_SYSTEM.md): acento azul
+   marino tinta. Pesos/tamaños de fuente se mantienen (migración tipográfica queda
+   como follow-up). Responsive M2 al final del archivo. */
 
 .contenedor {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f3f4f6;
+  background: var(--color-bg);
 }
 
 /* ── Barra de navegación ── */
@@ -15,8 +18,8 @@
   justify-content: space-between;
   padding: 0 1.5rem;
   height: 60px;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   position: sticky;
   top: 0;
@@ -37,9 +40,9 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: #1a56db;
+  background: var(--color-primary);
   color: #ffffff;
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -47,7 +50,7 @@
 .nombreApp {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   letter-spacing: -0.3px;
 }
 
@@ -68,35 +71,36 @@
 .nombreUsuario {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #111928;
+  color: var(--color-text);
 }
 
 /* Empresa activa (o "Plataforma" para super-admin) a la izquierda de la info de usuario. */
 .empresaActual {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
   padding-right: 0.625rem;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--color-border);
 }
 
+/* Badge de rol: pill con fondo -bg + texto del mismo tono (regla de emparejamiento). */
 .badgeRol {
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.15rem 0.5rem;
-  background: #eff6ff;
-  color: #1a56db;
-  border-radius: 99px;
-  border: 1px solid #bfdbfe;
+  background: var(--color-primary-bg);
+  color: var(--color-primary-text);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
 }
 
 .botonSalir,
 .botonAccion {
   padding: 0.4rem 0.875rem;
-  border: 1.5px solid #d1d5db;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #374151;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -105,17 +109,17 @@
 
 .botonSalir:hover,
 .botonAccion:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
+  background: var(--color-bg);
+  border-color: var(--color-border-strong);
 }
 
 /* Error del "volver a plataforma": banda visible bajo la barra (mutación fallida). */
 .errorBarra {
   margin: 0;
   padding: 0.5rem 1.5rem;
-  background: #fef2f2;
-  color: #b91c1c;
-  border-bottom: 1px solid #fecaca;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-bottom: 1px solid var(--color-danger);
   font-size: 0.875rem;
   font-weight: 500;
 }
@@ -135,10 +139,10 @@
 .selectorEmpresa {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #374151;
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
   padding: 0.25rem 0.5rem;
   margin-right: 0.625rem;
   cursor: pointer;
@@ -147,4 +151,36 @@
 .selectorEmpresa:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+/* ── Responsive (M2): la barra se pliega en pantallas estrechas, sin desbordar ── */
+
+@media (max-width: 768px) { /* 768px = --bp-tablet */
+  .barra {
+    flex-wrap: wrap;
+    height: auto;
+    padding: var(--space-sm) var(--space-md);
+    gap: var(--space-sm);
+  }
+  .acciones {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+  .principal {
+    padding: var(--space-lg) var(--space-md);
+  }
+}
+
+@media (max-width: 480px) { /* 480px = --bp-mobile */
+  .barra {
+    row-gap: var(--space-sm);
+  }
+  /* La marca queda en su fila; las acciones bajan a la siguiente, a todo el ancho. */
+  .acciones {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .infoUsuario {
+    flex-wrap: wrap;
+  }
 }
