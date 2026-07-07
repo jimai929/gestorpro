@@ -1,8 +1,8 @@
 /* ── Formulario de empleado (alta / edición) ─────────────────────── */
 
 .contenedor {
-  background: #f9fafb;
-  border: 1.5px solid #e5e7eb;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
   display: flex;
@@ -13,7 +13,7 @@
 .titulo {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #374151;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
@@ -33,30 +33,30 @@
 .etiqueta {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .select {
   width: 100%;
   padding: 0.625rem 0.875rem;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 8px;
   font-size: 1rem;
-  color: #111928;
-  background: #ffffff;
+  color: var(--color-text);
+  background: var(--color-surface);
   transition: border-color 0.15s, box-shadow 0.15s;
   outline: none;
   box-sizing: border-box;
 }
 
 .select:focus {
-  border-color: #1a56db;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
 }
 
 .select:disabled {
   opacity: 0.6;
-  background: #f3f4f6;
+  background: var(--color-surface-raised);
   cursor: not-allowed;
 }
 
@@ -78,7 +78,7 @@
   align-items: center;
   gap: 0.4rem;
   font-size: 0.9375rem;
-  color: #374151;
+  color: var(--color-text-secondary);
   cursor: pointer;
 }
 
@@ -88,7 +88,7 @@
 
 .rolesVacio {
   font-size: 0.8125rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .acciones {
@@ -99,9 +99,9 @@
 
 .error {
   font-size: 0.8125rem;
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
 }
@@ -109,7 +109,7 @@
 /* Aviso de error bajo un campo cuando falló su carga (sedes/roles), con reintento. */
 .ayudaError {
   font-size: 0.8125rem;
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 
 .enlaceReintentar {
@@ -117,7 +117,7 @@
   border: none;
   padding: 0;
   font: inherit;
-  color: #1a56db;
+  color: var(--color-primary-text);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;

@@ -21,6 +21,17 @@ import styles from './PantallaKioscos.module.css';
 
 export function PantallaKioscos() {
   const { t } = useTraduccion();
+  // Monta el tema oscuro mientras esta pantalla está visible; restaura el
+  // valor previo al desmontar para no dejar dark residual en páginas claras.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
   // GET /usuarios exige administrador incluso para LEER (a diferencia del resto de la
   // nav): el enlace se oculta a quien solo vería un 403. Hook tolerante: sin proveedor
   // (tests de la pantalla) simplemente no se muestra. La frontera real es el backend.
@@ -106,7 +117,7 @@ export function PantallaKioscos() {
         {tokenRevelado && (
           <div
             className={styles.tarjeta}
-            style={{ border: '2px solid #2563eb', background: '#eff6ff' }}
+            style={{ border: '2px solid var(--color-primary)', background: 'var(--color-primary-bg)' }}
           >
             <p style={{ fontWeight: 600, margin: 0 }}>
               {t('adm.kiosco.tokenTitulo', { nombre: tokenRevelado.nombre })}
@@ -118,7 +129,7 @@ export function PantallaKioscos() {
               style={{
                 display: 'block',
                 padding: '0.5rem',
-                background: '#fff',
+                background: 'var(--color-surface)',
                 borderRadius: 4,
                 wordBreak: 'break-all',
                 userSelect: 'all',

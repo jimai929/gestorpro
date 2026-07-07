@@ -23,6 +23,18 @@ import styles from './PantallaSedes.module.css';
 
 export function PantallaSedes() {
   const { t } = useTraduccion();
+
+  // Tema oscuro: se monta mientras esta pantalla está viva y se restaura al salir.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   // A diferencia del resto de la nav (legible por todo rol), GET /usuarios exige
   // administrador incluso para LEER: el enlace se oculta a quien solo vería un 403.
   // Gating solo de UI (la frontera real es el backend); hook tolerante: sin proveedor

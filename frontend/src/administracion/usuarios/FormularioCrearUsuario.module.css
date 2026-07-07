@@ -9,7 +9,7 @@
 .titulo {
   font-size: 1rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0;
 }
 
@@ -21,9 +21,9 @@
 
 .error {
   font-size: 0.8125rem;
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   margin: 0;
@@ -40,16 +40,16 @@
 .etiqueta {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .select {
   padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   font-size: 0.9375rem;
-  color: #111928;
-  background: #ffffff;
+  color: var(--color-text);
+  background: var(--color-surface);
 }
 
 /* ── Panel de éxito ──────────────────────────────────────────────── */
@@ -64,7 +64,7 @@
 .exitoTitulo {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #065f46;
+  color: var(--color-success);
   margin: 0;
 }
 
@@ -79,28 +79,28 @@
 .exitoFila {
   display: flex;
   gap: 0.75rem;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-border);
   padding-bottom: 0.5rem;
 }
 
 .exitoFila dt {
   flex: 0 0 11rem;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
 .exitoFila dd {
   margin: 0;
-  color: #111827;
+  color: var(--color-text);
   font-weight: 500;
 }
 
 .exitoAviso {
   font-size: 0.875rem;
-  color: #92400e;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
   border-radius: 8px;
   padding: 0.625rem 0.875rem;
   margin: 0;

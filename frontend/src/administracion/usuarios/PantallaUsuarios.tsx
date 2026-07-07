@@ -27,6 +27,18 @@ export function PantallaUsuarios() {
   const { t } = useTraduccion();
   const { usuario: usuarioSesion } = useAuth();
 
+  // Monta el tema oscuro mientras esta pantalla está visible; restaura el
+  // valor previo al desmontar para no dejar dark residual en páginas claras.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   const [usuarios, setUsuarios] = useState<UsuarioListado[] | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);

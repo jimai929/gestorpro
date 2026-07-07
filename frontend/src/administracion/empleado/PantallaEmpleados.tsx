@@ -39,6 +39,18 @@ interface EstadoQr {
 
 export function PantallaEmpleados() {
   const { t } = useTraduccion();
+
+  // Tema oscuro mientras esta pantalla esté montada; restaura el previo al salir.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   // GET /usuarios exige administrador incluso para LEER (a diferencia del resto de la
   // nav): el enlace se oculta a quien solo vería un 403. Hook tolerante: sin proveedor
   // (tests de la pantalla) simplemente no se muestra. La frontera real es el backend.
