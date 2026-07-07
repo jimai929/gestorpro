@@ -93,3 +93,134 @@ Tres niveles de jerarquía, **no más**. Solo dos pesos: **400** (`--fw-regular`
   siguen en uso; se retiran solo cuando ninguna página los referencie. Al tocar una página
   (p. ej. en la fase responsive M2), migrarla a estos tokens de paso.
 - Página de referencia / plantilla: `PantallaInicio.tsx` (primer patrón aplicado).
+
+---
+
+# Tema Oscuro Grafito Cálido
+
+Dirección visual FINAL de GestorPro: UI oscura de grafito cálido + barra lateral fija a la
+izquierda + acento ámbar cálido. **Estado: M0 — SOLO documentación.** Estos valores todavía
+NO están en `global.css`; el tema vigente sigue siendo el claro marino. Este apartado fija
+los tokens para las fases siguientes (esqueleto → validación de una página → despliegue por
+páginas). Cuando se apliquen, reemplazarán los valores de los tokens homónimos en `:root`.
+
+## Superficies (4 niveles de profundidad)
+
+| Token | Valor | Uso |
+|---|---|---|
+| `--color-sidebar` | `#151413` | barra lateral (ancla visual, la superficie más oscura) |
+| `--color-bg` | `#1A1917` | fondo de página |
+| `--color-surface` | `#232120` | tarjetas / paneles |
+| `--color-surface-raised` | `#2A2724` | hover / popover / seleccionado |
+| `--color-border` | `#34312E` | borde fino |
+| `--color-border-strong` | `#413D39` | hover / divisor |
+
+## Color primario (ámbar cálido)
+
+| Token | Valor | Uso |
+|---|---|---|
+| `--color-primary` | `#D9954F` | botones / enlaces / selección |
+| `--color-primary-hover` | `#E0A96A` | hover del primario |
+| `--color-primary-bg` | `#2E2724` | fondo de pill / badge ámbar |
+| `--color-primary-text` | `#E0A96A` | texto ámbar sobre fondo oscuro |
+| `--on-primary` | `#151413` | texto sobre botón ámbar sólido |
+
+## Texto (sobre fondo oscuro)
+
+| Token | Valor | Uso |
+|---|---|---|
+| `--color-text` | `#F0EBE4` | texto principal |
+| `--color-text-secondary` | `#A79E92` | texto secundario |
+| `--color-text-muted` | `#8A8175` | placeholder / pista (aclarado desde `#7A7268`; pasa AA vs bg pero NO vs surface — ver contraste) |
+
+## Semánticos (versión oscura, RE-CALIBRADOS para grafito — NO son los claros invertidos)
+
+| Token | Valor | Fondo -bg |
+|---|---|---|
+| `--color-success` | `#5FBE8A` | `#1C2E25` |
+| `--color-danger` | `#E8756B` | `#2E1F1D` |
+| `--color-warning` | `#E0A94F` | `#2E2820` |
+
+## Finanzas (negocio núcleo)
+
+| Token | Valor |
+|---|---|
+| `--color-amount-positive` | `#5FBE8A` |
+| `--color-amount-negative` | `#E8756B` |
+| `--color-amount-neutral` | `#F0EBE4` |
+| `--color-table-stripe` | `#1F1D1B` |
+| `--color-table-header` | `#2A2724` |
+
+## Estados de navegación (barra lateral)
+
+| Estado | Fondo | Texto |
+|---|---|---|
+| default | transparente | `#A79E92` (`--color-text-secondary`) |
+| hover | `#232120` (`--color-surface`) | `#F0EBE4` (`--color-text`) |
+| seleccionado | `#2A2724` (`--color-surface-raised`) | `#E0A96A` (`--color-primary-text`) |
+
+## Contraste WCAG (REAL, calculado)
+
+Ratios calculados con la fórmula de luminancia relativa de WCAG 2.1 (sRGB: canal linealizado
+`c<=0.03928 ? c/12.92 : ((c+0.055)/1.055)^2.4`; `L = 0.2126R + 0.7152G + 0.0722B`;
+`contraste = (Lmax+0.05)/(Lmin+0.05)`). Umbral **AA texto normal = 4.5:1**; UI/texto grande = 3.0:1.
+
+**Contra `--color-bg` `#1A1917`:**
+
+| Color | Hex | Ratio | AA 4.5 | UI/grande 3.0 |
+|---|---|---|---|---|
+| text | `#F0EBE4` | **14.81:1** | ✅ PASS | ✅ |
+| text-secondary | `#A79E92` | **6.65:1** | ✅ PASS | ✅ |
+| **text-muted** | `#8A8175` | **4.58:1** | ✅ PASS | ✅ |
+| primary | `#D9954F` | **7.00:1** | ✅ PASS | ✅ |
+| primary-text / hover | `#E0A96A` | **8.41:1** | ✅ PASS | ✅ |
+| success / amount-positive | `#5FBE8A` | **7.71:1** | ✅ PASS | ✅ |
+| danger / amount-negative | `#E8756B` | **6.01:1** | ✅ PASS | ✅ |
+| warning | `#E0A94F` | **8.33:1** | ✅ PASS | ✅ |
+| amount-neutral | `#F0EBE4` | **14.81:1** | ✅ PASS | ✅ |
+
+**Contextos alternativos (fondo distinto):**
+
+| Par | Ratio | AA 4.5 |
+|---|---|---|
+| `--on-primary` `#151413` sobre botón `--color-primary` `#D9954F` | **7.33:1** | ✅ PASS (texto legible en botón ámbar) |
+| text `#F0EBE4` sobre surface `#232120` | **13.52:1** | ✅ PASS |
+| text-secondary `#A79E92` sobre surface `#232120` | **6.07:1** | ✅ PASS |
+| **text-muted `#8A8175` sobre surface `#232120`** | **4.18:1** | ❌ **FAIL** (mejoró desde 3.39, pero sigue < 4.5) |
+
+### ⚠ Hallazgo de accesibilidad (NO silenciado)
+
+`--color-text-muted` se **aclaró de `#7A7268` a `#8A8175`** (decisión de Jim, M0). Con eso:
+**pasa AA sobre el fondo de página** (`#1A1917`, **4.58:1**), pero **sigue SIN pasar AA sobre
+surface** (`#232120`, **4.18:1** < 4.5:1) — mejoró desde 3.39:1 pero no lo cierra. Como el
+muted se usa mayormente en tarjetas (surface), **la regla de uso se mantiene:** limitar
+`--color-text-muted` a placeholders, pistas no esenciales y texto grande; **NUNCA** para
+contenido de lectura esencial (valores, importes, etiquetas). Para texto secundario legible
+usar `--color-text-secondary` (`#A79E92`, 6.65:1 vs bg / 6.07:1 vs surface, pasa AA en ambos).
+Si en el paso 1 se necesita muted legible SOBRE tarjetas, habrá que aclararlo más (p. ej.
+~`#9A9184`) — pendiente de revisar al aplicar. Todos los demás colores de texto y semánticos
+pasan AA (vs bg y vs surface).
+
+## Regla de desambiguación: warning vs primary (mismo tono ámbar)
+
+`--color-warning` (`#E0A94F`) y `--color-primary` (`#D9954F`) comparten tono ámbar y son
+casi idénticos. Para que el usuario no confunda "estado de aviso" con "control interactivo":
+
+- **`--color-primary` SOLO en controles interactivos**: botones, enlaces, selección, foco.
+- **`--color-warning` SOLO en etiquetas de ESTADO** (pendiente / adelanto / anomalía),
+  **siempre acompañado de icono y/o texto** (nunca solo el color como señal).
+- Nunca usar el ámbar primario como decoración de estado ni el warning como acento de un control.
+
+## Páginas / componentes afectados por el cambio de tema
+
+- **LayoutPrincipal** — cambio estructural mayor: la barra superior (`topbar`) pasa a **barra
+  lateral fija a la izquierda** (`--color-sidebar`), con los estados default/hover/seleccionado
+  de arriba. Es el cambio de más impacto (afecta el marco de toda la app autenticada).
+- **finanzas** (dashboard, cuentas por pagar, gastos, proveedores) — **tablas** (stripe/header)
+  y **montos** (positive/negative/neutral) sobre fondo grafito; núcleo del negocio.
+- **kiosco** (`PantallaKiosco`) — ya es oscuro; recalibrar su fondo/acento a estos tokens
+  (hoy usa `#0f172a` + acento marino → grafito `--color-bg` + ámbar).
+- **administracion** (empleados, usuarios, sedes, kioscos) — listas + formularios + badges.
+- **PantallaInicio** — plantilla; re-migrar del marino claro al grafito oscuro.
+- **auth** (login, cambio forzado, diálogos) — superficies y campos sobre fondo oscuro.
+- Transversal: badges/pills, inputs, focus rings — todos re-tematizados por token.
