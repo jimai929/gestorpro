@@ -8,6 +8,7 @@ import { useAuth } from './core/auth/ContextoAuth';
 import { useTraduccion } from './core/i18n/ContextoIdioma';
 import { LayoutPrincipal } from './core/ui/LayoutPrincipal';
 import { Link } from 'react-router';
+import { Wallet, Building2, Clock, ShieldCheck } from 'lucide-react';
 import styles from './PantallaInicio.module.css';
 
 export function PantallaInicio() {
@@ -35,7 +36,7 @@ export function PantallaInicio() {
 
         <div className={styles.tarjetasModulos}>
           <div className={styles.tarjeta}>
-            <div className={styles.iconoModulo}>💰</div>
+            <Wallet className={styles.iconoModulo} size={26} strokeWidth={1.75} aria-hidden />
             <h2 className={styles.tituloModulo}>{t('inicio.finanzas')}</h2>
             <p className={styles.descripcionModulo}>
               {t('inicio.finanzasDesc')}
@@ -54,7 +55,7 @@ export function PantallaInicio() {
           </div>
 
           <div className={styles.tarjeta}>
-            <div className={styles.iconoModulo}>🏢</div>
+            <Building2 className={styles.iconoModulo} size={26} strokeWidth={1.75} aria-hidden />
             <h2 className={styles.tituloModulo}>{t('inicio.administracion')}</h2>
             <p className={styles.descripcionModulo}>
               {t('inicio.administracionDesc')}
@@ -82,7 +83,7 @@ export function PantallaInicio() {
           </div>
 
           <div className={styles.tarjeta}>
-            <div className={styles.iconoModulo}>⏱</div>
+            <Clock className={styles.iconoModulo} size={26} strokeWidth={1.75} aria-hidden />
             <h2 className={styles.tituloModulo}>{t('inicio.asistencia')}</h2>
             <p className={styles.descripcionModulo}>
               {t('inicio.asistenciaDesc')}
@@ -111,7 +112,7 @@ export function PantallaInicio() {
           {/* Plataforma — solo super-admin. La frontera real es el backend; esto es UI. */}
           {usuario.esSuperAdmin && (
             <div className={styles.tarjeta}>
-              <div className={styles.iconoModulo}>🛠</div>
+              <ShieldCheck className={styles.iconoModulo} size={26} strokeWidth={1.75} aria-hidden />
               <h2 className={styles.tituloModulo}>{t('inicio.plataforma')}</h2>
               <p className={styles.descripcionModulo}>{t('inicio.plataformaDesc')}</p>
               <div className={styles.enlacesModulo}>
