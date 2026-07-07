@@ -1,35 +1,39 @@
 /* ── Layout principal (pantallas autenticadas) ──────────────────── */
-/* Colores por tokens del sistema de diseño (docs/DESIGN_SYSTEM.md): acento azul
-   marino tinta. Pesos/tamaños de fuente se mantienen (migración tipográfica queda
-   como follow-up). Responsive M2 al final del archivo. */
+/* Barra lateral fija a la izquierda (1b). El rail usa los tokens FIJOS
+   --color-sidebar-* (grafito en ambas fases; ver global.css). El área de contenido
+   sigue el tema de la página. Responsive DEFINITIVO al final (≤768px → rail de
+   iconos): M2 no vuelve a tocar este archivo. */
 
 .contenedor {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   min-height: 100vh;
   background: var(--color-bg);
 }
 
-/* ── Barra de navegación ── */
+/* ── Barra lateral ── */
 
-.barra {
+.sidebar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1.5rem;
-  height: 60px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 240px;
+  flex-shrink: 0;
+  padding: var(--space-lg) var(--space-sm);
+  background: var(--color-sidebar);
+  color: var(--color-sidebar-text);
   position: sticky;
   top: 0;
-  z-index: 100;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .marca {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-sm);
+  padding: 0 var(--space-sm);
   text-decoration: none;
   color: inherit;
 }
@@ -40,8 +44,9 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: var(--color-primary);
-  color: #ffffff;
+  flex-shrink: 0;
+  background: var(--color-sidebar-text-active);
+  color: var(--color-sidebar);
   border-radius: var(--radius);
   font-size: 0.75rem;
   font-weight: 800;
@@ -50,101 +55,122 @@
 .nombreApp {
   font-size: 1.125rem;
   font-weight: 700;
-  color: var(--color-text);
+  color: var(--color-sidebar-text-hover);
   letter-spacing: -0.3px;
 }
 
-/* ── Sección de usuario ── */
+/* ── Navegación ── */
 
-.acciones {
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.grupoTitulo {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0 var(--space-sm) var(--space-xs);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-sidebar-text);
+}
+
+.grupoIcono {
+  flex-shrink: 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px; /* objetivo táctil */
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius);
+  color: var(--color-sidebar-text);
+  text-decoration: none;
+  font-size: var(--fs-body);
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+
+.item:hover {
+  background: var(--color-sidebar-item-hover);
+  color: var(--color-sidebar-text-hover);
+}
+
+.itemActivo {
+  background: var(--color-sidebar-item-active);
+  color: var(--color-sidebar-text-active);
+}
+
+.itemIcono {
+  flex-shrink: 0;
+}
+
+/* Empuja el área de cuenta al fondo del rail. */
+.espaciador {
+  flex: 1;
+}
+
+/* ── Área de cuenta (fondo del rail) ── */
+
+.cuenta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-sidebar-item-active);
 }
 
 .infoUsuario {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: 0 var(--space-sm);
+}
+
+.empresaActual {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  color: var(--color-sidebar-text);
 }
 
 .nombreUsuario {
-  font-size: 0.9375rem;
+  font-size: var(--fs-body);
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-sidebar-text-hover);
 }
 
-/* Empresa activa (o "Plataforma" para super-admin) a la izquierda de la info de usuario. */
-.empresaActual {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  padding-right: 0.625rem;
-  border-right: 1px solid var(--color-border);
-}
-
-/* Badge de rol: pill con fondo -bg + texto del mismo tono (regla de emparejamiento). */
+/* Badge de rol: pill ámbar sobre el rail oscuro (regla de emparejamiento). */
 .badgeRol {
-  font-size: 0.75rem;
+  align-self: flex-start;
+  font-size: var(--fs-caption);
   font-weight: 600;
   padding: 0.15rem 0.5rem;
-  background: var(--color-primary-bg);
-  color: var(--color-primary-text);
+  background: var(--color-sidebar-item-active);
+  color: var(--color-sidebar-text-active);
   border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border);
 }
 
-.botonSalir,
-.botonAccion {
-  padding: 0.4rem 0.875rem;
-  border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.botonSalir:hover,
-.botonAccion:hover {
-  background: var(--color-bg);
-  border-color: var(--color-border-strong);
-}
-
-/* Error del "volver a plataforma": banda visible bajo la barra (mutación fallida). */
-.errorBarra {
-  margin: 0;
-  padding: 0.5rem 1.5rem;
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-  border-bottom: 1px solid var(--color-danger);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-/* ── Contenido principal ── */
-
-.principal {
-  flex: 1;
-  padding: 2rem 1.5rem;
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
-/* Selector de empresa (multi-membresía): reemplaza a .empresaActual en la barra. */
 .selectorEmpresa {
-  font-size: 0.9375rem;
+  font-size: var(--fs-label);
   font-weight: 600;
-  color: var(--color-text-secondary);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-strong);
+  color: var(--color-sidebar-text-hover);
+  background: var(--color-sidebar-item-hover);
+  border: 1px solid var(--color-sidebar-item-active);
   border-radius: var(--radius);
-  padding: 0.25rem 0.5rem;
-  margin-right: 0.625rem;
+  padding: 0.35rem 0.5rem;
   cursor: pointer;
 }
 
@@ -153,34 +179,98 @@
   cursor: wait;
 }
 
-/* ── Responsive (M2): la barra se pliega en pantallas estrechas, sin desbordar ── */
+.accionesCuenta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.botonAccion,
+.botonSalir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px; /* objetivo táctil */
+  padding: 0 var(--space-sm);
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-sidebar-text);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.botonAccion:hover,
+.botonSalir:hover {
+  background: var(--color-sidebar-item-hover);
+  color: var(--color-sidebar-text-hover);
+}
+
+/* ── Contenido principal ── */
+
+.principal {
+  flex: 1;
+  min-width: 0; /* permite que el contenido no fuerce el ancho del flex */
+  padding: 2rem 1.5rem;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Error del "volver a plataforma": banda visible arriba del contenido. */
+.errorBarra {
+  margin: 0 0 var(--space-lg);
+  padding: 0.5rem 0.75rem;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius);
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+
+/* ── Responsive DEFINITIVO (≤768px): rail de solo iconos ─────────────────
+   Colapsa el rail a iconos (con title/aria-label ya en el JSX; objetivo táctil
+   ≥44px). Esta ES la adaptación móvil final de LayoutPrincipal — M2 no la rehace. */
 
 @media (max-width: 768px) { /* 768px = --bp-tablet */
-  .barra {
-    flex-wrap: wrap;
-    height: auto;
-    padding: var(--space-sm) var(--space-md);
-    gap: var(--space-sm);
+  .sidebar {
+    width: 64px;
+    padding: var(--space-lg) var(--space-xs);
+    gap: var(--space-md);
   }
-  .acciones {
-    flex-wrap: wrap;
-    gap: var(--space-sm);
+  /* Ocultar TODAS las etiquetas de texto: quedan solo los iconos. */
+  .itemLabel,
+  .nombreApp {
+    display: none;
+  }
+  .marca,
+  .grupoTitulo,
+  .item,
+  .botonAccion,
+  .botonSalir {
+    justify-content: center;
+    padding: 0;
+  }
+  .grupoTitulo {
+    padding-bottom: var(--space-xs);
+  }
+  /* El área de info (empresa/nombre/rol) y el selector de idioma no caben en el
+     rail estrecho: se ocultan. Quedan accesibles en escritorio. */
+  .infoUsuario,
+  .selectorIdioma,
+  .selectorEmpresa {
+    display: none;
+  }
+  .item,
+  .botonAccion,
+  .botonSalir {
+    min-width: 44px; /* objetivo táctil también en ancho */
   }
   .principal {
     padding: var(--space-lg) var(--space-md);
-  }
-}
-
-@media (max-width: 480px) { /* 480px = --bp-mobile */
-  .barra {
-    row-gap: var(--space-sm);
-  }
-  /* La marca queda en su fila; las acciones bajan a la siguiente, a todo el ancho. */
-  .acciones {
-    width: 100%;
-    justify-content: flex-start;
-  }
-  .infoUsuario {
-    flex-wrap: wrap;
   }
 }

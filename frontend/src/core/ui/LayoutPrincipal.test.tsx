@@ -109,7 +109,10 @@ describe('LayoutPrincipal — empresa activa en la barra superior', () => {
       debeCambiarContrasena: false,
       membresias: [],
     });
-    expect(screen.getByText('Plataforma')).toBeTruthy();
+    // "Plataforma" ahora aparece en varios sitios (etiqueta de empresa en la cuenta +
+    // grupo/enlace de navegación del rail, que solo ve el super-admin): basta con que
+    // exista. La ausencia del botón "Volver" es lo que este caso protege.
+    expect(screen.getAllByText('Plataforma').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Volver a plataforma' })).toBeNull();
   });
 

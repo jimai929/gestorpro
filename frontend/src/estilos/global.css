@@ -49,6 +49,17 @@
   --color-warning: #B8791A;
   --color-warning-bg: #FBF1E0;
 
+  /* Barra lateral — rail SIEMPRE oscuro (decisión 1b ①A). Toma los valores grafito
+     de M0 y se usan IGUAL en claro y oscuro: el rail es el ancla visual oscura en
+     ambas fases; solo el área de contenido sigue el tema (data-theme). Por eso son
+     tokens FIJOS en :root (no dependen de data-theme). Detalle: docs/DESIGN_SYSTEM.md. */
+  --color-sidebar: #151413;             /* fondo del rail */
+  --color-sidebar-item-hover: #232120;  /* fondo de item en hover (= surface grafito) */
+  --color-sidebar-item-active: #2A2724; /* fondo de item activo (= surface-raised grafito) */
+  --color-sidebar-text: #A79E92;        /* texto de nav por defecto */
+  --color-sidebar-text-hover: #F0EBE4;  /* texto de nav en hover */
+  --color-sidebar-text-active: #E0A96A; /* texto/acento de nav activo (ámbar) */
+
   /* Tipografía — tamaños (3 niveles de jerarquía) */
   --fs-title: 20px;
   --fs-heading: 15px;

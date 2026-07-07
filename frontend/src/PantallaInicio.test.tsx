@@ -8,6 +8,14 @@ import * as auth from './core/auth/ContextoAuth';
 // inyectar el flag; i18n cae a español sin proveedor (textos en español).
 vi.mock('./core/auth/ContextoAuth');
 
+// Aísla la pantalla de su layout: LayoutPrincipal (barra lateral, 1b) trae su propia
+// navegación —incluido un enlace a /plataforma para super-admin— que duplicaría los
+// enlaces de las tarjetas y haría ambiguas las queries. Este test cubre SOLO las
+// tarjetas de PantallaInicio, así que el layout se reemplaza por un passthrough.
+vi.mock('./core/ui/LayoutPrincipal', () => ({
+  LayoutPrincipal: ({ children }: { children: unknown }) => children,
+}));
+
 function montar(esSuperAdmin: boolean) {
   vi.mocked(auth.useAuth).mockReturnValue({
     usuario: {
