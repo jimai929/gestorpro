@@ -25,6 +25,20 @@ import styles from './PantallaProveedores.module.css';
 
 export function PantallaProveedores() {
   const { t } = useTraduccion();
+
+  // ── Tema oscuro grafito ──────────────────────────────────────────────────
+  // Esta pantalla se muestra SIEMPRE en grafito oscuro. Monta data-theme="dark"
+  // en <html> mientras está montada y restaura el valor previo al desmontar.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);

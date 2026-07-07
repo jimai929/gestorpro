@@ -39,6 +39,20 @@ import styles from './PantallaDashboard.module.css';
 
 export function PantallaDashboard() {
   const { t } = useTraduccion();
+
+  // Tema oscuro para el área de finanzas: montar data-theme="dark" en la raíz
+  // mientras esta pantalla esté viva, restaurando el valor previo al desmontar
+  // (sin cleanup quedaría dark residual al navegar a una página clara aún no migrada).
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   // Filtros
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [cajeras, setCajeras] = useState<string[]>([]);

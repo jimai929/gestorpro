@@ -1,11 +1,11 @@
 /* ── Formulario de registro de cierre diario ────────────────────── */
 
 .tarjeta {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 16px;
   padding: 1.75rem 2rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
 }
 
 .encabezado {
@@ -20,13 +20,13 @@
 .titulo {
   font-size: 1.0625rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0 0 0.2rem;
 }
 
 .nota {
   font-size: 0.8125rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.4;
 }
@@ -48,17 +48,17 @@
 .etiqueta {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .select {
   width: 100%;
   padding: 0.625rem 0.875rem;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 8px;
   font-size: 1rem;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   transition: border-color 0.15s, box-shadow 0.15s;
   outline: none;
   cursor: pointer;
@@ -66,8 +66,8 @@
 }
 
 .select:focus {
-  border-color: #1a56db;
-  background: #ffffff;
+  border-color: var(--color-primary);
+  background: var(--color-surface);
   box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
 }
 
@@ -81,7 +81,7 @@
 .arqueo {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
-  border-top: 1px dashed #e5e7eb;
+  border-top: 1px dashed var(--color-border);
 }
 
 .arqueoEncabezado {
@@ -96,12 +96,12 @@
 .arqueoTitulo {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
 }
 
 .arqueoNota {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--color-text-muted);
 }
 
 .cuadriculaArqueo {
@@ -117,18 +117,18 @@
   gap: 0.75rem;
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .totalArqueoValor {
   font-size: 1.125rem;
   font-weight: 800;
-  color: #1a56db;
+  color: var(--color-primary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -138,13 +138,13 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  background: #fffbeb;
-  border: 1.5px solid #fcd34d;
+  background: var(--color-warning-bg);
+  border: 1.5px solid var(--color-warning);
   border-radius: 10px;
   padding: 0.875rem 1rem;
   margin-top: 1rem;
   font-size: 0.9375rem;
-  color: #92400e;
+  color: var(--color-warning);
   line-height: 1.45;
 }
 
@@ -154,13 +154,13 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  background: #fff7ed;
-  border: 1.5px solid #fdba74;
+  background: var(--color-warning-bg);
+  border: 1.5px solid var(--color-warning);
   border-radius: 10px;
   padding: 0.75rem 1rem;
   margin-top: 1rem;
   font-size: 0.875rem;
-  color: #9a3412;
+  color: var(--color-warning);
   line-height: 1.45;
 }
 
@@ -173,13 +173,13 @@
 /* Ayuda contextual bajo un campo (p. ej. sede sin cajeras). */
 .ayudaCampo {
   font-size: 0.75rem;
-  color: #b45309;
+  color: var(--color-warning);
 }
 
 /* Aviso de error bajo un campo cuando falló su carga (sedes/empleados), con reintento. */
 .ayudaError {
   font-size: 0.75rem;
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 
 .enlaceReintentar {
@@ -187,7 +187,7 @@
   border: none;
   padding: 0;
   font: inherit;
-  color: #1a56db;
+  color: var(--color-primary-text);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -206,9 +206,9 @@
 
 .error {
   font-size: 0.8125rem;
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   margin-top: 0.75rem;

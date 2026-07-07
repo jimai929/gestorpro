@@ -62,6 +62,15 @@
   --color-sidebar-text-hover: #F0EBE4;  /* texto de nav en hover */
   --color-sidebar-text-active: #E0A96A; /* texto/acento de nav activo (ámbar) */
 
+  /* Finanzas — montos y tablas. Defaults CLAROS aquí; los valores grafito viven en
+     :root[data-theme="dark"] (M0). Las páginas de finanzas montan data-theme="dark"
+     (siempre oscuras), así que estos claros solo son fallback anti-parpadeo. */
+  --color-amount-positive: #1D7A5A; /* ingreso / ganancia (verde) */
+  --color-amount-negative: #B23B3B; /* egreso / pérdida (rojo) */
+  --color-amount-neutral: #1A1D21;  /* monto neutro (= texto) */
+  --color-table-stripe: #F7F8FA;    /* fila alterna (zebra) */
+  --color-table-header: #EFF2F6;    /* cabecera de tabla */
+
   /* Tipografía — tamaños (3 niveles de jerarquía) */
   --fs-title: 20px;
   --fs-heading: 15px;

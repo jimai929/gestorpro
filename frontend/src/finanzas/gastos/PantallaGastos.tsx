@@ -26,6 +26,19 @@ import styles from './PantallaGastos.module.css';
 
 export function PantallaGastos() {
   const { t } = useTraduccion();
+
+  // Monta el tema oscuro mientras esta pantalla está visible; restaura el
+  // valor previo al desmontar para no dejar dark residual en páginas claras.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   // Lista de gastos
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [cargando, setCargando] = useState(false);

@@ -11,11 +11,11 @@
 .navFinanzas {
   display: flex;
   gap: 0.5rem;
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 12px;
   padding: 0.625rem 0.875rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
   flex-wrap: wrap;
 }
 
@@ -24,19 +24,19 @@
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
 
 .enlaceNav:hover {
-  background: #f3f4f6;
-  color: #111928;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
 }
 
 .enlaceNavActivo {
-  background: #eff6ff;
-  color: #1a56db;
+  background: var(--color-primary-bg);
+  color: var(--color-primary-text);
 }
 
 /* ── Encabezado ── */
@@ -52,23 +52,23 @@
 .tituloPagina {
   font-size: 1.375rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0;
 }
 
 .subtitulo {
   font-size: 0.9375rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0.15rem 0 0;
 }
 
 /* ── Tarjeta contenedora ── */
 
 .tarjeta {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 16px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
   overflow: hidden;
   padding: 1.5rem 1.75rem;
 }
@@ -82,8 +82,8 @@
 }
 
 .tabla thead {
-  background: #f9fafb;
-  border-bottom: 1.5px solid #e5e7eb;
+  background: var(--color-table-header);
+  border-bottom: 1.5px solid var(--color-border);
 }
 
 .tabla th {
@@ -91,7 +91,7 @@
   text-align: left;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -100,8 +100,8 @@
 .tabla td {
   padding: 0.875rem 1rem;
   vertical-align: middle;
-  border-bottom: 1px solid #f3f4f6;
-  color: #111928;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
 }
 
 .tabla tbody tr:last-child td {
@@ -109,19 +109,19 @@
 }
 
 .tabla tbody tr:hover {
-  background: #f9fafb;
+  background: var(--color-surface-raised);
 }
 
 .filaInactiva td {
-  color: #9ca3af;
+  color: var(--color-text-muted);
 }
 
 .contacto {
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .vacio {
-  color: #d1d5db;
+  color: var(--color-text-muted);
 }
 
 /* ── Badges de estado ── */
@@ -138,15 +138,15 @@
 }
 
 .badgeActivo {
-  background: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #86efac;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
 }
 
 .badgeInactivo {
-  background: #f3f4f6;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
 }
 
 /* ── Acciones de fila ── */
@@ -158,26 +158,26 @@
 
 .botonAccion {
   background: none;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   padding: 0.3rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   margin-left: 0.4rem;
 }
 
 .botonAccion:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--color-surface-raised);
+  border-color: var(--color-text-muted);
 }
 
 .botonPeligro:hover {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  color: #b91c1c;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 /* ── Estados de carga / error ── */
@@ -186,16 +186,16 @@
 .estadoVacio {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.9375rem;
 }
 
 .errorCarga {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
-  color: #b91c1c;
+  color: var(--color-danger);
   font-size: 0.9375rem;
   display: flex;
   align-items: center;

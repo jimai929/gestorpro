@@ -19,13 +19,13 @@
 .tituloPagina {
   font-size: 1.375rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0;
 }
 
 .subtitulo {
   font-size: 0.9375rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0.15rem 0 0;
 }
 
@@ -34,11 +34,11 @@
 .navFinanzas {
   display: flex;
   gap: 0.5rem;
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 12px;
   padding: 0.625rem 0.875rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
   flex-wrap: wrap;
 }
 
@@ -47,19 +47,19 @@
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
 
 .enlaceNav:hover {
-  background: #f3f4f6;
-  color: #111928;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
 }
 
 .enlaceNavActivo {
-  background: #eff6ff;
-  color: #1a56db;
+  background: var(--color-primary-bg);
+  color: var(--color-primary-text);
 }
 
 /* ── Aviso de éxito tras registrar un cierre ── */
@@ -69,11 +69,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  background: #f0fdf4;
-  border: 1.5px solid #86efac;
+  background: var(--color-success-bg);
+  border: 1.5px solid var(--color-success);
   border-radius: 12px;
   padding: 0.875rem 1.25rem;
-  color: #15803d;
+  color: var(--color-success);
   font-size: 0.9375rem;
   font-weight: 600;
 }
@@ -92,8 +92,8 @@
   width: 1.25rem;
   height: 1.25rem;
   border-radius: 50%;
-  background: #15803d;
-  color: #ffffff;
+  background: var(--color-success);
+  color: var(--on-primary);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -102,7 +102,7 @@
   flex-shrink: 0;
   background: none;
   border: none;
-  color: #15803d;
+  color: var(--color-success);
   cursor: pointer;
   font-size: 0.9375rem;
   line-height: 1;
@@ -112,17 +112,17 @@
 }
 
 .cerrarAviso:hover {
-  background: #dcfce7;
+  background: var(--color-success-bg);
 }
 
 /* ── Filtros de período ── */
 
 .filtros {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 12px;
   padding: 1rem 1.25rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
@@ -138,37 +138,37 @@
 .etiquetaFiltro {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .inputFiltro {
   padding: 0.5rem 0.75rem;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 8px;
   font-size: 0.9375rem;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   min-width: 120px;
 }
 
 .inputFiltro:focus {
-  border-color: #1a56db;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 /* Ayuda contextual bajo un filtro (p. ej. no hay cajeras todavía). */
 .ayudaFiltro {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 /* Aviso de error bajo un filtro cuando falló su carga. */
 .ayudaFiltroError {
   font-size: 0.75rem;
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 
 /* Enlace "Reintentar" dentro del aviso de error del filtro. */
@@ -177,7 +177,7 @@
   border: none;
   padding: 0;
   font: inherit;
-  color: #1a56db;
+  color: var(--color-primary-text);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -187,11 +187,11 @@
 .notaFiltroVentas {
   margin: 0;
   padding: 0.625rem 0.875rem;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: var(--color-primary-bg);
+  border: 1px solid var(--color-primary-bg);
   border-radius: 10px;
   font-size: 0.8125rem;
-  color: #1e40af;
+  color: var(--color-primary-hover);
   line-height: 1.4;
 }
 
@@ -206,11 +206,11 @@
 /* ── Tarjeta de métrica ── */
 
 .tarjetaMetrica {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 16px;
   padding: 1.5rem 1.75rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -219,7 +219,7 @@
 .etiquetaMetrica {
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -227,14 +227,14 @@
 .valorMetrica {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .descripcionMetrica {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--color-text-muted);
   line-height: 1.3;
 }
 
@@ -245,29 +245,29 @@
 }
 
 .gananciaPositiva {
-  background: #f0fdf4;
-  border-color: #86efac;
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
 }
 
 .gananciaPositiva .etiquetaMetricaGanancia {
-  color: #15803d;
+  color: var(--color-amount-positive);
 }
 
 .gananciaPositiva .valorMetricaGanancia {
-  color: #15803d;
+  color: var(--color-amount-positive);
 }
 
 .gananciaNegativa {
-  background: #fef2f2;
-  border-color: #fca5a5;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
 }
 
 .gananciaNegativa .etiquetaMetricaGanancia {
-  color: #b91c1c;
+  color: var(--color-amount-negative);
 }
 
 .gananciaNegativa .valorMetricaGanancia {
-  color: #b91c1c;
+  color: var(--color-amount-negative);
 }
 
 .etiquetaMetricaGanancia {
@@ -287,10 +287,10 @@
 /* ── Tarjeta genérica (sección con borde) ── */
 
 .tarjeta {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 16px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
   overflow: hidden;
   padding: 1.5rem 1.75rem;
 }
@@ -302,7 +302,7 @@
 .tituloSeccion {
   font-size: 1.0625rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0 0 1rem;
 }
 
@@ -331,7 +331,7 @@
 .nombreCategoria {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #111928;
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -339,14 +339,14 @@
 
 .montoCat {
   font-size: 0.8125rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
 .barraContenedor {
   width: 140px;
   height: 8px;
-  background: #f3f4f6;
+  background: var(--color-bg);
   border-radius: 99px;
   overflow: hidden;
   flex-shrink: 0;
@@ -354,7 +354,7 @@
 
 .barraRelleno {
   height: 100%;
-  background: #1a56db;
+  background: var(--color-primary);
   border-radius: 99px;
   transition: width 0.3s ease;
   min-width: 2px;
@@ -363,7 +363,7 @@
 .porcentajeCat {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   width: 42px;
   text-align: right;
@@ -380,8 +380,8 @@
 }
 
 .tabla thead {
-  background: #f9fafb;
-  border-bottom: 1.5px solid #e5e7eb;
+  background: var(--color-table-header);
+  border-bottom: 1.5px solid var(--color-border);
 }
 
 .tabla th {
@@ -389,7 +389,7 @@
   text-align: left;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -398,7 +398,7 @@
 .tabla td {
   padding: 0.875rem 1rem;
   vertical-align: middle;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .tabla tbody tr:last-child td {
@@ -406,13 +406,13 @@
 }
 
 .tabla tbody tr:hover {
-  background: #f9fafb;
+  background: var(--color-table-stripe);
 }
 
 /* Fila recién registrada: destello verde que se desvanece + marca lateral
    persistente mientras dura el resaltado, para que el guardado se vea claro. */
 @keyframes resaltarFila {
-  0% { background: #bbf7d0; }
+  0% { background: var(--color-success-bg); }
   100% { background: transparent; }
 }
 
@@ -421,14 +421,14 @@
 }
 
 .filaResaltada td:first-child {
-  box-shadow: inset 3px 0 0 #15803d;
+  box-shadow: inset 3px 0 0 var(--color-success);
 }
 
 .monto {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   font-weight: 700;
-  color: #1a56db;
+  color: var(--color-primary);
 }
 
 /* Celda de total del cierre con el desglose del arqueo debajo. */
@@ -442,12 +442,12 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   font-weight: 700;
-  color: #1a56db;
+  color: var(--color-primary);
 }
 
 .desgloseArqueo {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.35;
 }
 
@@ -457,9 +457,9 @@
   display: inline-flex;
   align-items: center;
   padding: 0.15rem 0.6rem;
-  background: #eff6ff;
-  color: #1a56db;
-  border: 1px solid #bfdbfe;
+  background: var(--color-primary-bg);
+  color: var(--color-primary-text);
+  border: 1px solid var(--color-primary-bg);
   border-radius: 99px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -470,9 +470,9 @@
   display: inline-flex;
   align-items: center;
   padding: 0.15rem 0.6rem;
-  background: #fefce8;
-  color: #ca8a04;
-  border: 1px solid #fde68a;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
   border-radius: 99px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -484,25 +484,25 @@
 .estadoVacio {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.9375rem;
 }
 
 .estadoCarga {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.9375rem;
 }
 
 /* ── Error de carga ── */
 
 .errorCarga {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
-  color: #b91c1c;
+  color: var(--color-danger);
   font-size: 0.9375rem;
   display: flex;
   align-items: center;

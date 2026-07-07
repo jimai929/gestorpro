@@ -38,6 +38,20 @@ const OPCIONES_ESTADO: { valor: string; etiquetaKey: string }[] = [
 
 export function PantallaCuentasPorPagar() {
   const { t } = useTraduccion();
+
+  // ── Tema oscuro grafito ──────────────────────────────────────────────────
+  // Esta pantalla se muestra SIEMPRE en grafito oscuro. Monta data-theme="dark"
+  // en <html> mientras está montada y restaura el valor previo al desmontar.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   // Lista de cuentas
   const [cuentas, setCuentas] = useState<CuentaPorPagar[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -162,7 +176,11 @@ export function PantallaCuentasPorPagar() {
               className={styles.selectFiltro}
               style={
                 filtroEstado === op.valor
-                  ? { borderColor: '#1a56db', background: '#eff6ff', color: '#1a56db' }
+                  ? {
+                      borderColor: 'var(--color-primary)',
+                      background: 'var(--color-primary-bg)',
+                      color: 'var(--color-primary-text)',
+                    }
                   : {}
               }
               onClick={() => setFiltroEstado(op.valor)}

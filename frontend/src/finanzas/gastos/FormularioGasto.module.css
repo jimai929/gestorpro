@@ -1,11 +1,11 @@
 /* ── Formulario de registro de gasto ─────────────────────────────── */
 
 .tarjeta {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 16px;
   padding: 1.75rem 2rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
 }
 
 .encabezado {
@@ -20,7 +20,7 @@
 .titulo {
   font-size: 1.0625rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0;
 }
 
@@ -45,17 +45,17 @@
 .etiqueta {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .select {
   width: 100%;
   padding: 0.625rem 0.875rem;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 8px;
   font-size: 1rem;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   transition: border-color 0.15s, box-shadow 0.15s;
   outline: none;
   cursor: pointer;
@@ -63,8 +63,8 @@
 }
 
 .select:focus {
-  border-color: #1a56db;
-  background: #ffffff;
+  border-color: var(--color-primary);
+  background: var(--color-surface);
   box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
 }
 
@@ -77,8 +77,8 @@
 
 .bloqueEmpleado {
   grid-column: 1 / -1;
-  background: #eff6ff;
-  border: 1.5px solid #bfdbfe;
+  background: var(--color-primary-bg);
+  border: 1.5px solid var(--color-primary);
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
   display: grid;
@@ -90,7 +90,7 @@
   grid-column: 1 / -1;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #1a56db;
+  color: var(--color-primary-text);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin: 0 0 0.25rem;
@@ -109,9 +109,9 @@
 
 .error {
   font-size: 0.8125rem;
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   margin-top: 0.75rem;
@@ -119,9 +119,9 @@
 
 .exito {
   font-size: 0.8125rem;
-  color: #15803d;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   margin-top: 0.75rem;
