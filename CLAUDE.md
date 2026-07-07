@@ -33,10 +33,23 @@ Leer según necesidad (no todo `docs/` en cada tarea):
 * `docs/ESTRUCTURA_DE_CARPETAS.md` — dónde va cada archivo.
 * `docs/CONVENCIONES.md` — convenciones de código y proceso.
 * `docs/BUGS_PREEXISTENTES.md` — bugs preexistentes conocidos.
+* `docs/DESIGN_SYSTEM.md` — sistema de diseño (obligatorio antes de tocar UI, ver §Diseño/UI).
 
 Las Fases 0–6 del plan original están completas. Trabajo nuevo se rige por su
 BRIEF correspondiente. Las decisiones de `docs/DECISIONES.md` están cerradas:
 no reabrirlas sin pedido explícito de Jim.
+
+---
+
+## Diseño / UI
+
+* Antes de escribir cualquier UI nueva o cambiar estilos: **leer `docs/DESIGN_SYSTEM.md`**.
+* Color, tamaño de fuente, espaciado y radio: **siempre por variable** de
+  `frontend/src/estilos/global.css` (`:root`). **Prohibido escribir hexadecimales nuevos**
+  en componentes o CSS modules.
+* **Prohibido usar emoji como icono de UI**: usar `lucide-react` (ver mapeo en el doc).
+* Respetar las reglas de emparejamiento (badge = fondo `-bg` + texto del mismo tono; un
+  solo botón sólido primario por página; color de estado solo para estado).
 
 ---
 

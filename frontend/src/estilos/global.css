@@ -17,6 +17,59 @@
   --color-error: #dc2626;
   --radio-base: 8px;
   --sombra-tarjeta: 0 1px 6px rgba(0, 0, 0, 0.06);
+
+  /* ── Design tokens (sistema de diseño — ver docs/DESIGN_SYSTEM.md) ──────────
+     Se AÑADEN aquí; todavía NO se referencian (cero cambio visual). Las páginas
+     migran a estos tokens de forma gradual. Regla: color/tamaño/espacio siempre
+     por variable; nunca hexadecimales nuevos en componentes. */
+
+  /* Color — primario (azul marino tinta) */
+  --color-primary: #1E3A5F;
+  --color-primary-hover: #162B47;
+  --color-primary-bg: #EAF0F6;
+  --color-primary-text: #1E3A5F;
+
+  /* Color — superficies y bordes */
+  --color-bg: #F7F8FA;
+  --color-surface: #FFFFFF;
+  --color-border: #E3E6EA;
+  --color-border-strong: #CBD1D8;
+
+  /* Color — texto */
+  --color-text: #1A1D21;
+  --color-text-secondary: #5A6472;
+  --color-text-muted: #8A929E;
+
+  /* Color — semántico (solo para estado, nunca como decoración) */
+  --color-success: #1D7A5A;
+  --color-success-bg: #E6F2EE;
+  --color-danger: #B23B3B;
+  --color-danger-bg: #FBECEC;
+  --color-warning: #B8791A;
+  --color-warning-bg: #FBF1E0;
+
+  /* Tipografía — tamaños (3 niveles de jerarquía) */
+  --fs-title: 20px;
+  --fs-heading: 15px;
+  --fs-body: 14px;
+  --fs-label: 13px;
+  --fs-caption: 12px;
+
+  /* Tipografía — pesos (SOLO dos: 400 regular, 500 medium) */
+  --fw-regular: 400;
+  --fw-medium: 500;
+
+  /* Espaciado */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  /* Radios */
+  --radius: 8px;
+  --radius-card: 12px;
+  --radius-pill: 999px;
 }
 
 /* Base */
