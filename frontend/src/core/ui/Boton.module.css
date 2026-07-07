@@ -1,4 +1,7 @@
 /* ── Boton base ─────────────────────────────────────────────────── */
+/* Colores 100% por token (theme-aware): en claro usa la paleta marino de :root; en
+   oscuro, la grafito de :root[data-theme="dark"]. Sin hexadecimales. Componente
+   compartido por toda la app (~28 páginas). Detalle: docs/DESIGN_SYSTEM.md. */
 
 .boton {
   display: inline-flex;
@@ -27,30 +30,31 @@
 /* Variantes */
 
 .primario {
-  background: #1a56db;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(26, 86, 219, 0.3);
+  background: var(--color-primary);
+  color: var(--on-primary);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 .primario:hover:not(:disabled) {
-  background: #1648c0;
+  background: var(--color-primary-hover);
 }
 
 .secundario {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 .secundario:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--color-border);
 }
 
 .peligro {
-  background: #dc2626;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+  background: var(--color-danger);
+  color: var(--on-danger);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 .peligro:hover:not(:disabled) {
-  background: #b91c1c;
+  background: color-mix(in srgb, var(--color-danger) 88%, #000);
 }
 
 /* Ancho completo */
