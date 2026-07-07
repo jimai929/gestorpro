@@ -6,3 +6,9 @@ dist
 npm-debug.log*
 .git
 .DS_Store
+# Artefactos y specs de E2E (Playwright): nunca al contexto de build de la imagen.
+e2e/
+test-results/
+playwright-report/
+*.spec.ts
+*.test.ts
