@@ -28,6 +28,7 @@
   --color-primary-hover: #162B47;
   --color-primary-bg: #EAF0F6;
   --color-primary-text: #1E3A5F;
+  --on-primary: #ffffff; /* texto sobre botón primario sólido (claro: blanco sobre marino) */
 
   /* Color — superficies y bordes */
   --color-bg: #F7F8FA;
@@ -77,6 +78,49 @@
      Mantener ambos sincronizados. */
   --bp-mobile: 480px;
   --bp-tablet: 768px;
+}
+
+/* ── Tema Oscuro Grafito Cálido (M1/paso 1a, OPT-IN por scope) ───────────────────
+   Se activa poniendo data-theme="dark" en el elemento raíz (<html>). :root (claro)
+   sigue siendo el DEFAULT: estas variables SOLO sobreescriben a sus homónimas cuando
+   el tema está activo, así que las páginas aún no tokenizadas no se ven afectadas.
+   Valores: docs/DESIGN_SYSTEM.md §Tema Oscuro Grafito Cálido. Sin toggle de usuario /
+   localStorage / context todavía (feature posterior); el montaje es manual (dev). */
+:root[data-theme="dark"] {
+  /* Superficies (4 niveles de profundidad) */
+  --color-bg: #1A1917;
+  --color-surface: #232120;
+  --color-surface-raised: #2A2724;
+  --color-border: #34312E;
+  --color-border-strong: #413D39;
+  --color-sidebar: #151413;
+
+  /* Primario ámbar cálido */
+  --color-primary: #D9954F;
+  --color-primary-hover: #E0A96A;
+  --color-primary-bg: #2E2724;
+  --color-primary-text: #E0A96A;
+  --on-primary: #151413; /* texto oscuro sobre botón ámbar (7.33:1) */
+
+  /* Texto */
+  --color-text: #F0EBE4;
+  --color-text-secondary: #A79E92;
+  --color-text-muted: #8A8175; /* pasa AA vs bg (4.58) pero NO vs surface (4.18) — uso restringido */
+
+  /* Semánticos (re-calibrados para grafito, no son los claros invertidos) */
+  --color-success: #5FBE8A;
+  --color-success-bg: #1C2E25;
+  --color-danger: #E8756B;
+  --color-danger-bg: #2E1F1D;
+  --color-warning: #E0A94F;
+  --color-warning-bg: #2E2820;
+
+  /* Finanzas (definidos ya; se USAN al tokenizar finanzas en una fase posterior) */
+  --color-amount-positive: #5FBE8A;
+  --color-amount-negative: #E8756B;
+  --color-amount-neutral: #F0EBE4;
+  --color-table-stripe: #1F1D1B;
+  --color-table-header: #2A2724;
 }
 
 /* Base */

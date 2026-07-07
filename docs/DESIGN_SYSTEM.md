@@ -102,7 +102,10 @@ Dirección visual FINAL de GestorPro: UI oscura de grafito cálido + barra later
 izquierda + acento ámbar cálido. **Estado: M0 — SOLO documentación.** Estos valores todavía
 NO están en `global.css`; el tema vigente sigue siendo el claro marino. Este apartado fija
 los tokens para las fases siguientes (esqueleto → validación de una página → despliegue por
-páginas). Cuando se apliquen, reemplazarán los valores de los tokens homónimos en `:root`.
+páginas). Cuando se apliquen, se **definirán los tokens oscuros bajo `:root[data-theme="dark"]`,
+manteniendo `:root` (claro) como default** (decisión M1/paso 1,打法 B): tema oscuro OPT-IN por
+scope, NO reemplazo global de `:root` — evita romper las 37 hojas con hex crudo durante el
+despliegue gradual; cada página se activa en oscuro solo cuando ya está tokenizada.
 
 ## Superficies (4 niveles de profundidad)
 

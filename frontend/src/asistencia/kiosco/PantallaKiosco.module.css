@@ -2,18 +2,19 @@
 
 /*
   Diseño tipo kiosco: pantalla completa, elementos grandes y táctiles.
-  Fondo OSCURO intencional (#0f172a, se conserva); el acento migra a azul marino
-  tinta (var(--color-primary)) sobre las superficies claras (la tarjeta). El texto
-  que va SOBRE el fondo oscuro se mantiene claro (el marino no se vería). Responsive
-  M2 al final. Los emojis de tipo/resultado y los hex inline del panel de token quedan
-  como follow-up (no en este paso).
+  TOTALMENTE tokenizado (M1/paso 1a): todos los colores por variable, sin hex crudo.
+  Primera página validada en TEMA OSCURO — se activa poniendo data-theme="dark" en
+  <html> (ver docs/DESIGN_SYSTEM.md §Tema Oscuro). En oscuro: fondo grafito
+  (var(--color-bg) #1A1917) + acento ámbar (var(--color-primary)); en claro (default)
+  usa el marino. Responsive M2 al final. Los emojis de tipo/resultado y los hex inline
+  del panel de token (PanelTokenDispositivo, en el .tsx) quedan como follow-up.
 */
 
 /* ── Layout base ── */
 
 .contenedor {
   min-height: 100vh;
-  background: #0f172a; /* fondo oscuro del kiosco (se conserva, decisión de diseño) */
+  background: var(--color-bg); /* grafito #1A1917 en oscuro; marino claro por default */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -38,7 +39,7 @@
   width: 48px;
   height: 48px;
   background: var(--color-primary);
-  color: #ffffff;
+  color: var(--on-primary);
   border-radius: 14px;
   font-size: 1rem;
   font-weight: 800;
@@ -48,7 +49,7 @@
 .tituloKiosco {
   font-size: 1.5rem;
   font-weight: 800;
-  color: #f8fafc; /* texto claro SOBRE el fondo oscuro (no migra a marino) */
+  color: var(--color-text); /* claro sobre el fondo del kiosco (grafito en oscuro) */
   margin: 0;
   letter-spacing: -0.3px;
 }
@@ -373,7 +374,7 @@
   border: none;
   border-radius: 14px;
   background: var(--color-primary);
-  color: #ffffff;
+  color: var(--on-primary);
   font-size: 1.1rem;
   font-weight: 700;
   cursor: pointer;
@@ -485,8 +486,8 @@
   display: inline-block;
   width: 18px;
   height: 18px;
-  border: 3px solid rgba(255, 255, 255, 0.4); /* spinner blanco sobre botón marino */
-  border-top-color: #ffffff;
+  border: 3px solid color-mix(in srgb, var(--on-primary) 35%, transparent); /* spinner sobre botón primario */
+  border-top-color: var(--on-primary);
   border-radius: 50%;
   animation: girar 0.6s linear infinite;
   vertical-align: middle;
@@ -506,7 +507,7 @@
 }
 
 .nombreKioscoActivo {
-  color: #60a5fa; /* acento claro SOBRE el fondo oscuro (el marino no se vería) */
+  color: var(--color-primary-text); /* acento (ámbar en oscuro, marino en claro) */
   font-weight: 600;
 }
 
