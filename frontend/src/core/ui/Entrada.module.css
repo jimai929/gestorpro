@@ -1,4 +1,8 @@
 /* ── Entrada base ───────────────────────────────────────────────── */
+/* Colores 100% por token (theme-aware): claro marino / oscuro grafito. Componente
+   compartido por todos los formularios (~14 usos). El fondo del input usa --color-bg
+   (recesado) y al enfocar pasa a --color-surface (se aclara), preservando el gesto
+   original (gris -> blanco). Detalle: docs/DESIGN_SYSTEM.md. */
 
 .grupo {
   display: flex;
@@ -9,16 +13,16 @@
 .etiqueta {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .entrada {
   padding: 0.625rem 0.875rem;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 8px;
   font-size: 1rem;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   transition: border-color 0.15s, box-shadow 0.15s;
   outline: none;
   width: 100%;
@@ -26,9 +30,9 @@
 }
 
 .entrada:focus {
-  border-color: #1a56db;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .entrada:disabled {
@@ -37,24 +41,24 @@
 }
 
 .entrada::placeholder {
-  color: #9ca3af;
+  color: var(--color-text-muted);
 }
 
 .conError {
-  border-color: #dc2626;
+  border-color: var(--color-danger);
 }
 
 .conError:focus {
-  border-color: #dc2626;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 15%, transparent);
 }
 
 .mensajeError {
   font-size: 0.8125rem;
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 
 .ayuda {
   font-size: 0.8125rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
