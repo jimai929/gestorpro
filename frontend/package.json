@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:android": "tsc -b && vite build --mode android",
+    "cap:sync": "npm run build:android && npx cap sync android",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
@@ -19,6 +21,9 @@
     "e2e:readonly": "playwright test --grep @readonly"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
     "lucide-react": "^1.23.0",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",

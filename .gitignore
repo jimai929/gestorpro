@@ -6,6 +6,7 @@ node_modules/
 .env.*
 !.env.example
 !.env.e2e.example
+!.env.android.example
 
 # Fichero local con secretos (copia de deploy/.env): nunca versionar.
 PAS.txt
