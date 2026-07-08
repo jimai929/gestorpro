@@ -54,7 +54,10 @@ npx cap open android
 
 ## Build del APK debug
 
-**Requiere JDK 17+ y Android SDK (vía Android Studio).** Con el toolchain instalado:
+**Requiere JDK 21 y Android SDK (vía Android Studio).** Capacitor 8 compila con Java 21;
+un JDK 17 falla con `invalid source release: 21`. En Windows, se recomienda usar el JBR
+incluido con Android Studio como JAVA_HOME (`C:\Program Files\Android\Android Studio\jbr`,
+que es JDK 21). Con el toolchain instalado:
 
 ```bash
 cd frontend/android
@@ -83,9 +86,9 @@ adb install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
 - ✅ `android/` generado; web bundle con URL de prod embebido en
   `android/app/src/main/assets/public`.
 - ✅ `npm run build` (navegador) y `npm test` intactos (135/135).
-- ⛔ **APK NO construido**: falta el toolchain (JDK, Android SDK, adb, Android Studio) en
-  esta máquina. Instalar Android Studio (trae JDK/SDK/adb/Gradle) y luego `gradlew
-  assembleDebug`.
+- ✅ **APK debug construido** (`app-debug.apk`, ~4.13 MB) con el toolchain instalado:
+  Android Studio 2026.1 (JBR = JDK 21), Android SDK 36, Gradle 8.14.3. `minSdk=26`,
+  `target/compile=36` (solo Android moderno).
 
 ## Limitaciones conocidas / pendientes
 
@@ -96,7 +99,8 @@ adb install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
    fallarán por CORS.** Es un cambio de env del VPS (fuera del alcance de esta fase; no se
    tocó backend/deploy). Alternativa sin tocar CORS: usar plugin HTTP nativo de Capacitor
    (`@capacitor/http`/community) para evitar el chequeo CORS del WebView.
-2. **Toolchain ausente**: sin JDK/SDK/adb no hay APK ni instalación (ver arriba).
+2. **JDK 21 obligatorio**: Capacitor 8 compila con Java 21 (un JDK 17 falla con `invalid
+   source release: 21`). En Windows, usar el JBR de Android Studio como JAVA_HOME.
 3. **Sin iconos/splash propios** todavía (solo `public/icono.svg`). Falta generar iconos
    Android (`@capacitor/assets`) y splash.
 4. **Solo debug**: sin keystore/firma release ni AAB.
