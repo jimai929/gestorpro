@@ -4,6 +4,7 @@
  * Se reemplazará por el dashboard de finanzas en la Fase 3.
  */
 
+import { useEffect } from 'react';
 import { useAuth } from './core/auth/ContextoAuth';
 import { useTraduccion } from './core/i18n/ContextoIdioma';
 import { LayoutPrincipal } from './core/ui/LayoutPrincipal';
@@ -14,6 +15,16 @@ import styles from './PantallaInicio.module.css';
 export function PantallaInicio() {
   const { usuario } = useAuth();
   const { t } = useTraduccion();
+
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
 
   if (!usuario) return null;
 

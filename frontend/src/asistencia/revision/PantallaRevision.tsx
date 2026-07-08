@@ -57,6 +57,17 @@ export function PantallaRevision() {
   // IDs en proceso de validación (para deshabilitar botones)
   const [procesando, setProcesando] = useState<Set<string>>(new Set());
 
+  // ── Tema oscuro (montaje con cleanup) ────────────────────────────────────
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   // ── Cargar cola ──────────────────────────────────────────────────────────
 
   const cargarCola = useCallback(async () => {
@@ -326,7 +337,7 @@ export function PantallaRevision() {
             </div>
 
             {errorRevision && (
-              <p style={{ color: '#b91c1c', fontSize: '0.9rem', margin: 0 }}>
+              <p style={{ color: 'var(--color-danger)', fontSize: '0.9rem', margin: 0 }}>
                 {errorRevision}
               </p>
             )}

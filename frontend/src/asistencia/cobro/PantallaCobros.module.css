@@ -11,11 +11,11 @@
 .navAsistencia {
   display: flex;
   gap: 0.5rem;
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 12px;
   padding: 0.625rem 0.875rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
   flex-wrap: wrap;
   align-items: center;
 }
@@ -25,19 +25,19 @@
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
 
 .enlaceNav:hover {
-  background: #f3f4f6;
-  color: #111928;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
 }
 
 .enlaceNavActivo {
-  background: #eff6ff;
-  color: #1a56db;
+  background: var(--color-primary-bg);
+  color: var(--color-primary-text);
 }
 
 .enlaceExterno {
@@ -46,15 +46,15 @@
   border-radius: 8px;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
   text-decoration: none;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--color-border);
   transition: background 0.15s, border-color 0.15s;
 }
 
 .enlaceExterno:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-strong);
 }
 
 /* ── Encabezado ── */
@@ -70,13 +70,13 @@
 .tituloPagina {
   font-size: 1.375rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0;
 }
 
 .subtitulo {
   font-size: 0.9375rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0.15rem 0 0;
 }
 
@@ -98,22 +98,22 @@
 /* ── Tarjeta genérica ── */
 
 .tarjeta {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 16px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
 .cabeceraTarjeta {
   padding: 1.25rem 1.5rem 0.75rem;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .tituloTarjeta {
   font-size: 1rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0;
 }
 
@@ -135,7 +135,7 @@
 .etiqueta {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
 }
 
 .selectEmpleado,
@@ -143,11 +143,11 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0.625rem 0.875rem;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 10px;
   font-size: 0.9375rem;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   outline: none;
   font-family: inherit;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -156,9 +156,9 @@
 
 .selectEmpleado:focus,
 .inputMonto:focus {
-  border-color: #1a56db;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .selectEmpleado:disabled,
@@ -170,8 +170,8 @@
 /* ── Bloque de saldo ── */
 
 .bloqueSaldo {
-  background: #f0f9ff;
-  border: 1.5px solid #bae6fd;
+  background: var(--color-primary-bg);
+  border: 1.5px solid var(--color-primary);
   border-radius: 12px;
   padding: 1rem 1.25rem;
   display: flex;
@@ -181,7 +181,7 @@
 
 .saldoLinea {
   font-size: 0.9rem;
-  color: #0c4a6e;
+  color: var(--color-primary-text);
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -191,38 +191,38 @@
 .saldoDestacado {
   font-size: 1rem;
   font-weight: 700;
-  color: #0369a1;
+  color: var(--color-primary-text);
 }
 
 .disponibleDestacado {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #166534;
+  color: var(--color-amount-positive);
 }
 
 .saldoCargando {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 
 /* ── Mensajes de error y éxito inline ── */
 
 .mensajeError {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   border-radius: 10px;
   padding: 0.75rem 1rem;
-  color: #b91c1c;
+  color: var(--color-danger);
   font-size: 0.9rem;
 }
 
 .mensajeExito {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success);
   border-radius: 10px;
   padding: 0.75rem 1rem;
-  color: #166534;
+  color: var(--color-success);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -234,7 +234,7 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-border);
   align-items: flex-end;
 }
 
@@ -247,16 +247,16 @@
 .etiquetaFiltro {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .selectFiltro {
   padding: 0.4rem 0.75rem;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 8px;
   font-size: 0.875rem;
-  color: #374151;
-  background: #f9fafb;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
   outline: none;
   cursor: pointer;
   font-family: inherit;
@@ -264,7 +264,7 @@
 }
 
 .selectFiltro:focus {
-  border-color: #1a56db;
+  border-color: var(--color-primary);
 }
 
 .listaCobros {
@@ -277,7 +277,7 @@
   align-items: flex-start;
   gap: 1rem;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-border);
   transition: background 0.1s;
 }
 
@@ -286,7 +286,7 @@
 }
 
 .itemCobro:hover {
-  background: #fafafa;
+  background: var(--color-surface-raised);
 }
 
 .infoCobro {
@@ -307,13 +307,13 @@
 .nombreEmpleado {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
 }
 
 .numeroEmpleado {
   font-size: 0.8125rem;
-  color: #6b7280;
-  background: #f3f4f6;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
   padding: 0.1rem 0.45rem;
   border-radius: 99px;
   white-space: nowrap;
@@ -322,7 +322,7 @@
 .montoCobro {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: #166534;
+  color: var(--color-amount-positive);
   white-space: nowrap;
 }
 
@@ -331,7 +331,7 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   font-size: 0.8125rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 /* ── Badges de estado ── */
@@ -347,27 +347,27 @@
 }
 
 .badgePendiente {
-  background: #fffbeb;
-  color: #92400e;
-  border: 1px solid #fbbf24;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
 }
 
 .badgeAprobada {
-  background: #eff6ff;
-  color: #1e40af;
-  border: 1px solid #93c5fd;
+  background: var(--color-primary-bg);
+  color: var(--color-primary-text);
+  border: 1px solid var(--color-primary);
 }
 
 .badgeRechazada {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #9ca3af;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
 }
 
 .badgePagada {
-  background: #f0fdf4;
-  color: #166534;
-  border: 1px solid #86efac;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
 }
 
 /* ── Botones de acción en la lista ── */
@@ -383,8 +383,8 @@
   padding: 0.4rem 0.875rem;
   border: none;
   border-radius: 8px;
-  background: #1a56db;
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--on-primary);
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
@@ -393,7 +393,7 @@
 }
 
 .botonAprobar:hover:not(:disabled) {
-  background: #1648c2;
+  background: var(--color-primary-hover);
 }
 
 .botonAprobar:disabled {
@@ -405,8 +405,8 @@
   padding: 0.4rem 0.875rem;
   border: none;
   border-radius: 8px;
-  background: #dc2626;
-  color: #ffffff;
+  background: var(--color-danger);
+  color: var(--on-danger);
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
@@ -415,7 +415,7 @@
 }
 
 .botonRechazar:hover:not(:disabled) {
-  background: #b91c1c;
+  background: color-mix(in srgb, var(--color-danger) 85%, #000);
 }
 
 .botonRechazar:disabled {
@@ -427,8 +427,8 @@
   padding: 0.4rem 0.875rem;
   border: none;
   border-radius: 8px;
-  background: #16a34a;
-  color: #ffffff;
+  background: var(--color-success);
+  color: var(--on-success);
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
@@ -437,7 +437,7 @@
 }
 
 .botonPagar:hover:not(:disabled) {
-  background: #15803d;
+  background: color-mix(in srgb, var(--color-success) 85%, #000);
 }
 
 .botonPagar:disabled {
@@ -450,23 +450,23 @@
 .estadoCarga {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.9375rem;
 }
 
 .estadoVacio {
   text-align: center;
   padding: 3rem 1rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.9375rem;
 }
 
 .errorCarga {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   border-radius: 12px;
   padding: 1rem 1.25rem;
-  color: #b91c1c;
+  color: var(--color-danger);
   font-size: 0.9rem;
   display: flex;
   align-items: center;
@@ -489,7 +489,7 @@
 }
 
 .modal {
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 20px;
   padding: 2rem;
   width: 100%;
@@ -503,20 +503,20 @@
 .tituloModal {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #111928;
+  color: var(--color-text);
   margin: 0;
 }
 
 .subtituloModal {
   font-size: 0.9375rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
 .etiquetaModal {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-secondary);
   display: block;
   margin-bottom: 0.35rem;
 }
@@ -525,11 +525,11 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0.75rem;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--color-border-strong);
   border-radius: 10px;
   font-size: 0.9375rem;
-  color: #111928;
-  background: #f9fafb;
+  color: var(--color-text);
+  background: var(--color-bg);
   resize: vertical;
   min-height: 80px;
   outline: none;
@@ -538,9 +538,9 @@
 }
 
 .textareaModal:focus {
-  border-color: #1a56db;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.15);
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .botonesModal {

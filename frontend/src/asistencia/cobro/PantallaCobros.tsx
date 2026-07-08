@@ -126,7 +126,7 @@ function ModalRechazo({ cobro, alCerrar, alRechazar }: PropiedadesModalRechazo) 
         </div>
 
         {error && (
-          <p style={{ color: '#b91c1c', fontSize: '0.875rem', margin: 0 }}>{error}</p>
+          <p style={{ color: 'var(--color-danger)', fontSize: '0.875rem', margin: 0 }}>{error}</p>
         )}
 
         <div className={styles.botonesModal}>
@@ -182,6 +182,18 @@ export function PantallaCobros() {
 
   // Modal de rechazo
   const [cobroARechazar, setCobroARechazar] = useState<SolicitudCobro | null>(null);
+
+  // ── Tema oscuro: montar data-theme mientras esta pantalla esté viva ──────
+
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
 
   // ── Carga inicial: empleados ──────────────────────────────────────────────
 

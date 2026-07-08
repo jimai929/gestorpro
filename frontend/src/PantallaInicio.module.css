@@ -25,7 +25,7 @@
   height: 56px;
   border-radius: var(--radius-pill);
   background: var(--color-primary);
-  color: #ffffff; /* blanco sobre primario (regla de emparejamiento) */
+  color: var(--on-primary); /* texto sobre primario sólido (regla de emparejamiento) */
   font-size: var(--fs-title);
   font-weight: var(--fw-medium);
   display: flex;

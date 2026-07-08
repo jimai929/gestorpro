@@ -208,6 +208,17 @@ export function PantallaJornadas() {
   const { t } = useTraduccion();
   const esAdmin = usuario?.rol === 'administrador';
 
+  // Montar tema oscuro mientras esta pantalla está visible (con cleanup al salir).
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   // Lista de jornadas
   const [jornadas, setJornadas] = useState<Jornada[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -434,11 +445,11 @@ export function PantallaJornadas() {
         {cantidadAnomalias > 0 && !cargando && (
           <div
             style={{
-              background: '#fffbeb',
-              border: '1.5px solid #fbbf24',
+              background: 'var(--color-warning-bg)',
+              border: '1.5px solid var(--color-warning)',
               borderRadius: '12px',
               padding: '0.75rem 1.25rem',
-              color: '#92400e',
+              color: 'var(--color-warning)',
               fontSize: '0.9375rem',
               fontWeight: 600,
             }}

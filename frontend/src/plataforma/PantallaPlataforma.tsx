@@ -18,6 +18,19 @@ import styles from './PantallaPlataforma.module.css';
 export function PantallaPlataforma() {
   const { t } = useTraduccion();
 
+  // Tema oscuro para el área de plataforma: monta data-theme="dark" en <html> al
+  // entrar y RESTAURA el valor previo al salir (cleanup obligatorio) para no filtrar
+  // el tema a otras pantallas.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const previo = raiz.getAttribute('data-theme');
+    raiz.setAttribute('data-theme', 'dark');
+    return () => {
+      if (previo === null) raiz.removeAttribute('data-theme');
+      else raiz.setAttribute('data-theme', previo);
+    };
+  }, []);
+
   const [empresas, setEmpresas] = useState<EmpresaListada[] | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
