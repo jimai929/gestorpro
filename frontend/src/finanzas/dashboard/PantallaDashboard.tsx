@@ -2,7 +2,6 @@
  * Pantalla del dashboard de ganancias y captura de ventas diarias.
  *
  * Muestra:
- * - Barra de navegación entre módulos de finanzas (con el enlace a Dashboard).
  * - Selector de período (desde / hasta; por defecto el mes en curso) y
  *   filtro opcional por sede.
  * - Tarjetas de resumen: Ventas, Compras, Gastos y Ganancia del período.
@@ -20,7 +19,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
@@ -217,50 +215,6 @@ export function PantallaDashboard() {
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
-        {/* Barra de navegación de finanzas */}
-        <nav className={styles.navFinanzas} aria-label={t('fin.ariaNavFinanzas')}>
-          <NavLink
-            to="/cuentas-por-pagar"
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
-                : styles.enlaceNav
-            }
-          >
-            {t('nav.cuentasPorPagar')}
-          </NavLink>
-          <NavLink
-            to="/proveedores"
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
-                : styles.enlaceNav
-            }
-          >
-            {t('fin.navProveedores')}
-          </NavLink>
-          <NavLink
-            to="/gastos"
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
-                : styles.enlaceNav
-            }
-          >
-            {t('nav.gastos')}
-          </NavLink>
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
-                : styles.enlaceNav
-            }
-          >
-            {t('nav.dashboard')}
-          </NavLink>
-        </nav>
-
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>

@@ -11,7 +11,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -120,26 +119,9 @@ export function PantallaUsuarios() {
   // post-B4 nunca opera dentro de un tenant; un supervisor/empleado no debe cambiar roles).
   const puedeCambiarRol = usuarioSesion?.rol === 'administrador';
 
-  const claseNav = ({ isActive }: { isActive: boolean }) =>
-    isActive ? `${styles.enlaceNav} ${styles.enlaceNavActivo}` : styles.enlaceNav;
-
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
-        {/* Barra de navegación de administración */}
-        <nav className={styles.navAdmin} aria-label={t('adm.ariaNav')}>
-          <NavLink to="/sedes" className={claseNav}>{t('nav.sedes')}</NavLink>
-          <NavLink to="/empleados" className={claseNav}>{t('nav.empleados')}</NavLink>
-          <NavLink to="/kioscos" className={claseNav}>{t('nav.kioscos')}</NavLink>
-          {/* Misma condición que el resto de la app: solo quien puede LEER /usuarios
-              ve la pestaña (un no-admin que navegue directo verá el 403 en la tabla). */}
-          {usuarioSesion !== null &&
-            usuarioSesion.empresaId !== null &&
-            (usuarioSesion.rol === 'administrador' || usuarioSesion.esSuperAdmin) && (
-              <NavLink to="/usuarios" className={claseNav}>{t('nav.usuarios')}</NavLink>
-            )}
-        </nav>
-
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>

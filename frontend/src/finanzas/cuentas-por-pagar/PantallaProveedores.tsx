@@ -14,7 +14,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
@@ -90,28 +89,9 @@ export function PantallaProveedores() {
     }
   };
 
-  const claseNav = ({ isActive }: { isActive: boolean }) =>
-    isActive ? `${styles.enlaceNav} ${styles.enlaceNavActivo}` : styles.enlaceNav;
-
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
-        {/* Barra de navegación de finanzas */}
-        <nav className={styles.navFinanzas} aria-label={t('fin.ariaNavFinanzas')}>
-          <NavLink to="/cuentas-por-pagar" className={claseNav}>
-            {t('nav.cuentasPorPagar')}
-          </NavLink>
-          <NavLink to="/proveedores" className={claseNav}>
-            {t('fin.navProveedores')}
-          </NavLink>
-          <NavLink to="/gastos" className={claseNav}>
-            {t('nav.gastos')}
-          </NavLink>
-          <NavLink to="/dashboard" className={claseNav}>
-            {t('nav.dashboard')}
-          </NavLink>
-        </nav>
-
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>

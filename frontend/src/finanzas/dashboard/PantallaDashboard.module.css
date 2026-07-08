@@ -29,39 +29,6 @@
   margin: 0.15rem 0 0;
 }
 
-/* ── Barra de navegación de finanzas ── */
-
-.navFinanzas {
-  display: flex;
-  gap: 0.5rem;
-  background: var(--color-surface);
-  border-radius: 12px;
-  padding: 0.625rem 0.875rem;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid var(--color-border);
-  flex-wrap: wrap;
-}
-
-.enlaceNav {
-  padding: 0.4rem 0.875rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  transition: background 0.15s, color 0.15s;
-}
-
-.enlaceNav:hover {
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-}
-
-.enlaceNavActivo {
-  background: var(--color-primary-bg);
-  color: var(--color-primary-text);
-}
-
 /* ── Aviso de éxito tras registrar un cierre ── */
 
 .avisoExito {

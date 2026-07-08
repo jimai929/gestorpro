@@ -9,10 +9,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
-import { useAuthOpcional } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioKiosco } from './FormularioKiosco';
 import { obtenerKioscos, regenerarTokenKiosco } from './servicioKioscos';
@@ -32,14 +30,6 @@ export function PantallaKioscos() {
       else raiz.setAttribute('data-theme', previo);
     };
   }, []);
-  // GET /usuarios exige administrador incluso para LEER (a diferencia del resto de la
-  // nav): el enlace se oculta a quien solo vería un 403. Hook tolerante: sin proveedor
-  // (tests de la pantalla) simplemente no se muestra. La frontera real es el backend.
-  const usuarioSesion = useAuthOpcional()?.usuario ?? null;
-  const puedeGestionarUsuarios =
-    usuarioSesion !== null &&
-    usuarioSesion.empresaId !== null &&
-    (usuarioSesion.rol === 'administrador' || usuarioSesion.esSuperAdmin);
   const [kioscos, setKioscos] = useState<Kiosco[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -85,21 +75,9 @@ export function PantallaKioscos() {
     }
   };
 
-  const claseNav = ({ isActive }: { isActive: boolean }) =>
-    isActive ? `${styles.enlaceNav} ${styles.enlaceNavActivo}` : styles.enlaceNav;
-
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
-        <nav className={styles.navAdmin} aria-label={t('adm.ariaNav')}>
-          <NavLink to="/sedes" className={claseNav}>{t('nav.sedes')}</NavLink>
-          <NavLink to="/empleados" className={claseNav}>{t('nav.empleados')}</NavLink>
-          <NavLink to="/kioscos" className={claseNav}>{t('nav.kioscos')}</NavLink>
-          {puedeGestionarUsuarios && (
-            <NavLink to="/usuarios" className={claseNav}>{t('nav.usuarios')}</NavLink>
-          )}
-        </nav>
-
         <div className={styles.encabezado}>
           <div>
             <h1 className={styles.tituloPagina}>{t('nav.kioscos')}</h1>

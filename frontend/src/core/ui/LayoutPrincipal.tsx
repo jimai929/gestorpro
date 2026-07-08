@@ -20,7 +20,7 @@ import { ReactNode, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import {
   Wallet, Building2, Clock, ShieldCheck,
-  Receipt, CreditCard, BarChart3,
+  Receipt, Truck, CreditCard, BarChart3,
   MapPin, Users, Monitor, UserCog,
   ClipboardCheck, CalendarDays, Banknote, ExternalLink,
   KeyRound, LogOut,
@@ -74,6 +74,7 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
         icono: Wallet,
         items: [
           { to: '/cuentas-por-pagar', clave: 'nav.cuentasPorPagar', icono: Receipt },
+          { to: '/proveedores', clave: 'fin.navProveedores', icono: Truck },
           { to: '/gastos', clave: 'nav.gastos', icono: CreditCard },
           { to: '/dashboard', clave: 'nav.dashboard', icono: BarChart3 },
         ],

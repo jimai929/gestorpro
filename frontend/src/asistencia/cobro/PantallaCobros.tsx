@@ -17,7 +17,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink, Link } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -360,48 +359,6 @@ export function PantallaCobros() {
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
-        {/* Barra de navegación de asistencia */}
-        <nav className={styles.navAsistencia} aria-label={t('asi.ariaNav')}>
-          <NavLink
-            to="/asistencia/revision"
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
-                : styles.enlaceNav
-            }
-          >
-            {t('nav.colaRevision')}
-          </NavLink>
-          <NavLink
-            to="/asistencia/jornadas"
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
-                : styles.enlaceNav
-            }
-          >
-            {t('nav.jornadas')}
-          </NavLink>
-          <NavLink
-            to="/asistencia/cobros"
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.enlaceNav} ${styles.enlaceNavActivo}`
-                : styles.enlaceNav
-            }
-          >
-            {t('nav.cobros')}
-          </NavLink>
-          <Link
-            to="/kiosco"
-            className={styles.enlaceExterno}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {t('asi.abrirKiosco')}
-          </Link>
-        </nav>
-
         {/* Encabezado */}
         <div className={styles.encabezado}>
           <div>
