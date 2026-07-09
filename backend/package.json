@@ -16,6 +16,7 @@
     "test": "vitest run",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
+    "backfill:directorios": "tsx prisma/scripts/backfill-directorios-empresa.ts",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force && prisma db seed"
   },

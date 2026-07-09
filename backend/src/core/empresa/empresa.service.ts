@@ -5,6 +5,7 @@ import { hashearContrasena } from '../auth/contrasena.js';
 import { auditoriaPlataformaRepo } from '../../shared/repositories/auditoria-plataforma.repository.js';
 import { EstadoEmpresa, Rol } from '../../generated/prisma/enums.js';
 import { prisma } from '../prisma.js';
+import { sembrarDirectoriosEmpresa } from './directorios-defaults.js';
 
 function esErrorPrisma(error: unknown, codigo: string): boolean {
   return (
@@ -69,6 +70,14 @@ export async function crearEmpresa(
         const empresa = await tx.empresa.create({
           data: { nombre: datos.nombre, slug: datos.slug },
         });
+        // Directorios/config por defecto del tenant (categorías de gasto —incluida la de
+        // pago a empleado—, roles operativos y configuración de cobro) EN LA MISMA TX: sin
+        // ellos el tenant nace en dead-lock (no puede registrar gastos ni pagar cobros de
+        // horas extra) y no hay UI/endpoint para crearlos. Si algo falla aquí, TODA el alta
+        // revierte (atomicidad). RLS: esta tx corre con app.bypass_tenant='on'
+        // (bypassPlataforma de super-admin) → la policy `bypass_plataforma` de cada tabla
+        // permite el WITH CHECK de estos INSERT (empresa_id se escribe explícito).
+        await sembrarDirectoriosEmpresa(tx, empresa.id);
         const passwordHash = await hashearContrasena(datos.adminPassword);
         const admin = await tx.usuario.create({
           data: {

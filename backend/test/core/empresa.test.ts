@@ -121,6 +121,31 @@ describe('4c.3 — POST /empresas', () => {
     expect(await semilla().membresia.count({ where: { usuarioId: superAdminId } })).toBe(0);
   });
 
+  it('el tenant nace con sus directorios por defecto (4 categorías, 2 roles, 1 config) — fin del dead-lock de onboarding', async () => {
+    const slug = `dir-${randomUUID().slice(0, 8)}`;
+    const res = await app.inject({
+      method: 'POST',
+      url: '/empresas',
+      headers: { authorization: `Bearer ${tokenSuper()}` },
+      payload: cuerpo(slug, `admin-${randomUUID()}@dir.local`),
+    });
+    expect(res.statusCode).toBe(201);
+    const creada = res.json() as { id: string };
+
+    // Directorios sembrados EN LA MISMA TX del alta (god-view, bypass RLS para aserción).
+    const [categorias, roles, config, pagoEmpl] = await Promise.all([
+      semilla().categoriaGasto.count({ where: { empresaId: creada.id } }),
+      semilla().rolOperativo.count({ where: { empresaId: creada.id } }),
+      semilla().configuracionCobro.count({ where: { empresaId: creada.id } }),
+      semilla().categoriaGasto.findMany({ where: { empresaId: creada.id, esPagoEmpleado: true } }),
+    ]);
+    expect(categorias).toBe(4);
+    expect(roles).toBe(2);
+    expect(config).toBe(1);
+    expect(pagoEmpl).toHaveLength(1);
+    expect(pagoEmpl[0]?.nombre).toBe('Pago a empleado'); // la que exige el cobro de horas extra
+  });
+
   it('email de admin duplicado → 409 y ROLLBACK (no queda empresa a medias)', async () => {
     const email = `dup-${randomUUID()}@x.local`;
     const ok = await app.inject({

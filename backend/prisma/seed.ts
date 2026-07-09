@@ -5,6 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { hashearContrasena } from '../src/core/auth/contrasena.js';
 import { Rol } from '../src/generated/prisma/enums.js';
+import { sembrarDirectoriosEmpresa } from '../src/core/empresa/directorios-defaults.js';
 import {
   demoHabilitado,
   resolverPasswordAdmin,
@@ -137,10 +138,9 @@ async function main(): Promise<void> {
     // NO se crea membresía: el super-admin no pertenece a ninguna empresa (§4.2).
   }
 
-  // Base (prod-safe): catálogos y configuración.
-  await sembrarRolesOperativos(empresaDefault.id);
-  await sembrarCategoriasGasto(empresaDefault.id);
-  await sembrarConfiguracionCobro(empresaDefault.id);
+  // Base (prod-safe): catálogos y configuración. MISMA función compartida que usa
+  // `crearEmpresa` al dar de alta un tenant (una sola fuente de defaults, sin duplicar).
+  await sembrarDirectoriosEmpresa(prisma, empresaDefault.id);
 
   // Datos de demostración: solo en desarrollo (o con SEED_DEMO=true).
   if (demoOn) {
@@ -156,54 +156,9 @@ async function main(): Promise<void> {
   console.log(`  Datos demo: ${demoOn ? 'sí' : 'no (modo producción)'}`);
 }
 
-/**
- * Roles operativos base (cajera, verificador). Catálogo extensible: añadir un
- * rol nuevo (vendedor, técnico, …) es agregar una entrada aquí. Idempotente
- * (upsert por `clave`).
- */
-async function sembrarRolesOperativos(empresaId: string): Promise<void> {
-  const roles = [
-    { clave: 'cajera', nombre: 'Cajera' },
-    { clave: 'verificador', nombre: 'Verificador' },
-  ];
-  for (const rol of roles) {
-    await prisma.rolOperativo.upsert({
-      // clave única POR empresa (compuesta): el upsert ya no colisiona entre tenants.
-      where: { empresaId_clave: { empresaId, clave: rol.clave } },
-      update: {},
-      create: { ...rol, empresaId },
-    });
-  }
-}
-
-/** Configuración de cobro por defecto (80% cobrable, umbral B/. 100). Idempotente. */
-async function sembrarConfiguracionCobro(empresaId: string): Promise<void> {
-  const existe = await prisma.configuracionCobro.findFirst({ where: { empresaId } });
-  if (!existe) {
-    await prisma.configuracionCobro.create({ data: { empresaId } });
-  }
-}
-
-/**
- * Categorías de gasto base. Idempotente (upsert por nombre único). Incluye una
- * categoría de pago a empleado para ejercitar la regla de coherencia.
- */
-async function sembrarCategoriasGasto(empresaId: string): Promise<void> {
-  const categorias = [
-    { nombre: 'Servicios públicos', esPagoEmpleado: false },
-    { nombre: 'Alquiler', esPagoEmpleado: false },
-    { nombre: 'Mantenimiento', esPagoEmpleado: false },
-    { nombre: 'Pago a empleado', esPagoEmpleado: true },
-  ];
-  for (const categoria of categorias) {
-    await prisma.categoriaGasto.upsert({
-      // Fase 3: nombre UNICO POR EMPRESA → upsert por la clave compuesta.
-      where: { empresaId_nombre: { empresaId, nombre: categoria.nombre } },
-      update: {},
-      create: { ...categoria, empresaId },
-    });
-  }
-}
+// Los defaults de una empresa (categorías de gasto, roles operativos, configuración de
+// cobro) viven en `src/core/empresa/directorios-defaults.ts` — FUENTE ÚNICA reutilizada
+// por este seed y por `crearEmpresa` (alta de tenant), para no duplicar el catálogo base.
 
 /**
  * Datos de demostración de cuentas por pagar: proveedores y facturas que cubren
