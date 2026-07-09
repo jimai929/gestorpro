@@ -22,7 +22,7 @@ const esquemaCrearCategoria = {
   },
 } as const;
 
-/** PATCH /categorias-gasto/:id: cambiar `nombre` y/o `activo` (al menos uno). NO esPagoEmpleado. */
+/** PATCH /categorias-gasto/:id: cambiar `nombre`, `esPagoEmpleado` y/o `activo` (al menos uno). */
 const esquemaActualizarCategoria = {
   body: {
     type: 'object',
@@ -30,6 +30,7 @@ const esquemaActualizarCategoria = {
     additionalProperties: false,
     properties: {
       nombre: { type: 'string', minLength: 1 },
+      esPagoEmpleado: { type: 'boolean' },
       activo: { type: 'boolean' },
     },
   },
@@ -72,6 +73,17 @@ export async function gastosRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       try {
         const incluirInactivas = request.query.incluirInactivas === 'true';
+        // Ver inactivas es una vista de GESTIÓN: solo supervisor/administrador. Un empleado
+        // que lo pida recibe 403 (frontera clara), NO una lista degradada en silencio.
+        if (
+          incluirInactivas &&
+          request.user.rol !== 'administrador' &&
+          request.user.rol !== 'supervisor'
+        ) {
+          return await reply
+            .code(403)
+            .send({ mensaje: 'No autorizado para ver categorías inactivas.' });
+        }
         return await reply.send(await listarCategorias({ incluirInactivas }));
       } catch (error) {
         return responderError(error, request, reply);
@@ -79,8 +91,9 @@ export async function gastosRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // Gestión de categorías (supervisor/administrador): crear, editar (nombre/activo) y
-  // baja lógica. Cada empresa maneja su propio catálogo (sin límite, sin catálogo global).
+  // Gestión de categorías (supervisor/administrador): crear/reactivar, editar (nombre/
+  // esPagoEmpleado/activo) y baja lógica. Cada empresa maneja su propio catálogo (sin límite,
+  // sin catálogo global). El servicio protege el invariante de "pago a empleado" activa.
   app.post<{ Body: { nombre: string; esPagoEmpleado?: boolean } }>(
     '/categorias-gasto',
     { ...soloGestion, schema: esquemaCrearCategoria },
@@ -93,7 +106,10 @@ export async function gastosRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.patch<{ Params: { id: string }; Body: { nombre?: string; activo?: boolean } }>(
+  app.patch<{
+    Params: { id: string };
+    Body: { nombre?: string; esPagoEmpleado?: boolean; activo?: boolean };
+  }>(
     '/categorias-gasto/:id',
     { ...soloGestion, schema: esquemaActualizarCategoria },
     async (request, reply) => {

@@ -56,13 +56,27 @@ describe('PantallaCategorias — permisos de UI por rol', () => {
     expect(screen.getByRole('button', { name: /nueva categoría/i })).toBeTruthy();
   });
 
-  it('empleado NO ve controles de gestión, pero SÍ el listado', async () => {
+  it('empleado es REDIRIGIDO (sin acceso a la gestión)', async () => {
     usuarioMock.actual = { rol: 'empleado', empresaId: 'e1' };
     montar();
-    await screen.findByText('Alquiler'); // el listado se muestra
+    // Redirigido: ni contenido de gestión ni carga del catálogo.
+    expect(screen.queryByText('Alquiler')).toBeNull();
     expect(screen.queryByRole('button', { name: /nueva categoría/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Editar' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Desactivar' })).toBeNull();
+    expect(vi.mocked(servicioGastos.obtenerCategoriasGasto)).not.toHaveBeenCalled();
+  });
+
+  it('el toggle "mostrar inactivas" recarga el catálogo incluyendo inactivas', async () => {
+    const user = userEvent.setup();
+    montar();
+    await screen.findByText('Alquiler');
+    // Carga inicial: solo activas.
+    expect(vi.mocked(servicioGastos.obtenerCategoriasGasto)).toHaveBeenCalledWith({
+      incluirInactivas: false,
+    });
+    await user.click(screen.getByRole('checkbox'));
+    expect(vi.mocked(servicioGastos.obtenerCategoriasGasto)).toHaveBeenCalledWith({
+      incluirInactivas: true,
+    });
   });
 });
 

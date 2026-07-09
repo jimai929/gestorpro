@@ -150,6 +150,107 @@ describe('categorías-gasto — CRUD por empresa (servicio, RLS)', () => {
       comoEmpresa(empresaId, () => crearCategoria({ nombre: '   ' })),
     ).rejects.toBeInstanceOf(ErrorValidacion);
   });
+
+  it('POST con nombre de una INACTIVA la REACTIVA (no crea fila duplicada)', async () => {
+    const empresaId = await crearEmpresa();
+    const cat = await comoEmpresa(empresaId, () => crearCategoria({ nombre: 'Reactivable' }));
+    await comoEmpresa(empresaId, () => desactivarCategoria(cat.id));
+
+    const reactivada = await comoEmpresa(empresaId, () =>
+      crearCategoria({ nombre: 'Reactivable', esPagoEmpleado: true }),
+    );
+    expect(reactivada.id).toBe(cat.id); // MISMA fila
+    expect(reactivada.activo).toBe(true);
+    expect(reactivada.esPagoEmpleado).toBe(true); // actualiza el flag
+    expect(reactivada.reactivada).toBe(true);
+    // Sigue habiendo UNA sola fila con ese nombre (god-view).
+    const filas = await semilla().categoriaGasto.findMany({
+      where: { empresaId, nombre: 'Reactivable' },
+    });
+    expect(filas).toHaveLength(1);
+  });
+
+  it('POST con nombre de una ACTIVA → 409 (duplicado real)', async () => {
+    const empresaId = await crearEmpresa();
+    await comoEmpresa(empresaId, () => crearCategoria({ nombre: 'Dup' }));
+    await expect(
+      comoEmpresa(empresaId, () => crearCategoria({ nombre: 'Dup' })),
+    ).rejects.toBeInstanceOf(ErrorConflicto);
+  });
+
+  it('PATCH puede cambiar esPagoEmpleado', async () => {
+    const empresaId = await crearEmpresa();
+    const cat = await comoEmpresa(empresaId, () => crearCategoria({ nombre: 'Flexible' }));
+    const upd = await comoEmpresa(empresaId, () =>
+      actualizarCategoria(cat.id, { esPagoEmpleado: true }),
+    );
+    expect(upd.esPagoEmpleado).toBe(true);
+  });
+
+  it('INVARIANTE: no se puede DESACTIVAR la última categoría de pago a empleado activa (409)', async () => {
+    const empresaId = await crearEmpresa();
+    const pago = await comoEmpresa(empresaId, () =>
+      crearCategoria({ nombre: 'Pago', esPagoEmpleado: true }),
+    );
+    await expect(
+      comoEmpresa(empresaId, () => desactivarCategoria(pago.id)),
+    ).rejects.toBeInstanceOf(ErrorConflicto);
+    const enBd = await semilla().categoriaGasto.findUniqueOrThrow({ where: { id: pago.id } });
+    expect(enBd.activo).toBe(true); // sigue activa
+  });
+
+  it('INVARIANTE: no se puede poner esPagoEmpleado=false a la última de pago a empleado (409)', async () => {
+    const empresaId = await crearEmpresa();
+    const pago = await comoEmpresa(empresaId, () =>
+      crearCategoria({ nombre: 'Pago', esPagoEmpleado: true }),
+    );
+    await expect(
+      comoEmpresa(empresaId, () => actualizarCategoria(pago.id, { esPagoEmpleado: false })),
+    ).rejects.toBeInstanceOf(ErrorConflicto);
+  });
+
+  it('SÍ se puede desactivar una de pago a empleado si queda OTRA activa', async () => {
+    const empresaId = await crearEmpresa();
+    const p1 = await comoEmpresa(empresaId, () =>
+      crearCategoria({ nombre: 'Pago1', esPagoEmpleado: true }),
+    );
+    await comoEmpresa(empresaId, () => crearCategoria({ nombre: 'Pago2', esPagoEmpleado: true }));
+    const baja = await comoEmpresa(empresaId, () => desactivarCategoria(p1.id));
+    expect(baja.activo).toBe(false);
+  });
+
+  it('listarCategorias por defecto NO devuelve inactivas; con incluirInactivas sí', async () => {
+    const empresaId = await crearEmpresa();
+    const cat = await comoEmpresa(empresaId, () => crearCategoria({ nombre: 'Oculta' }));
+    await comoEmpresa(empresaId, () => desactivarCategoria(cat.id));
+    const activas = await comoEmpresa(empresaId, () => listarCategorias());
+    expect(activas.find((c) => c.id === cat.id)).toBeUndefined();
+    const todas = await comoEmpresa(empresaId, () => listarCategorias({ incluirInactivas: true }));
+    expect(todas.find((c) => c.id === cat.id)).toBeDefined();
+  });
+
+  it('registrarGasto con una categoría INACTIVA → ErrorValidacion (soft-delete de primera clase)', async () => {
+    const empresaId = await crearEmpresa();
+    const cat = await comoEmpresa(empresaId, () => crearCategoria({ nombre: 'Baja' }));
+    const sede = await semilla().sede.create({
+      data: { nombre: `S ${randomUUID().slice(0, 6)}`, empresaId },
+    });
+    const usuario = await semilla().usuario.create({
+      data: { nombre: 'U', email: `inact-${randomUUID()}@x.local`, rol: 'administrador', passwordHash: 'x' },
+    });
+    await comoEmpresa(empresaId, () => desactivarCategoria(cat.id));
+    await expect(
+      comoEmpresa(empresaId, () =>
+        registrarGasto({
+          categoriaId: cat.id,
+          sedeId: sede.id,
+          monto: 10,
+          fechaOperacion: '2026-05-17',
+          usuarioId: usuario.id,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ErrorValidacion);
+  });
 });
 
 // ── Matriz de permisos a nivel HTTP (autenticar + autorizar) ──────────────────
@@ -239,5 +340,42 @@ describe('categorías-gasto — permisos (HTTP)', () => {
       headers: { authorization: `Bearer ${token(e, 'empleado')}` },
     });
     expect(res.statusCode).toBe(403);
+  });
+
+  it('GET ?incluirInactivas=true: empleado → 403 (vista de gestión)', async () => {
+    const e = await empresaActiva();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/categorias-gasto?incluirInactivas=true',
+      headers: { authorization: `Bearer ${token(e, 'empleado')}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('GET ?incluirInactivas=true: admin → 200', async () => {
+    const e = await empresaActiva();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/categorias-gasto?incluirInactivas=true',
+      headers: { authorization: `Bearer ${token(e, 'administrador')}` },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('empresaId en el body NO se inyecta: la categoría queda en la empresa del TOKEN', async () => {
+    const e = await empresaActiva();
+    const ajena = await empresaActiva(); // id ajeno que intentamos inyectar
+    const res = await app.inject({
+      method: 'POST',
+      url: '/categorias-gasto',
+      headers: { authorization: `Bearer ${token(e, 'administrador')}` },
+      payload: { nombre: `Inj ${randomUUID().slice(0, 6)}`, empresaId: ajena },
+    });
+    expect(res.statusCode).toBe(201); // el empresaId ajeno se descarta (additionalProperties), no rompe
+    const creada = res.json() as { id: string };
+    // La fila quedó en la empresa del TOKEN, NO en la inyectada.
+    const fila = await semilla().categoriaGasto.findUniqueOrThrow({ where: { id: creada.id } });
+    expect(fila.empresaId).toBe(e);
+    expect(fila.empresaId).not.toBe(ajena);
   });
 });

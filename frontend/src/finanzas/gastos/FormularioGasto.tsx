@@ -12,8 +12,14 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
-import { obtenerCategoriasGasto, obtenerSedes, registrarGasto } from './servicioGastos';
+import {
+  obtenerCategoriasGasto,
+  obtenerSedes,
+  registrarGasto,
+  crearCategoria,
+} from './servicioGastos';
 import { fechaHoy } from './utilidades';
 import type { CategoriaGasto, Sede } from './tipos';
 import styles from './FormularioGasto.module.css';
@@ -34,6 +40,10 @@ const OPCIONES_TIPO_PAGO = [
 
 export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
   const { t } = useTraduccion();
+  const { usuario } = useAuth();
+  // Crear categorías inline: solo admin/supervisor (mismo criterio que el backend).
+  const puedeCrearCategoria =
+    usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
   // Datos de selects
   const [categorias, setCategorias] = useState<CategoriaGasto[]>([]);
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -56,6 +66,57 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
   // Categoría actualmente seleccionada (para determinar esPagoEmpleado)
   const categoriaSeleccionada = categorias.find((c) => c.id === categoriaId) ?? null;
   const esCategoriaPagoEmpleado = categoriaSeleccionada?.esPagoEmpleado === true;
+
+  // ── Crear categoría INLINE (admin/supervisor) ──────────────────────────────
+  const [mostrarNuevaCat, setMostrarNuevaCat] = useState(false);
+  const [nuevaCatNombre, setNuevaCatNombre] = useState('');
+  const [nuevaCatPagoEmpleado, setNuevaCatPagoEmpleado] = useState(false);
+  const [creandoCat, setCreandoCat] = useState(false);
+  const [errorCat, setErrorCat] = useState<string | null>(null);
+  const [avisoCat, setAvisoCat] = useState<string | null>(null);
+
+  const cerrarNuevaCat = () => {
+    setMostrarNuevaCat(false);
+    setNuevaCatNombre('');
+    setNuevaCatPagoEmpleado(false);
+    setErrorCat(null);
+  };
+
+  const crearCategoriaInline = async () => {
+    const nombre = nuevaCatNombre.trim();
+    if (!nombre) return;
+    setCreandoCat(true);
+    setErrorCat(null);
+    setAvisoCat(null);
+    try {
+      // Si el nombre coincide con una INACTIVA, el backend la reactiva (reactivada:true).
+      const nueva = await crearCategoria({ nombre, esPagoEmpleado: nuevaCatPagoEmpleado });
+      // Añade/actualiza en el listado (por si fue reactivada, no estaba entre las activas) y
+      // AUTO-SELECCIONA. No toca el resto del formulario (monto/fecha/… se conservan).
+      setCategorias((prev) =>
+        [
+          ...prev.filter((c) => c.id !== nueva.id),
+          {
+            id: nueva.id,
+            nombre: nueva.nombre,
+            esPagoEmpleado: nueva.esPagoEmpleado,
+            activo: nueva.activo,
+            creadoEn: nueva.creadoEn,
+          },
+        ].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+      );
+      setCategoriaId(nueva.id);
+      setMostrarNuevaCat(false);
+      setNuevaCatNombre('');
+      setNuevaCatPagoEmpleado(false);
+      setAvisoCat(nueva.reactivada ? t('fin.gasto.catReactivada') : null);
+    } catch (err) {
+      // Duplicado ACTIVA (409): el mensaje del backend invita a elegir la existente del select.
+      setErrorCat(err instanceof Error ? err.message : t('fin.categoria.errGuardar'));
+    } finally {
+      setCreandoCat(false);
+    }
+  };
 
   // Cargar selects al montar
   useEffect(() => {
@@ -167,6 +228,60 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
                 </option>
               ))}
             </select>
+
+            {/* Crear categoría inline (solo admin/supervisor) */}
+            {puedeCrearCategoria && !mostrarNuevaCat && (
+              <button
+                type="button"
+                className={styles.enlaceNuevaCat}
+                onClick={() => { setMostrarNuevaCat(true); setErrorCat(null); setAvisoCat(null); }}
+                disabled={guardando}
+              >
+                + {t('fin.gasto.nuevaCategoria')}
+              </button>
+            )}
+            {puedeCrearCategoria && mostrarNuevaCat && (
+              <div className={styles.nuevaCat}>
+                <input
+                  className={styles.nuevaCatInput}
+                  type="text"
+                  value={nuevaCatNombre}
+                  onChange={(e) => setNuevaCatNombre(e.target.value)}
+                  placeholder={t('fin.categoria.nombrePlaceholder')}
+                  aria-label={t('fin.categoria.nombre')}
+                  disabled={creandoCat}
+                />
+                <label className={styles.nuevaCatCheck}>
+                  <input
+                    type="checkbox"
+                    checked={nuevaCatPagoEmpleado}
+                    onChange={(e) => setNuevaCatPagoEmpleado(e.target.checked)}
+                    disabled={creandoCat}
+                  />
+                  {t('fin.categoria.tipoPagoEmpleado')}
+                </label>
+                <div className={styles.nuevaCatAcciones}>
+                  <button
+                    type="button"
+                    className={styles.nuevaCatBtn}
+                    onClick={() => { void crearCategoriaInline(); }}
+                    disabled={creandoCat || !nuevaCatNombre.trim()}
+                  >
+                    {creandoCat ? t('comun.cargando') : t('fin.categoria.crear')}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.nuevaCatCancelar}
+                    onClick={cerrarNuevaCat}
+                    disabled={creandoCat}
+                  >
+                    {t('comun.cancelar')}
+                  </button>
+                </div>
+              </div>
+            )}
+            {errorCat && <p className={styles.nuevaCatError}>{errorCat}</p>}
+            {avisoCat && <p className={styles.nuevaCatAviso}>{avisoCat}</p>}
           </div>
 
           {/* Sede */}

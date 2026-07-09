@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Navigate } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -48,42 +49,55 @@ export function PantallaCategorias() {
   const [mostrarFormNueva, setMostrarFormNueva] = useState(false);
   const [categoriaEditar, setCategoriaEditar] = useState<CategoriaGasto | null>(null);
   const [actualizandoId, setActualizandoId] = useState<string | null>(null);
+  const [mostrarInactivas, setMostrarInactivas] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  // Error de una ACCIÓN de fila (activar/desactivar). Aparte de `errorCarga` para que un fallo
+  // (p. ej. el invariante 409) NO oculte la tabla entera: se muestra como banner sobre ella.
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
+    if (!puedeGestionar) return; // solo la gestión carga el catálogo completo
     setCargando(true);
     setErrorCarga(null);
     try {
-      setCategorias(await obtenerCategoriasGasto({ incluirInactivas: true }));
+      setCategorias(await obtenerCategoriasGasto({ incluirInactivas: mostrarInactivas }));
     } catch (err) {
       setErrorCarga(err instanceof Error ? err.message : t('fin.categoria.errCargar'));
     } finally {
       setCargando(false);
     }
-  }, [t]);
+  }, [t, puedeGestionar, mostrarInactivas]);
 
   useEffect(() => {
     void cargar();
   }, [cargar]);
 
-  const manejarGuardado = () => {
+  const manejarGuardado = (categoria: CategoriaGasto & { reactivada?: boolean }) => {
     setMostrarFormNueva(false);
     setCategoriaEditar(null);
+    setAviso(categoria.reactivada ? t('fin.categoria.reactivada') : null);
     void cargar();
   };
 
   const alternarActivo = async (categoria: CategoriaGasto) => {
     setActualizandoId(categoria.id);
-    setErrorCarga(null);
+    setErrorAccion(null);
+    setAviso(null);
     try {
       if (categoria.activo) await desactivarCategoria(categoria.id);
       else await actualizarCategoria(categoria.id, { activo: true });
       await cargar();
     } catch (err) {
-      setErrorCarga(err instanceof Error ? err.message : t('fin.categoria.errGuardar'));
+      setErrorAccion(err instanceof Error ? err.message : t('fin.categoria.errGuardar'));
     } finally {
       setActualizandoId(null);
     }
   };
+
+  // Página de GESTIÓN: un empleado que llegue por URL directa se redirige (sin acceso).
+  if (!puedeGestionar) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <LayoutPrincipal>
@@ -93,7 +107,15 @@ export function PantallaCategorias() {
             <h1 className={styles.tituloPagina}>{t('fin.navCategorias')}</h1>
             <p className={styles.subtitulo}>{t('fin.categoria.subtitulo')}</p>
           </div>
-          {puedeGestionar && (
+          <div className={styles.controles}>
+            <label className={styles.toggleInactivas}>
+              <input
+                type="checkbox"
+                checked={mostrarInactivas}
+                onChange={(e) => setMostrarInactivas(e.target.checked)}
+              />
+              {t('fin.categoria.mostrarInactivas')}
+            </label>
             <Boton
               onClick={() => {
                 setCategoriaEditar(null);
@@ -102,10 +124,13 @@ export function PantallaCategorias() {
             >
               {mostrarFormNueva ? t('fin.categoria.cerrarForm') : t('fin.categoria.btnNueva')}
             </Boton>
-          )}
+          </div>
         </div>
 
-        {puedeGestionar && mostrarFormNueva && (
+        {aviso && <p className={styles.aviso}>{aviso}</p>}
+        {errorAccion && <p className={styles.errorAccion}>{errorAccion}</p>}
+
+        {mostrarFormNueva && (
           <FormularioCategoria
             onGuardado={manejarGuardado}
             onCancelar={() => setMostrarFormNueva(false)}

@@ -6,6 +6,7 @@
 import { api } from '../../core/api';
 import type {
   CategoriaGasto,
+  CategoriaGastoCreada,
   Sede,
   Gasto,
   CuerpoRegistrarGasto,
@@ -28,12 +29,15 @@ export function obtenerCategoriasGasto(opciones?: {
   return api.get<CategoriaGasto[]>(`/categorias-gasto${query}`);
 }
 
-/** Crea una categoría personalizada (supervisor/administrador). */
-export function crearCategoria(cuerpo: CuerpoCrearCategoria): Promise<CategoriaGasto> {
-  return api.post<CategoriaGasto>('/categorias-gasto', cuerpo);
+/**
+ * Crea (o REACTIVA) una categoría personalizada (supervisor/administrador). Si el nombre
+ * coincide con una categoría INACTIVA, el backend la reactiva y devuelve `reactivada:true`.
+ */
+export function crearCategoria(cuerpo: CuerpoCrearCategoria): Promise<CategoriaGastoCreada> {
+  return api.post<CategoriaGastoCreada>('/categorias-gasto', cuerpo);
 }
 
-/** Edita una categoría: nombre y/o baja/alta lógica (`activo`). NO cambia esPagoEmpleado. */
+/** Edita una categoría: nombre, esPagoEmpleado y/o baja/alta lógica (`activo`). */
 export function actualizarCategoria(
   id: string,
   cuerpo: CuerpoActualizarCategoria,

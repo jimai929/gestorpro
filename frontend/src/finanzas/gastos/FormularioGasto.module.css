@@ -126,3 +126,106 @@
   padding: 0.5rem 0.75rem;
   margin-top: 0.75rem;
 }
+
+/* ── Crear categoría inline ── */
+
+.enlaceNuevaCat {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.enlaceNuevaCat:hover {
+  text-decoration: underline;
+}
+
+.enlaceNuevaCat:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nuevaCat {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nuevaCatInput {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.nuevaCatInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.nuevaCatCheck {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.nuevaCatAcciones {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nuevaCatBtn,
+.nuevaCatCancelar {
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--color-border-strong);
+}
+
+.nuevaCatBtn {
+  background: var(--color-primary);
+  color: var(--on-primary);
+  border-color: var(--color-primary);
+}
+
+.nuevaCatBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nuevaCatCancelar {
+  background: none;
+  color: var(--color-text-secondary);
+}
+
+.nuevaCatError {
+  font-size: 0.8125rem;
+  color: var(--color-danger);
+  margin: 0.35rem 0 0;
+}
+
+.nuevaCatAviso {
+  font-size: 0.8125rem;
+  color: var(--color-success);
+  margin: 0.35rem 0 0;
+}

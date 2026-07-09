@@ -4,9 +4,9 @@
  * - Sin `categoria` en props → modo alta.
  * - Con `categoria` → modo edición (precarga el nombre).
  *
- * `esPagoEmpleado` solo se decide AL CREAR: cambiarlo en una categoría ya usada
- * rompería la coherencia de los gastos ya registrados con ella, así que en edición
- * ni se muestra (el backend tampoco lo acepta en el PATCH).
+ * `esPagoEmpleado` (checkbox) se puede fijar al CREAR y al EDITAR. Cambiarlo NO altera los
+ * gastos ya registrados (su coherencia se validó al crearlos); solo afecta a los futuros. El
+ * backend protege el invariante de "pago a empleado" activa (no se puede quitar la última).
  */
 
 import { useState } from 'react';
@@ -20,7 +20,8 @@ import styles from './FormularioCategoria.module.css';
 interface PropiedadesFormulario {
   /** Si se pasa, edita esa categoría; si no, crea una nueva. */
   categoria?: CategoriaGasto;
-  onGuardado: (categoria: CategoriaGasto) => void;
+  /** Recibe la categoría guardada; en alta puede traer `reactivada:true` (nombre reusaba una inactiva). */
+  onGuardado: (categoria: CategoriaGasto & { reactivada?: boolean }) => void;
   onCancelar: () => void;
 }
 
@@ -39,7 +40,7 @@ export function FormularioCategoria({ categoria, onGuardado, onCancelar }: Propi
     setError(null);
     try {
       const resultado = esEdicion
-        ? await actualizarCategoria(categoria.id, { nombre: nombre.trim() })
+        ? await actualizarCategoria(categoria.id, { nombre: nombre.trim(), esPagoEmpleado })
         : await crearCategoria({ nombre: nombre.trim(), esPagoEmpleado });
       onGuardado(resultado);
     } catch (err) {
@@ -67,22 +68,20 @@ export function FormularioCategoria({ categoria, onGuardado, onCancelar }: Propi
         />
       </div>
 
-      {!esEdicion && (
-        <div className={styles.opcionPago}>
-          <input
-            id="cat-pago-empleado"
-            type="checkbox"
-            className={styles.checkbox}
-            checked={esPagoEmpleado}
-            onChange={(e) => setEsPagoEmpleado(e.target.checked)}
-            disabled={guardando}
-          />
-          <label htmlFor="cat-pago-empleado" className={styles.etiquetaCheck}>
-            {t('fin.categoria.esPagoEmpleado')}
-            <span className={styles.ayuda}>{t('fin.categoria.esPagoEmpleadoAyuda')}</span>
-          </label>
-        </div>
-      )}
+      <div className={styles.opcionPago}>
+        <input
+          id="cat-pago-empleado"
+          type="checkbox"
+          className={styles.checkbox}
+          checked={esPagoEmpleado}
+          onChange={(e) => setEsPagoEmpleado(e.target.checked)}
+          disabled={guardando}
+        />
+        <label htmlFor="cat-pago-empleado" className={styles.etiquetaCheck}>
+          {t('fin.categoria.esPagoEmpleado')}
+          <span className={styles.ayuda}>{t('fin.categoria.esPagoEmpleadoAyuda')}</span>
+        </label>
+      </div>
 
       <div className={styles.acciones}>
         <Boton type="button" variante="secundario" onClick={onCancelar} disabled={guardando}>

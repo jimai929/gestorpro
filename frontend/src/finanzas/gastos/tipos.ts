@@ -58,9 +58,16 @@ export interface CuerpoCrearCategoria {
   esPagoEmpleado?: boolean;
 }
 
-/** Edición parcial: `esPagoEmpleado` NO se puede cambiar (rompería gastos ya registrados). */
+/** Respuesta de crear categoría: `reactivada=true` si el nombre coincidía con una inactiva
+ * y en vez de crear una fila nueva se reactivó la existente. */
+export interface CategoriaGastoCreada extends CategoriaGasto {
+  reactivada: boolean;
+}
+
+/** Edición parcial de una categoría (campo presente se fija, ausente se deja igual). */
 export interface CuerpoActualizarCategoria {
   nombre?: string;
+  esPagoEmpleado?: boolean;
   activo?: boolean;
 }
 
