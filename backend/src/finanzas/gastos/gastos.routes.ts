@@ -2,9 +2,38 @@ import type { FastifyInstance } from 'fastify';
 import { responderError } from '../../core/http.js';
 import {
   listarCategorias,
+  crearCategoria,
+  actualizarCategoria,
+  desactivarCategoria,
   registrarGasto,
   listarGastos,
 } from './gastos.service.js';
+
+/** POST /categorias-gasto: crear una categoría personalizada. `nombre` obligatorio. */
+const esquemaCrearCategoria = {
+  body: {
+    type: 'object',
+    required: ['nombre'],
+    additionalProperties: false,
+    properties: {
+      nombre: { type: 'string', minLength: 1 },
+      esPagoEmpleado: { type: 'boolean' },
+    },
+  },
+} as const;
+
+/** PATCH /categorias-gasto/:id: cambiar `nombre` y/o `activo` (al menos uno). NO esPagoEmpleado. */
+const esquemaActualizarCategoria = {
+  body: {
+    type: 'object',
+    minProperties: 1,
+    additionalProperties: false,
+    properties: {
+      nombre: { type: 'string', minLength: 1 },
+      activo: { type: 'boolean' },
+    },
+  },
+} as const;
 
 const esquemaGasto = {
   body: {
@@ -35,13 +64,59 @@ export async function gastosRoutes(app: FastifyInstance): Promise<void> {
   };
   const autenticado = { preHandler: [app.autenticar] };
 
-  app.get('/categorias-gasto', autenticado, async (request, reply) => {
-    try {
-      return await reply.send(await listarCategorias());
-    } catch (error) {
-      return responderError(error, request, reply);
-    }
-  });
+  // Lectura para cualquier autenticado (la consume el select del formulario de gasto).
+  // Con ?incluirInactivas=true trae también las dadas de baja (pantalla de gestión).
+  app.get<{ Querystring: { incluirInactivas?: string } }>(
+    '/categorias-gasto',
+    autenticado,
+    async (request, reply) => {
+      try {
+        const incluirInactivas = request.query.incluirInactivas === 'true';
+        return await reply.send(await listarCategorias({ incluirInactivas }));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Gestión de categorías (supervisor/administrador): crear, editar (nombre/activo) y
+  // baja lógica. Cada empresa maneja su propio catálogo (sin límite, sin catálogo global).
+  app.post<{ Body: { nombre: string; esPagoEmpleado?: boolean } }>(
+    '/categorias-gasto',
+    { ...soloGestion, schema: esquemaCrearCategoria },
+    async (request, reply) => {
+      try {
+        return await reply.code(201).send(await crearCategoria(request.body));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  app.patch<{ Params: { id: string }; Body: { nombre?: string; activo?: boolean } }>(
+    '/categorias-gasto/:id',
+    { ...soloGestion, schema: esquemaActualizarCategoria },
+    async (request, reply) => {
+      try {
+        return await reply.send(await actualizarCategoria(request.params.id, request.body));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // DELETE = baja LÓGICA (soft delete). Nunca borra: los gastos históricos la referencian.
+  app.delete<{ Params: { id: string } }>(
+    '/categorias-gasto/:id',
+    soloGestion,
+    async (request, reply) => {
+      try {
+        return await reply.send(await desactivarCategoria(request.params.id));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
 
   app.post<{
     Body: {

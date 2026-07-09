@@ -20,7 +20,7 @@ import { ReactNode, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import {
   Wallet, Building2, Clock, ShieldCheck,
-  Receipt, Truck, CreditCard, BarChart3,
+  Receipt, Truck, CreditCard, Tags, BarChart3,
   MapPin, Users, Monitor, UserCog,
   ClipboardCheck, CalendarDays, Banknote, ExternalLink,
   KeyRound, LogOut,
@@ -65,6 +65,11 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
   const puedeVerUsuarios =
     usuario?.empresaId != null &&
     (usuario?.rol === 'administrador' || usuario?.esSuperAdmin);
+  // Gestión de categorías de gasto: admin/supervisor (mismo criterio que el backend
+  // `soloGestion`). El empleado no ve el enlace; el backend lo refuerza (403).
+  const puedeGestionarCategorias =
+    usuario?.empresaId != null &&
+    (usuario?.rol === 'administrador' || usuario?.rol === 'supervisor');
 
   const grupos = [];
   if (!esSuperAdmin) {
@@ -76,6 +81,9 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
           { to: '/cuentas-por-pagar', clave: 'nav.cuentasPorPagar', icono: Receipt },
           { to: '/proveedores', clave: 'fin.navProveedores', icono: Truck },
           { to: '/gastos', clave: 'nav.gastos', icono: CreditCard },
+          ...(puedeGestionarCategorias
+            ? [{ to: '/categorias-gasto', clave: 'fin.navCategorias', icono: Tags }]
+            : []),
           { to: '/dashboard', clave: 'nav.dashboard', icono: BarChart3 },
         ],
       },

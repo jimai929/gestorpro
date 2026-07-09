@@ -17,7 +17,7 @@ import { PantallaSedes } from './administracion/sedes';
 import { PantallaEmpleados } from './administracion/empleado';
 import { PantallaKioscos } from './administracion/kioscos';
 import { PantallaUsuarios } from './administracion/usuarios';
-import { PantallaGastos } from './finanzas/gastos';
+import { PantallaGastos, PantallaCategorias } from './finanzas/gastos';
 import { PantallaDashboard } from './finanzas/dashboard';
 import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
 import { PantallaRevision } from './asistencia/revision/PantallaRevision';
@@ -75,6 +75,10 @@ const router = createBrowserRouter([
           {
             path: '/gastos',
             element: <PantallaGastos />,
+          },
+          {
+            path: '/categorias-gasto',
+            element: <PantallaCategorias />,
           },
           {
             path: '/dashboard',

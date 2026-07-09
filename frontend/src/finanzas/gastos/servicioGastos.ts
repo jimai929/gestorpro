@@ -9,14 +9,41 @@ import type {
   Sede,
   Gasto,
   CuerpoRegistrarGasto,
+  CuerpoCrearCategoria,
+  CuerpoActualizarCategoria,
   FiltrosGasto,
 } from './tipos';
 
 // ── Categorías de gasto ───────────────────────────────────────────────────
 
-/** Lista todas las categorías de gasto disponibles. */
-export function obtenerCategoriasGasto(): Promise<CategoriaGasto[]> {
-  return api.get<CategoriaGasto[]>('/categorias-gasto');
+/**
+ * Lista las categorías de gasto de la empresa. Por defecto solo las activas (las
+ * consume el select del formulario de gasto); con `incluirInactivas`, todas (para
+ * la pantalla de gestión, que permite reactivar).
+ */
+export function obtenerCategoriasGasto(opciones?: {
+  incluirInactivas?: boolean;
+}): Promise<CategoriaGasto[]> {
+  const query = opciones?.incluirInactivas ? '?incluirInactivas=true' : '';
+  return api.get<CategoriaGasto[]>(`/categorias-gasto${query}`);
+}
+
+/** Crea una categoría personalizada (supervisor/administrador). */
+export function crearCategoria(cuerpo: CuerpoCrearCategoria): Promise<CategoriaGasto> {
+  return api.post<CategoriaGasto>('/categorias-gasto', cuerpo);
+}
+
+/** Edita una categoría: nombre y/o baja/alta lógica (`activo`). NO cambia esPagoEmpleado. */
+export function actualizarCategoria(
+  id: string,
+  cuerpo: CuerpoActualizarCategoria,
+): Promise<CategoriaGasto> {
+  return api.patch<CategoriaGasto>(`/categorias-gasto/${id}`, cuerpo);
+}
+
+/** Baja LÓGICA (soft delete) de una categoría: `activo=false`. Nunca borra la fila. */
+export function desactivarCategoria(id: string): Promise<CategoriaGasto> {
+  return api.delete<CategoriaGasto>(`/categorias-gasto/${id}`);
 }
 
 // ── Sedes ─────────────────────────────────────────────────────────────────

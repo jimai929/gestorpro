@@ -51,6 +51,19 @@ export interface CuerpoRegistrarGasto {
   tipoPago?: string;
 }
 
+// ── Gestión de categorías ─────────────────────────────────────────────────
+
+export interface CuerpoCrearCategoria {
+  nombre: string;
+  esPagoEmpleado?: boolean;
+}
+
+/** Edición parcial: `esPagoEmpleado` NO se puede cambiar (rompería gastos ya registrados). */
+export interface CuerpoActualizarCategoria {
+  nombre?: string;
+  activo?: boolean;
+}
+
 // ── Filtros de listado ────────────────────────────────────────────────────
 
 export interface FiltrosGasto {
