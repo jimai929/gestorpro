@@ -433,13 +433,22 @@ export function PantallaDashboard() {
                 <span className={styles.descripcionMetrica}>{t('fin.dash.descVentas')}</span>
               </div>
 
-              {/* Compras */}
+              {/* Compras registradas (devengado, informativo) */}
               <div className={styles.tarjetaMetrica}>
                 <span className={styles.etiquetaMetrica}>{t('fin.dash.cardCompras')}</span>
                 <span className={styles.valorMetrica}>
                   {formatearDinero(resumen.compras)}
                 </span>
                 <span className={styles.descripcionMetrica}>{t('fin.dash.descCompras')}</span>
+              </div>
+
+              {/* Pagos a proveedor (egreso real de caja: solo lo pagado) */}
+              <div className={styles.tarjetaMetrica}>
+                <span className={styles.etiquetaMetrica}>{t('fin.dash.cardPagosProveedor')}</span>
+                <span className={styles.valorMetrica}>
+                  {formatearDinero(resumen.pagosProveedor)}
+                </span>
+                <span className={styles.descripcionMetrica}>{t('fin.dash.descPagosProveedor')}</span>
               </div>
 
               {/* Gastos */}

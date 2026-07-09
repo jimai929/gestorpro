@@ -20,9 +20,10 @@ export interface ResumenGanancia {
   desde: string;            // YYYY-MM-DD
   hasta: string;            // YYYY-MM-DD
   ventas: number;
-  compras: number;
+  compras: number;          // registradas (devengado, fecha de factura): informativo
+  pagosProveedor: number;   // egreso REAL a proveedores (pagos crédito + contado): base caja
   gastos: number;
-  ganancia: number;
+  ganancia: number;         // caja: ventas − pagosProveedor − gastos
 }
 
 // ── Gastos por categoría ───────────────────────────────────────────────────

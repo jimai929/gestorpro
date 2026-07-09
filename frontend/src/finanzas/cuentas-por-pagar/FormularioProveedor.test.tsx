@@ -33,6 +33,7 @@ describe('FormularioProveedor — manejo de fallo del backend', () => {
       personaContacto: null,
       activo: true,
       creadoEn: '2026-01-01',
+      deudaTotal: 0,
     };
     vi.mocked(servicio.crearProveedor).mockResolvedValue(creado);
     const onGuardado = vi.fn();

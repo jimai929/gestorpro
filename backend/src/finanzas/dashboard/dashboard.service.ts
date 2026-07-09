@@ -19,12 +19,17 @@ function redondear(n: number): number {
 }
 
 /**
- * Ganancia del período: ventas − compras − gastos.
- *  - Compras por criterio DEVENGADO (fecha de emisión), monto total de la factura.
+ * Ganancia del período en criterio CAJA: ventas − pagos a proveedor − gastos.
+ *  - `compras` (INFORMATIVO) = total DEVENGADO por fecha de emisión: todas las facturas
+ *    registradas, estén pagadas o no. NO entra en la ganancia de caja.
+ *  - `pagosProveedor` = EGRESO REAL de caja hacia proveedores: pagos de facturas a crédito
+ *    (por fecha de pago, netos de reverso) + compras de CONTADO (por fecha de emisión: se pagan
+ *    en el acto y no generan PagoProveedor). Una compra a crédito IMPAGA NO cuenta como egreso:
+ *    queda como deuda en `cuenta_por_pagar` (ver lista de proveedores). Antes se restaba la
+ *    compra completa por devengado, contando como efectivo salido dinero que aún no se pagó.
  *  - Ventas y gastos se toman netos: un `reverso` resta; `normal`/`correccion` suman.
- *  - Las ventas usan el TOTAL del cierre (que cuadra con Firestec), sin
- *    desglosar por tipo de arqueo. `cajera`/`turno` acotan SOLO las ventas; las
- *    compras y gastos no tienen esa dimensión y quedan a nivel sede/período.
+ *  - Las ventas usan el TOTAL del cierre (que cuadra con Firestec). `cajera`/`turno` acotan
+ *    SOLO las ventas; compras, pagos y gastos quedan a nivel sede/período.
  */
 export async function gananciaDelPeriodo(filtros: RangoFiltro) {
   const { desde, hasta, sedeId, cajera, turno } = filtros;
@@ -41,9 +46,28 @@ export async function gananciaDelPeriodo(filtros: RangoFiltro) {
   };
 
   return txEmpresa(async (tx) => {
+    // Compras REGISTRADAS (devengado, informativo): todas las facturas por fecha de emisión.
     const compras = await tx.compra.aggregate({
       _sum: { montoTotal: true },
       where: { ...sede, fechaEmision: enRango },
+    });
+
+    // Egreso real a proveedores = pagos de crédito (por fecha de pago, netos de reverso)
+    //  + compras de contado (pagadas en el acto, por fecha de emisión). PagoProveedor no tiene
+    //  sede propia: se acota por la relación `compra`. Se fija `tipo:'credito'` explícito (los
+    //  pagos solo existen sobre crédito) como defensa en profundidad ante datos legacy.
+    const pagoCompra = { compra: { tipo: 'credito' as const, ...(sedeId ? { sedeId } : {}) } };
+    const pagosCreditoPos = await tx.pagoProveedor.aggregate({
+      _sum: { monto: true },
+      where: { ...pagoCompra, tipo: { in: ['normal', 'correccion'] }, fechaPago: enRango },
+    });
+    const pagosCreditoRev = await tx.pagoProveedor.aggregate({
+      _sum: { monto: true },
+      where: { ...pagoCompra, tipo: 'reverso', fechaPago: enRango },
+    });
+    const contadoEgreso = await tx.compra.aggregate({
+      _sum: { montoTotal: true },
+      where: { ...sede, tipo: 'contado', fechaEmision: enRango },
     });
 
     const gastosPos = await tx.gasto.aggregate({
@@ -65,15 +89,21 @@ export async function gananciaDelPeriodo(filtros: RangoFiltro) {
     });
 
     const totalCompras = num(compras._sum.montoTotal);
+    const totalPagosProveedor =
+      num(pagosCreditoPos._sum.monto) -
+      num(pagosCreditoRev._sum.monto) +
+      num(contadoEgreso._sum.montoTotal);
     const totalGastos = num(gastosPos._sum.monto) - num(gastosRev._sum.monto);
     const totalVentas = num(ventasPos._sum.monto) - num(ventasRev._sum.monto);
-    const ganancia = totalVentas - totalCompras - totalGastos;
+    // Ganancia CAJA: solo egresos REALES (pagos a proveedor + gastos); una compra impaga no resta.
+    const ganancia = totalVentas - totalPagosProveedor - totalGastos;
 
     return {
       desde,
       hasta,
       ventas: redondear(totalVentas),
       compras: redondear(totalCompras),
+      pagosProveedor: redondear(totalPagosProveedor),
       gastos: redondear(totalGastos),
       ganancia: redondear(ganancia),
     };

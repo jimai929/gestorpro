@@ -14,6 +14,7 @@
 import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import {
   obtenerSedes,
@@ -68,6 +69,7 @@ const ARQUEO_VACIO: Record<TipoArqueo, string> = {
 
 export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
   const { t } = useTraduccion();
+  const { usuario } = useAuth();
   // Datos del select de sedes
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [cargandoSedes, setCargandoSedes] = useState(true);
@@ -140,6 +142,22 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
     () => ordenarPorSede(verificadores, sedeId),
     [verificadores, sedeId],
   );
+
+  // Fallback de responsable: si la empresa NO tiene ningún empleado con rol Verificador, el
+  // cierre no debe quedar bloqueado. Se responsabiliza al USUARIO actual (snapshot con su
+  // nombre, sin número de empleado). No toca el schema: `cerradoPor` sigue siendo un string
+  // plano que el backend acepta tal cual; el snapshot sin "E00X -" lo distingue en auditoría.
+  const sinVerificadores =
+    !cargandoEmpleados && errorEmpleados === null && verificadores.length === 0;
+  const fallbackCerradoPor = usuario?.nombre ?? '';
+
+  // Con sede elegida y sin verificadores, prellena el responsable con el usuario actual para
+  // que el cierre se pueda completar (el operador puede cambiarlo desde el select).
+  useEffect(() => {
+    if (sedeId && sinVerificadores && fallbackCerradoPor && cerradoPor === '') {
+      setCerradoPor(fallbackCerradoPor);
+    }
+  }, [sedeId, sinVerificadores, fallbackCerradoPor, cerradoPor]);
 
   // Al cambiar de sede se RESETEAN cajera y verificador, para no arrastrar a
   // alguien de la sede anterior a un cierre de otra sede.
@@ -366,8 +384,13 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
                   {e.sedeId !== sedeId ? t('fin.venta.otraSede') : ''}
                 </option>
               ))}
+              {sinVerificadores && fallbackCerradoPor && (
+                <option value={fallbackCerradoPor}>
+                  {t('fin.venta.usuarioActual', { nombre: fallbackCerradoPor })}
+                </option>
+              )}
             </select>
-            {sedeId && !cargandoEmpleados && !errorEmpleados && verificadores.length === 0 && (
+            {sedeId && sinVerificadores && (
               <span className={styles.ayudaCampo}>
                 {t('fin.venta.sinVerificadores')}
               </span>

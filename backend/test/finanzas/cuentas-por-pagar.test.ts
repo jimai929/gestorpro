@@ -116,6 +116,75 @@ describe('proveedores (alta, edición con contacto, baja lógica)', () => {
   });
 });
 
+describe('deuda total por proveedor (en la lista de proveedores)', () => {
+  it('A debe el crédito impago, B debe 0 (sin compras), C debe el saldo tras un abono', async () => {
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const usuario = await nuevoUsuario();
+    const provA = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `DeudaA ${contador}` }));
+    const provB = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `DeudaB ${contador}` }));
+    const provC = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `DeudaC ${contador}` }));
+
+    // A: crédito 1100, impago → debe 1100.
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: provA.id, sedeId: sede.id, numeroFactura: 'DA-1', montoTotal: 1100,
+        tipo: 'credito', fechaEmision: '2026-05-01', fechaVencimiento: '2026-06-01',
+      }),
+    );
+    // C: crédito 1000, abona 400 → debe 600.
+    const compraC = await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: provC.id, sedeId: sede.id, numeroFactura: 'DC-1', montoTotal: 1000,
+        tipo: 'credito', fechaEmision: '2026-05-01', fechaVencimiento: '2026-06-01',
+      }),
+    );
+    await comoEmpresa(empresaId, () =>
+      registrarPago({ compraId: compraC.id, monto: 400, usuarioId: usuario.id }),
+    );
+    // B: sin compras → debe 0.
+
+    const lista = await comoEmpresa(empresaId, () => listarProveedores());
+    const deuda = new Map(lista.map((p) => [p.id, p.deudaTotal]));
+    expect(deuda.get(provA.id)).toBe(1100);
+    expect(deuda.get(provB.id)).toBe(0);
+    expect(deuda.get(provC.id)).toBe(600);
+  });
+
+  it('una compra de CONTADO no genera deuda', async () => {
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const prov = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `Contado ${contador}` }));
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'CT-1', montoTotal: 700,
+        tipo: 'contado', fechaEmision: '2026-05-01',
+      }),
+    );
+    const lista = await comoEmpresa(empresaId, () => listarProveedores());
+    expect(lista.find((p) => p.id === prov.id)?.deudaTotal).toBe(0);
+  });
+
+  it('la deuda NO cruza empresas: cada tenant solo suma la suya', async () => {
+    const empresaA = await crearEmpresa();
+    const empresaB = await crearEmpresa();
+    const sedeA = await nuevaSede(empresaA);
+    const provA = await comoEmpresa(empresaA, () => crearProveedor({ nombre: `AisladoA ${contador}` }));
+    await comoEmpresa(empresaA, () =>
+      registrarCompra({
+        proveedorId: provA.id, sedeId: sedeA.id, numeroFactura: 'AIS-1', montoTotal: 900,
+        tipo: 'credito', fechaEmision: '2026-05-01', fechaVencimiento: '2026-06-01',
+      }),
+    );
+    // Empresa B no ve al proveedor de A ni su deuda.
+    const listaB = await comoEmpresa(empresaB, () => listarProveedores());
+    expect(listaB.some((p) => p.id === provA.id)).toBe(false);
+    // Empresa A sí ve su propia deuda.
+    const listaA = await comoEmpresa(empresaA, () => listarProveedores());
+    expect(listaA.find((p) => p.id === provA.id)?.deudaTotal).toBe(900);
+  });
+});
+
 describe('compras contado vs crédito', () => {
   it('la compra de contado NO aparece en cuentas por pagar; la de crédito SÍ', async () => {
     const empresaId = await crearEmpresa();
@@ -205,7 +274,7 @@ describe('compras contado vs crédito', () => {
     expect(compra.fechaVencimiento).toBeNull();
   });
 
-  it('tanto contado como crédito cuentan como costo (compras) en el dashboard', async () => {
+  it('ambas cuentan en "compras registradas"; la ganancia es de CAJA (solo lo pagado)', async () => {
     const empresaId = await crearEmpresa();
     const sede = await nuevaSede(empresaId);
     const prov = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `Prov ${contador}` }));
@@ -226,9 +295,11 @@ describe('compras contado vs crédito', () => {
     const resumen = await comoEmpresa(empresaId, () =>
       gananciaDelPeriodo({ desde: fecha, hasta: fecha, sedeId: sede.id }),
     );
-    // Las dos compras suman como costo, sin importar el tipo.
+    // Compras REGISTRADAS: ambas suman por devengado, sin importar el tipo (informativo).
     expect(resumen.compras).toBe(1000);
-    expect(resumen.ganancia).toBe(-1000); // sin ventas ni gastos en esta sede
+    // Egreso REAL: solo el contado (300) salió de caja; el crédito impago (700) es deuda.
+    expect(resumen.pagosProveedor).toBe(300);
+    expect(resumen.ganancia).toBe(-300); // caja: 0 ventas − 300 egreso − 0 gastos
   });
 });
 

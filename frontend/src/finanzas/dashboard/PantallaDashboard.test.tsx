@@ -39,7 +39,8 @@ const sedeA: Sede = {
   id: 'sa', nombre: 'Sede A', activo: true, modoExcepcion: 'pin', creadoEn: '2026-01-01',
 };
 const resumen: ResumenGanancia = {
-  desde: '2026-06-01', hasta: '2026-06-30', ventas: 100, compras: 0, gastos: 0, ganancia: 100,
+  desde: '2026-06-01', hasta: '2026-06-30',
+  ventas: 100, compras: 0, pagosProveedor: 0, gastos: 0, ganancia: 100,
 };
 // Cierre cuya sede NO se podrá resolver: el sedeId es un UUID que no debe filtrarse a la UI.
 const ventaUuidCrudo: VentaDiaria = {
@@ -94,6 +95,21 @@ describe('PantallaDashboard — el filtro Sede es simétrico con Cajera en estad
     // Muestra el estado vacío (igual que el filtro de cajeras): el grupo NO se oculta.
     await screen.findByText(/aún no hay sedes registradas/i);
     expect(screen.getByLabelText('Sede')).toBeTruthy();
+  });
+});
+
+describe('PantallaDashboard — separa compras registradas del egreso real (caja)', () => {
+  it('muestra la tarjeta "Pagos a proveedor" con el egreso real, distinta de compras registradas', async () => {
+    vi.mocked(servicio.obtenerGanancia).mockResolvedValue({
+      desde: '2026-06-01', hasta: '2026-06-30',
+      ventas: 2000, compras: 1400, pagosProveedor: 300, gastos: 0, ganancia: 1700,
+    });
+    montar();
+
+    await screen.findByText('Pagos a proveedor'); // tarjeta nueva de egreso real
+    expect(screen.getByText('B/. 300.00')).toBeTruthy(); // solo lo pagado
+    expect(screen.getByText('B/. 1400.00')).toBeTruthy(); // compras registradas (devengado)
+    expect(screen.getByText('B/. 1700.00')).toBeTruthy(); // ganancia caja = 2000 − 300 − 0
   });
 });
 

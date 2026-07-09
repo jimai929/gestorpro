@@ -19,6 +19,7 @@ import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioProveedor } from './FormularioProveedor';
 import { obtenerProveedores, editarProveedor } from './servicioCuentas';
+import { formatearDinero } from './utilidades';
 import type { Proveedor } from './tipos';
 import styles from './PantallaProveedores.module.css';
 
@@ -152,6 +153,7 @@ export function PantallaProveedores() {
                   <th>{t('fin.prov.thRuc')}</th>
                   <th>{t('fin.prov.telefono')}</th>
                   <th>{t('fin.prov.contacto')}</th>
+                  <th className={styles.colDeuda}>{t('fin.prov.thDeuda')}</th>
                   <th>{t('fin.estado')}</th>
                   <th className={styles.colAccion}></th>
                 </tr>
@@ -168,6 +170,11 @@ export function PantallaProveedores() {
                     </td>
                     <td className={styles.contacto}>
                       {p.personaContacto ?? <span className={styles.vacio}>—</span>}
+                    </td>
+                    <td className={styles.colDeuda}>
+                      <span className={p.deudaTotal > 0 ? styles.deudaPendiente : styles.deudaCero}>
+                        {formatearDinero(p.deudaTotal)}
+                      </span>
                     </td>
                     <td>
                       <span className={p.activo ? styles.badgeActivo : styles.badgeInactivo}>

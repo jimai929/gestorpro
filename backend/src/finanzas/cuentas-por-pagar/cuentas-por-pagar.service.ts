@@ -72,14 +72,29 @@ export async function editarProveedor(id: string, datos: DatosEditarProveedor) {
   }
 }
 
-/** Lista proveedores. Con `soloActivos` filtra los dados de baja (para selectores). */
+/**
+ * Lista proveedores con su DEUDA TOTAL viva. Con `soloActivos` filtra los dados de
+ * baja (para selectores).
+ *
+ * `deudaTotal` = Σ del `saldo` pendiente de sus facturas en la vista `cuenta_por_pagar`
+ * (solo crédito, neto de reversos; el contado no genera saldo). La suma se hace en SQL
+ * (`numeric` Decimal) y solo se convierte a `number` en la frontera JSON — nunca se acumula
+ * en float. La vista es `security_invoker`, así que la agregación corre bajo el contexto RLS
+ * de `txEmpresa`: solo cuenta las facturas del tenant actual (fail-closed).
+ */
 export function listarProveedores(filtros?: { soloActivos?: boolean }) {
-  return txEmpresa((tx) =>
-    tx.proveedor.findMany({
+  return txEmpresa(async (tx) => {
+    const proveedores = await tx.proveedor.findMany({
       where: filtros?.soloActivos ? { activo: true } : {},
       orderBy: { nombre: 'asc' },
-    }),
-  );
+    });
+    const deudas = await tx.$queryRaw<Array<{ proveedor_id: string; deuda_total: string }>>`
+      SELECT proveedor_id, SUM(saldo) AS deuda_total
+      FROM cuenta_por_pagar
+      GROUP BY proveedor_id`;
+    const porProveedor = new Map(deudas.map((d) => [d.proveedor_id, Number(d.deuda_total)]));
+    return proveedores.map((p) => ({ ...p, deudaTotal: porProveedor.get(p.id) ?? 0 }));
+  });
 }
 
 // ─── Compras ──────────────────────────────────────────────────────────────--

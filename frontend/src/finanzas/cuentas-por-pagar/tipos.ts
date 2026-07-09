@@ -21,6 +21,8 @@ export interface Proveedor {
   personaContacto: string | null;
   activo: boolean;
   creadoEn: string;
+  /** Deuda viva = Σ saldo pendiente de sus facturas a crédito (0 si no debe). */
+  deudaTotal: number;
 }
 
 /** Forma de pago de una compra: contado (pagada en el acto) o crédito (deuda). */

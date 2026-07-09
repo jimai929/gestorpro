@@ -84,13 +84,19 @@ interface CuerpoEditarEmpleado {
 /**
  * Rutas de Empleado (núcleo: entidad transversal). El listado es para cualquier
  * usuario autenticado (lo consumen cobro y el cierre de caja) y NUNCA expone
- * secretos; la escritura y la rotación de secretos (QR/PIN) son solo para
- * administrador. Las rotaciones de secreto van por POST (no son reemplazos
+ * secretos. La ESCRITURA (crear/editar empleados, incluidos sus roles operativos)
+ * es para administrador y supervisor; la ROTACIÓN DE SECRETOS (QR/PIN) sigue siendo
+ * SOLO administrador. Las rotaciones de secreto van por POST (no son reemplazos
  * idempotentes de campos).
  */
 export async function empleadoRoutes(app: FastifyInstance): Promise<void> {
+  // Rotación de secretos (QR/PIN): solo administrador.
   const soloAdmin = {
     preHandler: [app.autenticar, app.autorizar('administrador')],
+  };
+  // Gestión de empleados (alta/edición, incl. roles operativos): administrador o supervisor.
+  const soloGestion = {
+    preHandler: [app.autenticar, app.autorizar('administrador', 'supervisor')],
   };
   const autenticado = { preHandler: [app.autenticar] };
 
@@ -115,7 +121,7 @@ export async function empleadoRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: CuerpoEmpleado }>(
     '/empleados',
-    { ...soloAdmin, schema: esquemaEmpleado },
+    { ...soloGestion, schema: esquemaEmpleado },
     async (request, reply) => {
       try {
         return await reply.code(201).send(await crearEmpleado(request.body));
@@ -127,7 +133,7 @@ export async function empleadoRoutes(app: FastifyInstance): Promise<void> {
 
   app.put<{ Params: { id: string }; Body: CuerpoEditarEmpleado }>(
     '/empleados/:id',
-    { ...soloAdmin, schema: esquemaEditarEmpleado },
+    { ...soloGestion, schema: esquemaEditarEmpleado },
     async (request, reply) => {
       try {
         return await reply.send(await editarEmpleado(request.params.id, request.body));

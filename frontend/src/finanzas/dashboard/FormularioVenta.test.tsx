@@ -5,6 +5,10 @@ import { FormularioVenta } from './FormularioVenta';
 import * as servicio from './servicioDashboard';
 
 vi.mock('./servicioDashboard');
+// Usuario actual fijo: solo importa para el fallback de "sin verificadores".
+vi.mock('../../core/auth/ContextoAuth', () => ({
+  useAuth: () => ({ usuario: { nombre: 'Admin Uno', rol: 'administrador', empresaId: 'e1' } }),
+}));
 
 const sedeA = { id: 'sa', nombre: 'Sede A', activo: true, modoExcepcion: 'pin', creadoEn: '2026-01-01' };
 const sedeB = { id: 'sb', nombre: 'Sede B', activo: true, modoExcepcion: 'pin', creadoEn: '2026-01-01' };
@@ -119,5 +123,29 @@ describe('FormularioVenta — fallo de carga y reintento', () => {
     // El error de carga de empleados se renderiza UNA sola vez (no duplicado bajo cada select).
     const reintentos = await screen.findAllByRole('button', { name: /reintentar/i });
     expect(reintentos).toHaveLength(1);
+  });
+});
+
+describe('FormularioVenta — fallback de responsable sin verificadores', () => {
+  it('sin verificadores, "cerrado por" cae al usuario actual (snapshot) y permite cerrar', async () => {
+    // La empresa no tiene ningún empleado con rol Verificador.
+    vi.mocked(servicio.obtenerEmpleadosPorRol).mockImplementation((rol: string) =>
+      Promise.resolve(rol === 'cajera' ? cajeras : []),
+    );
+    const user = userEvent.setup();
+    render(<FormularioVenta onRegistrada={vi.fn()} />);
+    await screen.findByRole('option', { name: 'Sede A' });
+    await screen.findByRole('option', { name: /Ana Ruiz/ }); // cajeras cargaron (verificadores vacío)
+
+    const combos = screen.getAllByRole('combobox');
+    const sedeSel = combos[0]!;
+    const verifSel = combos[3]! as HTMLSelectElement;
+    await user.selectOptions(sedeSel, 'sa');
+
+    // La opción de fallback existe (con el nombre del usuario) y queda auto-seleccionada.
+    expect(within(verifSel).queryByRole('option', { name: /Admin Uno/ })).toBeTruthy();
+    expect(verifSel.value).toBe('Admin Uno');
+    // Y se explica que no hay verificadores.
+    expect(screen.getByText(/rol Verificador/i)).toBeTruthy();
   });
 });

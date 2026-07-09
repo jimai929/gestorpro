@@ -91,6 +91,23 @@
   color: var(--color-text-muted);
 }
 
+/* ── Columna de deuda total ── */
+
+.colDeuda {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.deudaPendiente {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.deudaCero {
+  color: var(--color-text-muted);
+}
+
 /* ── Badges de estado ── */
 
 .badgeActivo,

@@ -104,8 +104,15 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
   uno por entidad.
 - Gastos **rechaza** datos incoherentes de empleado (categoría de empleado
   sin empleadoId, o categoría normal con empleadoId).
-- Dashboard: ganancia = ventas − compras − gastos. Compras por criterio
-  **devengado** (fecha de emisión de la factura), no de caja.
+- Dashboard: **revisado 2026-07-09 a criterio CAJA (por decisión de Jim).** La
+  ganancia pasó de `ventas − compras(devengado) − gastos` a **`ventas − pagos a
+  proveedor − gastos`**: una compra a crédito IMPAGA es deuda (cuenta por pagar),
+  no efectivo salido, y NO reduce la ganancia. El cambio es **aditivo**: se
+  conserva el total DEVENGADO como tarjeta informativa "Compras registradas"
+  (fecha de emisión) y se añade "Pagos a proveedor" = egreso real = pagos de
+  crédito (por fecha de pago, netos de reverso) + compras de contado (por fecha de
+  emisión). La deuda viva por proveedor se ve en la lista de proveedores
+  (`SUM(saldo)` de `cuenta_por_pagar`).
 - **`VentaDiaria` (cierre de caja) — revisado 2026-05-29; cajera 2026-06-01:** la
   operación es de 24 h con tres turnos. La unicidad es **(sede, fecha, turno,
   cajera)**: una **cajera** cierra una vez por turno (campo `cajera`, antes
