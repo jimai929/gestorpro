@@ -134,6 +134,52 @@ describe('LayoutPrincipal — empresa activa en la barra superior', () => {
   });
 });
 
+describe('LayoutPrincipal — enlaces de GESTIÓN gateados por rol (Empleados / Categorías)', () => {
+  function renderConRol(rol: Usuario['rol']) {
+    vi.mocked(auth.useAuth).mockReturnValue({
+      usuario: {
+        id: 'u1',
+        nombre: 'Ana',
+        email: 'a@x.local',
+        rol,
+        esSuperAdmin: false,
+        empresaId: 'e1',
+        empresaNombre: 'Acme Panamá',
+        debeCambiarContrasena: false,
+        membresias: [],
+      },
+      estaAutenticado: true,
+      cargando: false,
+      iniciarSesion: vi.fn(),
+      cerrarSesion: vi.fn().mockResolvedValue(undefined),
+      cambiarEmpresa: vi.fn(),
+    });
+    render(
+      <MemoryRouter>
+        <LayoutPrincipal>contenido</LayoutPrincipal>
+      </MemoryRouter>,
+    );
+  }
+
+  it('administrador ve el enlace Empleados', () => {
+    renderConRol('administrador');
+    expect(screen.getByRole('link', { name: /empleados/i })).toBeTruthy();
+  });
+
+  it('supervisor ve el enlace Empleados (gestiona, mismo criterio que soloGestion)', () => {
+    renderConRol('supervisor');
+    expect(screen.getByRole('link', { name: /empleados/i })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /categorías de gasto/i })).toBeTruthy();
+  });
+
+  it('empleado NO ve Empleados ni Categorías, pero sí el resto (Sedes)', () => {
+    renderConRol('empleado');
+    expect(screen.queryByRole('link', { name: /empleados/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /categorías de gasto/i })).toBeNull();
+    expect(screen.getByRole('link', { name: /sedes/i })).toBeTruthy();
+  });
+});
+
 describe('LayoutPrincipal — selector de empresa (multi-membresía)', () => {
   const MEMBRESIAS = [
     { empresaId: 'e1', empresaNombre: 'Acme Panamá', rol: 'administrador' as const },

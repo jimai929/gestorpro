@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import QRCode from 'qrcode';
@@ -17,10 +17,17 @@ vi.mock('qrcode', () => ({
 }));
 vi.mock('../sedes/servicioSedes');
 vi.mock('./servicioEmpleados');
-// El LayoutPrincipal real usa useAuth (ContextoAuth); la pantalla bajo prueba no lo
-// necesita, así que se sustituye por un passthrough para no montar ese contexto.
+// El LayoutPrincipal real usa useAuth con más campos de los que necesita la pantalla;
+// se sustituye por un passthrough para aislar la pantalla bajo prueba.
 vi.mock('../../core/ui/LayoutPrincipal', () => ({
   LayoutPrincipal: (props: { children: ReactNode }) => props.children,
+}));
+// useAuth controlable: cada test fija el rol antes de montar (default administrador).
+const usuarioMock = vi.hoisted(() => ({
+  actual: { rol: 'administrador', empresaId: 'e1' } as { rol: string; empresaId: string | null },
+}));
+vi.mock('../../core/auth/ContextoAuth', () => ({
+  useAuth: () => ({ usuario: usuarioMock.actual }),
 }));
 // Resultado del alta simulada (con qrToken: rama de EmpleadoCreado en manejarGuardado).
 const empleadoCreado = vi.hoisted(() => ({
@@ -76,6 +83,7 @@ const empleadoMaria: Empleado = {
 beforeEach(() => {
   // Limpia el historial de llamadas entre tests (la config del proyecto no activa clearMocks).
   vi.clearAllMocks();
+  usuarioMock.actual = { rol: 'administrador', empresaId: 'e1' };
   vi.mocked(servicioSedes.obtenerSedes).mockResolvedValue([sedeA]);
   vi.mocked(servicioEmpleados.obtenerEmpleados).mockResolvedValue([empleadoMaria]);
   vi.mocked(servicioEmpleados.obtenerQr).mockResolvedValue({ qrToken: 'tok-1' });
@@ -90,6 +98,69 @@ function montar() {
     </MemoryRouter>,
   );
 }
+
+describe('PantallaEmpleados — visibilidad de controles por rol (alineada con soloGestion/soloAdmin)', () => {
+  it('administrador ve TODO: Registrar, Editar, Desactivar, QR y Reset PIN', async () => {
+    montar();
+    await screen.findByText('María Pérez');
+    expect(screen.getByRole('button', { name: /registrar empleado/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Editar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Desactivar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'QR' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /reset.*pin/i })).toBeTruthy();
+  });
+
+  it('supervisor gestiona (Registrar/Editar/Desactivar) pero NO ve los secretos (QR / Reset PIN)', async () => {
+    usuarioMock.actual = { rol: 'supervisor', empresaId: 'e1' };
+    montar();
+    await screen.findByText('María Pérez');
+    expect(screen.getByRole('button', { name: /registrar empleado/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Editar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Desactivar' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'QR' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /reset.*pin/i })).toBeNull();
+  });
+
+  it('tras un alta de ADMINISTRADOR con recarga OK, el modal de QR SÍ se abre (para imprimirlo)', async () => {
+    // Asegura la rama positiva de `esAdministrador` en manejarGuardado: si la condición
+    // se rompiera (p. ej. un typo en el rol), este test la detecta.
+    vi.mocked(servicioEmpleados.obtenerEmpleados)
+      .mockReset()
+      .mockResolvedValueOnce([empleadoMaria])
+      .mockResolvedValue([empleadoMaria, empleadoCreado]);
+    const user = userEvent.setup();
+    montar();
+    await screen.findByText('María Pérez');
+    await user.click(screen.getByRole('button', { name: /registrar empleado/i }));
+    await user.click(screen.getByRole('button', { name: 'simular-alta' }));
+    const dialogo = await screen.findByRole('dialog'); // modal QR abierto…
+    expect(within(dialogo).getByText('tok-alta-e9')).toBeTruthy(); // …con el token del alta
+  });
+
+  it('tras un alta de SUPERVISOR no se abre el modal de QR (es de secretos, soloAdmin)', async () => {
+    usuarioMock.actual = { rol: 'supervisor', empresaId: 'e1' };
+    // 1ª carga (montaje) sin la fila nueva; tras el alta, la recarga ya la trae.
+    vi.mocked(servicioEmpleados.obtenerEmpleados)
+      .mockReset()
+      .mockResolvedValueOnce([empleadoMaria])
+      .mockResolvedValue([empleadoMaria, empleadoCreado]);
+    const user = userEvent.setup();
+    montar();
+    await screen.findByText('María Pérez');
+    await user.click(screen.getByRole('button', { name: /registrar empleado/i }));
+    await user.click(screen.getByRole('button', { name: 'simular-alta' }));
+    await screen.findByText('Nuevo Empleado'); // la recarga trae la fila…
+    expect(screen.queryByRole('dialog')).toBeNull(); // …pero SIN modal de QR
+  });
+
+  it('empleado es REDIRIGIDO: ni tabla ni botones ni carga de datos', () => {
+    usuarioMock.actual = { rol: 'empleado', empresaId: 'e1' };
+    montar();
+    expect(screen.queryByText('María Pérez')).toBeNull();
+    expect(screen.queryByRole('button', { name: /registrar empleado/i })).toBeNull();
+    expect(vi.mocked(servicioEmpleados.obtenerEmpleados)).not.toHaveBeenCalled();
+  });
+});
 
 describe('PantallaEmpleados — el fallo al dibujar el QR no deja "Generando…" eterno (A5/H7)', () => {
   it('si toDataURL falla, el modal muestra el fallo con Reintentar (token visible, Imprimir off); el reintento redibuja sin rotar', async () => {

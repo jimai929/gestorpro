@@ -12,10 +12,12 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Navigate } from 'react-router';
 import QRCode from 'qrcode';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioEmpleado } from './FormularioEmpleado';
 import { obtenerSedes } from '../sedes/servicioSedes';
@@ -37,6 +39,12 @@ interface EstadoQr {
 
 export function PantallaEmpleados() {
   const { t } = useTraduccion();
+  const { usuario } = useAuth();
+  // UI de conveniencia alineada con los guards del backend (la frontera real):
+  //  - gestión (crear/editar/activar) = `soloGestion` → administrador o supervisor;
+  //  - secretos (QR / reset de PIN)   = `soloAdmin`  → solo administrador.
+  const puedeGestionar = usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
+  const esAdministrador = usuario?.rol === 'administrador';
 
   // Tema oscuro mientras esta pantalla esté montada; restaura el previo al salir.
   useEffect(() => {
@@ -79,6 +87,7 @@ export function PantallaEmpleados() {
   // mutación (p. ej. el alta) decida si seguir (abrir el QR) o no abrir nada
   // sobre una tabla en estado de error.
   const cargar = useCallback(async (): Promise<boolean> => {
+    if (!puedeGestionar) return false; // el empleado se redirige: no cargar nada
     setCargando(true);
     setErrorCarga(null);
     try {
@@ -96,7 +105,7 @@ export function PantallaEmpleados() {
     } finally {
       setCargando(false);
     }
-  }, [t]);
+  }, [t, puedeGestionar]);
 
   useEffect(() => {
     void cargar();
@@ -127,17 +136,18 @@ export function PantallaEmpleados() {
     setMostrarFormNuevo(false);
     setEmpleadoEditar(null);
     // Tras un alta, mostrar el QR del nuevo empleado para imprimirlo — pero solo
-    // si la lista se recargó bien: no abrir el modal QR sobre una tabla en estado
-    // de error. El empleado YA se creó; con la recarga fallida se ve su error y
-    // botón de reintento. Tras reintentar con éxito, la fila aparece y el QR se
-    // abre desde su botón "QR".
+    // si la lista se recargó bien (no abrir el modal QR sobre una tabla en estado
+    // de error) y solo para el ADMINISTRADOR: el modal es de secretos (Regenerar
+    // llama a rutas `soloAdmin`), así que a un supervisor no se le abre; su
+    // feedback es la fila nueva en la tabla. El empleado YA se creó; con la
+    // recarga fallida se ve su error y botón de reintento.
     void cargar().then((recargaOk) => {
-      if (recargaOk && 'qrToken' in resultado) {
+      if (recargaOk && 'qrToken' in resultado && esAdministrador) {
         setQrError(null);
         setQr({ empleadoId: resultado.id, nombre: resultado.nombre, token: resultado.qrToken });
-      } else if ('qrToken' in resultado) {
+      } else if (!recargaOk && 'qrToken' in resultado) {
         // Recarga fallida tras el alta: decir que el alta SÍ se completó, para que
-        // el admin no la dé por fallida y la repita. El QR queda en el botón "QR".
+        // quien gestiona (admin o supervisor) no la dé por fallida y la repita.
         setAvisoAlta(t('adm.emp.avisoAltaOk'));
       } else if (!recargaOk) {
         // Simetría para la EDICIÓN (H17): el PUT sí se aplicó aunque la recarga fallara.
@@ -231,6 +241,11 @@ export function PantallaEmpleados() {
     }
   };
 
+  // Página de GESTIÓN: un empleado que llegue por URL directa se redirige (sin acceso).
+  if (!puedeGestionar) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <LayoutPrincipal>
       <div className={styles.contenedor}>
@@ -315,12 +330,18 @@ export function PantallaEmpleados() {
                       <button type="button" className={styles.botonAccion} onClick={() => abrirEdicion(emp)}>
                         {t('comun.editar')}
                       </button>
-                      <button type="button" className={styles.botonAccion} onClick={() => { void verQr(emp); }}>
-                        {t('adm.emp.qr')}
-                      </button>
-                      <button type="button" className={styles.botonAccion} onClick={() => { setPinError(null); setPinValor(''); setPinDe(emp); }}>
-                        {t('adm.emp.resetPin')}
-                      </button>
+                      {/* Secretos (QR/PIN): solo administrador — el backend responde 403
+                          a cualquier otro rol (`soloAdmin`), así que no se ofrecen. */}
+                      {esAdministrador && (
+                        <>
+                          <button type="button" className={styles.botonAccion} onClick={() => { void verQr(emp); }}>
+                            {t('adm.emp.qr')}
+                          </button>
+                          <button type="button" className={styles.botonAccion} onClick={() => { setPinError(null); setPinValor(''); setPinDe(emp); }}>
+                            {t('adm.emp.resetPin')}
+                          </button>
+                        </>
+                      )}
                       <button
                         type="button"
                         className={`${styles.botonAccion} ${emp.activo ? styles.botonPeligro : ''}`}

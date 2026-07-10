@@ -65,9 +65,10 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
   const puedeVerUsuarios =
     usuario?.empresaId != null &&
     (usuario?.rol === 'administrador' || usuario?.esSuperAdmin);
-  // Gestión de categorías de gasto: admin/supervisor (mismo criterio que el backend
-  // `soloGestion`). El empleado no ve el enlace; el backend lo refuerza (403).
-  const puedeGestionarCategorias =
+  // Gestión (admin/supervisor con empresa activa): mismo criterio que los guards
+  // `soloGestion` del backend. Gatea los enlaces de categorías de gasto y de
+  // empleados; el empleado no los ve y el backend lo refuerza (403).
+  const puedeGestionar =
     usuario?.empresaId != null &&
     (usuario?.rol === 'administrador' || usuario?.rol === 'supervisor');
 
@@ -81,7 +82,7 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
           { to: '/cuentas-por-pagar', clave: 'nav.cuentasPorPagar', icono: Receipt },
           { to: '/proveedores', clave: 'fin.navProveedores', icono: Truck },
           { to: '/gastos', clave: 'nav.gastos', icono: CreditCard },
-          ...(puedeGestionarCategorias
+          ...(puedeGestionar
             ? [{ to: '/categorias-gasto', clave: 'fin.navCategorias', icono: Tags }]
             : []),
           { to: '/dashboard', clave: 'nav.dashboard', icono: BarChart3 },
@@ -92,7 +93,10 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
         icono: Building2,
         items: [
           { to: '/sedes', clave: 'nav.sedes', icono: MapPin },
-          { to: '/empleados', clave: 'nav.empleados', icono: Users },
+          // Empleados es página de GESTIÓN (backend `soloGestion`): el empleado no la ve.
+          ...(puedeGestionar
+            ? [{ to: '/empleados', clave: 'nav.empleados', icono: Users }]
+            : []),
           { to: '/kioscos', clave: 'nav.kioscos', icono: Monitor },
           ...(puedeVerUsuarios
             ? [{ to: '/usuarios', clave: 'nav.usuarios', icono: UserCog }]
