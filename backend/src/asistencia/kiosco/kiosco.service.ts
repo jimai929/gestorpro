@@ -53,6 +53,24 @@ export async function crearKiosco(datos: DatosKiosco) {
 }
 
 /**
+ * Lista los kioscos de la EMPRESA ACTUAL para la pantalla de gestión.
+ *
+ * A diferencia del catálogo PÚBLICO de dispositivo (`GET /kioscos`, cross-tenant por
+ * el bootstrap del kiosco), este corre bajo `txEmpresa`: la RLS de `kiosco` (que se
+ * apoya en `sede.empresa_id`) lo acota al tenant del usuario autenticado. NUNCA
+ * expone `tokenHash` (usa `CAMPOS_PUBLICOS` + el nombre de la sede).
+ */
+export async function listarKioscos() {
+  return txEmpresa((tx) =>
+    tx.kiosco.findMany({
+      where: { activo: true },
+      orderBy: { nombre: 'asc' },
+      select: { ...CAMPOS_PUBLICOS, sede: { select: { nombre: true } } },
+    }),
+  );
+}
+
+/**
  * Regenera el token de un kiosco (rotación, o provisión de un kiosco antiguo sin
  * token). Invalida el token anterior. Devuelve el nuevo token en claro una vez.
  */

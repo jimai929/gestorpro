@@ -5,9 +5,13 @@
 import { api } from '../../core/api';
 import type { Kiosco, CuerpoCrearKiosco, KioscoConToken, TokenKiosco } from './tipos';
 
-/** Lista los kioscos activos (con su sede). */
+/**
+ * Lista los kioscos de la EMPRESA ACTUAL (con su sede). Usa el endpoint de gestión
+ * autenticado y tenant-scoped (`/kioscos/gestion`), NO el catálogo público de
+ * dispositivo `/kioscos` (que es cross-tenant por el bootstrap del kiosco).
+ */
 export function obtenerKioscos(): Promise<Kiosco[]> {
-  return api.get<Kiosco[]>('/kioscos');
+  return api.get<Kiosco[]>('/kioscos/gestion');
 }
 
 /**

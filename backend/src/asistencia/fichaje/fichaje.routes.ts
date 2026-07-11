@@ -4,6 +4,7 @@ import { conContextoTenant, txBootstrapDispositivo } from '../../core/tenant/con
 import { crearServicioFichaje, colaRevision, revisarFichaje } from './fichaje.service.js';
 import {
   crearKiosco,
+  listarKioscos,
   regenerarTokenKiosco,
   resolverContextoKiosco,
 } from '../kiosco/kiosco.service.js';
@@ -75,6 +76,19 @@ export async function fichajeRoutes(app: FastifyInstance): Promise<void> {
   const soloAdmin = {
     preHandler: [app.autenticar, app.autorizar('administrador')],
   };
+  const autenticado = { preHandler: [app.autenticar] };
+
+  // Listado de kioscos de la EMPRESA ACTUAL (gestión/administración). Autenticado y
+  // tenant-scoped vía `txEmpresa`/RLS — NO confundir con el catálogo PÚBLICO de
+  // dispositivo `GET /kioscos` (cross-tenant por el bootstrap del kiosco). La
+  // pantalla de administración usa ESTE endpoint para no filtrar otros tenants.
+  app.get('/kioscos/gestion', autenticado, async (request, reply) => {
+    try {
+      return await reply.send(await listarKioscos());
+    } catch (error) {
+      return responderError(error, request, reply);
+    }
+  });
 
   // Superficie pública del kiosco: acotada por rate limit (la clave es la IP;
   // es defensa en profundidad, no la única protección — ver DESPLIEGUE.md §4.2).

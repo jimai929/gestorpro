@@ -1,11 +1,12 @@
 /**
  * Pantalla de gestión de kioscos (área de Administración).
  *
- * Lista los kioscos activos (con su sede) y permite darlos de alta. El backend
- * solo expone alta y el listado público de activos: no hay edición ni baja de
- * kiosco, así que la tabla no muestra acciones por fila.
+ * Lista los kioscos activos de la EMPRESA ACTUAL (con su sede) y permite darlos de
+ * alta. No hay edición ni baja de kiosco; la única acción por fila es regenerar su
+ * token de dispositivo.
  *
- * Rutas de API: GET /kioscos · POST /kioscos (alta, solo admin).
+ * Rutas de API: GET /kioscos/gestion (listado tenant-scoped, autenticado) ·
+ * POST /kioscos (alta, solo admin) · POST /kioscos/:id/token (rotación, solo admin).
  */
 
 import { useState, useEffect, useCallback } from 'react';
