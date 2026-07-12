@@ -27,7 +27,10 @@ const cajeras = [ana, maria];
 const verificadores = [maria, carlos];
 
 beforeEach(() => {
-  vi.clearAllMocks(); // aísla el historial de llamadas entre tests (p. ej. registrarVenta)
+  // resetAllMocks (no clearAllMocks): limpia historial E implementaciones, incluida la
+  // cola `.mock*Once()` de registrarVenta, para que cada test quede aislado y una futura
+  // regresión falle en su propia aserción (no acoplada al orden de ejecución).
+  vi.resetAllMocks();
   vi.mocked(servicio.obtenerSedes).mockResolvedValue([sedeA, sedeB]);
   vi.mocked(servicio.obtenerEmpleadosPorRol).mockImplementation((rol: string) =>
     Promise.resolve(rol === 'cajera' ? cajeras : verificadores),
@@ -223,7 +226,7 @@ describe('FormularioVenta — Enter no registra el cierre por accidente', () => 
     await waitFor(() => expect(onRegistrada).toHaveBeenCalledWith(ventaCreada));
   });
 
-  it('con un envío en curso, un segundo clic NO vuelve a registrar (capa: botón deshabilitado por cargando)', async () => {
+  it('con un envío en curso, un segundo clic NO vuelve a registrar (el botón se deshabilita mientras guarda)', async () => {
     // registrarVenta queda pendiente: el cierre sigue "guardando".
     vi.mocked(servicio.registrarVenta).mockReturnValue(new Promise<VentaDiaria>(() => {}));
     const user = userEvent.setup();
@@ -287,5 +290,69 @@ describe('FormularioVenta — fallback de responsable sin verificadores', () => 
     expect(verifSel.value).toBe('Admin Uno');
     // Y se explica que no hay verificadores.
     expect(screen.getByText(/rol Verificador/i)).toBeTruthy();
+  });
+});
+
+describe('FormularioVenta — reintento tras error de cierre (enviandoRef se libera)', () => {
+  /** Monta el formulario COMPLETO (botón habilitado) y devuelve el callback de éxito espiado. */
+  async function montarCompleto() {
+    const onRegistrada = vi.fn();
+    const user = userEvent.setup();
+    render(<FormularioVenta onRegistrada={onRegistrada} />);
+    await screen.findByRole('option', { name: 'Sede A' });
+    await screen.findByRole('option', { name: /Carlos Méndez/ });
+    await llenarFormularioCompleto(user);
+    return { user, onRegistrada };
+  }
+
+  it('tras un 409 (ErrorCierreDuplicado) muestra el aviso de conflicto y permite reintentar con éxito', async () => {
+    const mensajeConflicto = 'Ya existe un cierre normal para esa sede, fecha y turno';
+    const err409 = new servicio.ErrorCierreDuplicado(mensajeConflicto);
+    // El módulo está auto-mockeado: garantizamos el mensaje visible aunque el
+    // constructor mockeado no ejecute `super(mensaje)`. El `instanceof` sí se cumple
+    // (misma clase que importa el componente), así que se toma la rama 409.
+    err409.message = mensajeConflicto;
+    vi.mocked(servicio.registrarVenta)
+      .mockRejectedValueOnce(err409)
+      .mockResolvedValueOnce(ventaCreada);
+
+    const { user, onRegistrada } = await montarCompleto();
+
+    // 1er envío: el backend responde 409 -> aparece el aviso de conflicto (con su icono
+    // ⚠), diferenciado del error de validación. No se registró nada aún.
+    await user.click(botonRegistrar());
+    await screen.findByText(mensajeConflicto);
+    expect(screen.getByText('⚠')).toBeTruthy(); // rama de conflicto (no el <p> de error genérico)
+    expect(vi.mocked(servicio.registrarVenta)).toHaveBeenCalledTimes(1);
+    expect(onRegistrada).not.toHaveBeenCalled();
+
+    // 2º envío: si `enviandoRef` NO se hubiera liberado en el `finally` tras el 409, este
+    // clic quedaría bloqueado y no registraría nada. Que se registre prueba que el cerrojo
+    // se soltó y el operador puede reintentar el cierre.
+    await user.click(botonRegistrar());
+    await waitFor(() => expect(vi.mocked(servicio.registrarVenta)).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onRegistrada).toHaveBeenCalledWith(ventaCreada));
+  });
+
+  it('tras un error genérico muestra el error y permite reintentar con éxito', async () => {
+    const mensajeError = 'Fallo de red al registrar el cierre';
+    vi.mocked(servicio.registrarVenta)
+      .mockRejectedValueOnce(new Error(mensajeError))
+      .mockResolvedValueOnce(ventaCreada);
+
+    const { user, onRegistrada } = await montarCompleto();
+
+    // 1er envío: error genérico -> se muestra el mensaje de error, sin el aviso de conflicto ⚠.
+    await user.click(botonRegistrar());
+    await screen.findByText(mensajeError);
+    expect(screen.queryByText('⚠')).toBeNull(); // no es la rama 409
+    expect(vi.mocked(servicio.registrarVenta)).toHaveBeenCalledTimes(1);
+    expect(onRegistrada).not.toHaveBeenCalled();
+
+    // 2º envío: el `finally` liberó `enviandoRef` aunque el 1º lanzara -> el reintento
+    // registra con éxito. Prueba que el error genérico tampoco deja el formulario bloqueado.
+    await user.click(botonRegistrar());
+    await waitFor(() => expect(vi.mocked(servicio.registrarVenta)).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onRegistrada).toHaveBeenCalledWith(ventaCreada));
   });
 });
