@@ -72,6 +72,83 @@ const CASES = [
   ["Bash", "Remove-Item -Recurse deploy_extra", false, "directorio de nombre parecido pero distinto (no debe bloquearse)"],
   ["Bash", "rm -r deployment", false, "'deployment' no es 'deploy' (no debe bloquearse por substring)"],
 
+  // --- P0.4: falso positivo de READ_VERBS contra la referencia git HEAD ---
+  ["Bash", "git show HEAD", false, "git show HEAD (HEAD es argumento, no el comando head)"],
+  ["Bash", "git diff HEAD", false, "git diff HEAD"],
+  ["Bash", "git diff HEAD~1..HEAD", false, "git diff HEAD~1..HEAD (HEAD aparece dos veces, ambas como argumento)"],
+  ["Bash", "git rev-parse HEAD", false, "git rev-parse HEAD"],
+  ["Bash", "git log HEAD --oneline", false, "git log HEAD --oneline"],
+  ["Bash", 'grep -i "apikey" docs/file.md', false, "grep -i apikey docs/file.md (ningun verbo de lectura presente)"],
+  ["Bash", 'git grep "secret" HEAD', false, "git grep secret HEAD (comilla de cierre antes de HEAD, no de apertura)"],
+  [
+    "Bash",
+    'git commit -m "menciona HEAD y apikey en el mismo mensaje"',
+    false,
+    "HEAD + apikey coexistiendo en un string sin verbo de lectura real",
+  ],
+  ["PowerShell", "git diff Head", false, "referencia HEAD con mayus/minus mixta, sigue siendo argumento"],
+  ["Bash", "GIT SHOW HEAD", false, "comando completo en mayusculas, HEAD sigue siendo argumento"],
+  ["Bash", "docker logs --tail 50 backend", false, "docker logs --tail (flag real llamada 'tail', no el comando tail)"],
+  ["Bash", 'echo "less is more"', false, "palabra de READ_VERB_WORDS pegada a una comilla que NO abre un sub-shell"],
+  [
+    "Bash",
+    'git log --pretty=format:"cat and more are just words here"',
+    false,
+    "READ_VERB_WORDS dentro de un string de formato de git log, no un sub-shell",
+  ],
+
+  ["Bash", "head .env", true, "head .env (verbo real al inicio de la clausula)"],
+  ["Bash", "tail .env", true, "tail .env"],
+  ["Bash", "cat .env", true, "cat .env"],
+  ["Bash", "gc .env", true, "gc .env (alias PowerShell de Get-Content)"],
+  [
+    "PowerShell",
+    'powershell -Command "Get-Content .env"',
+    true,
+    "powershell -Command con verbo real recien despues de la comilla de apertura",
+  ],
+  ["Bash", "head ~/.ssh/id_rsa", true, "head id_rsa"],
+  ["Bash", 'bash -c "cat .env"', true, "bash -c con verbo real dentro de comillas (sub-shell Unix)"],
+  ["Bash", "sh -c 'cat .env'", true, "sh -c con comillas simples"],
+
+  // --- P0.4 (revision adversarial): wrappers transparentes que SI ejecutan
+  // el verbo siguiente como subproceso real. Regresion encontrada por
+  // release-reviewer en la primera version del fix: al exigir que el verbo
+  // fuera la primera palabra literal de la clausula, sudo/env/timeout/
+  // nohup/watch/xargs/find -exec dejaban de detectarse aunque SI leen el
+  // archivo sensible en runtime.
+  ["Bash", "sudo cat .env", true, "sudo cat .env (sudo ejecuta cat como subproceso real)"],
+  ["Bash", "env cat .env", true, "env cat .env"],
+  ["Bash", "timeout 5 cat .env", true, "timeout 5 cat .env (5 es el argumento de duracion de timeout)"],
+  ["Bash", "timeout 30s cat .env", true, "timeout 30s cat .env (duracion con sufijo de unidad)"],
+  ["Bash", "nohup cat .env", true, "nohup cat .env"],
+  ["Bash", "watch cat .env", true, "watch cat .env"],
+  ["Bash", "echo .env | xargs cat", true, "xargs cat (verbo real tras el wrapper, aunque haya un pipe antes)"],
+  [
+    "Bash",
+    "find . -name .env -exec cat {} +",
+    true,
+    "find -exec cat (el flag -exec arranca un comando nuevo que SI se ejecuta)",
+  ],
+  ["Bash", "sudo cat ~/.ssh/id_rsa", true, "sudo cat id_rsa (P0-SECRET tras wrapper)"],
+  ["Bash", "timeout 5 cat credentials.json", true, "timeout cat credentials.json (P0-SECRET tras wrapper)"],
+  ["Bash", "sudo -u jim cat .env", true, "sudo con su propia flag (-u jim) antes del verbo real"],
+  ["Bash", "env FOO=bar cat .env", true, "env con asignacion de variable (FOO=bar) antes del verbo real"],
+  [
+    "Bash",
+    "sudo -u jim -g jim cat .env",
+    true,
+    "sudo con DOS flags de valor suelto (-u jim -g jim): el perdon no debe agotarse tras la primera",
+  ],
+  ["Bash", "env -u FOO -u BAR cat .env", true, "env con dos flags -u repetidas antes del verbo real"],
+  ["Bash", "sudo -u jim -p prompt cat .env", true, "sudo con tres tokens de flag+valor antes del verbo real"],
+  ["Bash", "watch git status", false, "watch de un comando seguro (git status) no debe bloquearse"],
+  ["Bash", "env FOO=bar npm test", false, "env envolviendo un comando seguro, sin verbo de lectura"],
+  ["PowerShell", 'powershell -c "cat .env"', true, "powershell -c (forma corta de -Command)"],
+  ["Bash", "GET-CONTENT .env", true, "verbo en mayusculas puras, sigue bloqueado (case-insensitive)"],
+  ["Bash", "; cat .env", true, "cat .env tras separador ; (segunda clausula)"],
+  ["Bash", "echo hola && cat .env", true, "cat .env tras && (segunda clausula real)"],
+
   // --- P0.1: formas de bypass revisadas ---
   ["PowerShell", "GiT PuSh --FORCE origin main", true, "mayus/minus mezclado"],
   ["Bash", "git   push\n--force   origin   main", true, "espacios y saltos de linea multiples"],

@@ -82,12 +82,19 @@ function extractEncodedCommand(cmd) {
 }
 
 // Verbos de lectura: cubre alias de PowerShell (cat/type/gc -> Get-Content)
-// y equivalentes Unix (cat/more/less/head/tail). El (?<!-) evita que un
-// verbo aparezca como sufijo de una flag (find -type, node --expose-gc):
-// una flag siempre tiene un "-" pegado justo antes de la palabra, un verbo
-// real de comando nunca lo tiene ahi (P0.3 — antes "find . -type f" se
-// leia como el comando "type").
-const READ_VERBS = /(?<!-)\b(cat|type|more|less|head|tail|get-content|gc)\b/i;
+// y equivalentes Unix (cat/more/less/head/tail).
+//
+// P0.4 — un simple lookbehind "no precedido de guion" (P0.3) no basta:
+// "git show HEAD", "git diff HEAD~1..HEAD" contienen la palabra "head"
+// (case-insensitive) sin ningun guion delante, y no son el comando "head".
+// El problema de fondo no es "HEAD" en particular (no se especial-casea
+// esa palabra en ningun sitio de este archivo): es que un verbo de lectura
+// solo cuenta si esta en POSICION DE VERBO — la primera palabra de su
+// clausula de comando — y "HEAD" ahi es el segundo/tercer argumento de
+// "git show"/"git diff", no un verbo. Ver isCommandVerbPosition() mas
+// abajo, que generaliza esto (tambien cubre find -type, --expose-gc,
+// sub-shells, comillas...) en vez de listar excepciones por palabra.
+const READ_VERB_WORDS = ["cat", "type", "more", "less", "head", "tail", "get-content", "gc"];
 
 // Verbos de borrado: alias de PowerShell (del/rmdir/rd -> Remove-Item) y
 // Unix (rm). Mismo guardado (?<!-) por consistencia, aunque ninguna flag
@@ -154,13 +161,140 @@ function lastSegments(resolved, count) {
   return parts.slice(-count).map((p) => p.toLowerCase());
 }
 
+// Sufijos que abren un sub-shell/valor de comando: lo que venga justo
+// despues SI es una posicion de verbo valida, aunque no sea el inicio
+// absoluto del string (cmd /c, cmd /k, powershell -Command, bash/sh -c).
+const SUBSHELL_FLAG_SUFFIX = /(^|\s)(\/c|\/k|-c|-command|-encodedcommand)$/i;
+
+// Comandos "transparentes": no leen nada por si mismos, ejecutan como
+// subproceso la palabra que viene despues (sudo cat .env SI lee .env,
+// igual que cat .env a secas). Si no se reconocen, un verbo real detras
+// de uno de estos se leeria como "argumento de otro programa" y el hook
+// fallaria ABIERTO — justo el error que se encontro en la revision
+// adversarial de P0.4 (sudo/env/timeout/nohup/watch/xargs/find -exec
+// dejaban pasar `cat .env` sin bloquear). "command"/"exec" cubren el
+// builtin de POSIX shell del mismo nombre.
+const TRANSPARENT_WRAPPERS = new Set(["sudo", "doas", "env", "nohup", "watch", "xargs", "command", "exec", "timeout"]);
+
+// -exec/-execdir de `find`: todo lo que sigue hasta el `;`/`+` que cierra
+// es un comando nuevo que SI se ejecuta (find . -name .env -exec cat {} +).
+const FIND_EXEC_FLAGS = new Set(["-exec", "-execdir"]);
+
+function isWrapperArgToken(token) {
+  // Argumento propio de un wrapper transparente que no cambia el verbo
+  // real que sigue: duracion de `timeout` (5, 30s, 2m...) o asignacion de
+  // variable de `env` (FOO=bar).
+  return /^\d+[smhd]?$/i.test(token) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(token);
+}
+
+// Retrocede token por token (separados por espacio, ya normalizados a uno
+// solo) desde `idx` mientras solo encuentre wrappers transparentes, sus
+// propias flags/argumentos, o `find -exec`/`-execdir`. Si llega asi hasta
+// un separador real o el inicio del string, lo que sigue a `idx` SI esta
+// en posicion de verbo (se ejecuta de verdad), aunque no sea la primera
+// palabra literal del comando completo.
+function isAfterTransparentWrapperChain(cmd, idx) {
+  let before = cmd.slice(0, idx).replace(/\s+$/, "");
+  while (before !== "") {
+    const lastChar = before[before.length - 1];
+    if (lastChar === ";" || lastChar === "&" || lastChar === "|" || lastChar === "(") return true;
+
+    const spaceIdx = before.lastIndexOf(" ");
+    const token = spaceIdx === -1 ? before : before.slice(spaceIdx + 1);
+    const rest = spaceIdx === -1 ? "" : before.slice(0, spaceIdx).replace(/\s+$/, "");
+    const tokenLower = token.toLowerCase();
+
+    if (TRANSPARENT_WRAPPERS.has(tokenLower) || FIND_EXEC_FLAGS.has(tokenLower)) return true;
+    if (/^[-/]/.test(token) || isWrapperArgToken(token)) {
+      before = rest; // flag/argumento del wrapper: sigue retrocediendo
+      continue;
+    }
+    // Token suelto que no es flag ni wrapper: solo se perdona si el token
+    // que le precede (mas a la izquierda, la posicion siguiente en este
+    // retroceso) es a su vez una flag — el patron real es "-u jim", donde
+    // "jim" es el valor de "-u", no una palabra de comando. Esto se repite
+    // tantas veces como flags-con-valor haya (sudo -u jim -g jim ...): cada
+    // ocurrencia se valida por su cuenta contra SU propia flag inmediata,
+    // no hay limite de "una sola vez" — un limite asi dejaba pasar `sudo
+    // -u jim -g jim cat .env` sin bloquear (hallazgo de revisor, P0.4). No
+    // hace falta ningun contador para seguir excluyendo "git show HEAD":
+    // "show" no tiene una flag inmediatamente a su izquierda ("git" no
+    // empieza con "-"), asi que el emparejamiento simplemente falla ahi,
+    // sin necesitar un limite artificial.
+    const nextSpaceIdx = rest.lastIndexOf(" ");
+    const nextToken = nextSpaceIdx === -1 ? rest : rest.slice(nextSpaceIdx + 1);
+    if (/^[-/]/.test(nextToken)) {
+      before = rest;
+      continue;
+    }
+    return false; // palabra real que no es wrapper: lo de despues es SU argumento, no un verbo
+  }
+  return true; // se consumieron solo wrappers hasta el inicio del string
+}
+
+// true si el caracter en cmd[idx] arranca una "clausula de comando" nueva:
+// inicio del string, separador (; & | (), o justo despues de una comilla
+// que se ACABA DE ABRIR (paridad impar de comillas hasta ese punto — una
+// comilla de CIERRE no cuenta, evita el falso positivo de
+// `git grep "secret" HEAD`, donde la comilla que precede a HEAD es de
+// cierre, no de apertura), o justo despues de una flag de sub-shell
+// (cmd /c, powershell -Command, bash -c...). No es un parser de shell
+// real — es la misma clase de heuristica que ya documenta SECURITY.md
+// ("Limite fundamental, no resoluble por regex") — pero cubre los casos
+// reales de bypass/falso-positivo revisados en P0.1-P0.4 con evidencia.
+function isCommandVerbPosition(cmd, idx) {
+  const before = cmd.slice(0, idx);
+  const trimmed = before.replace(/\s+$/, "");
+  if (trimmed === "") return true;
+
+  const lastChar = trimmed[trimmed.length - 1];
+  if (lastChar === ";" || lastChar === "&" || lastChar === "|" || lastChar === "(") {
+    return true;
+  }
+  if (lastChar === '"' || lastChar === "'") {
+    const count = (trimmed.match(new RegExp("\\" + lastChar, "g")) || []).length;
+    if (count % 2 !== 1) return false; // comilla de CIERRE, no abre nada nuevo
+    // Comilla recien abierta: solo cuenta como sub-shell si lo que la abre
+    // es en si mismo un arranque de comando (inicio de string, separador, o
+    // una flag de sub-shell como -Command/-c//c). Sin esto, un argumento de
+    // texto plano entre comillas (git commit -m "cat pictures", echo "less
+    // is more") se leeria como si abriera un sub-shell solo por tener una
+    // palabra de READ_VERB_WORDS pegada a la comilla de apertura.
+    const beforeQuote = trimmed.slice(0, -1).replace(/\s+$/, "");
+    if (beforeQuote === "") return true;
+    if (/[;&|(]$/.test(beforeQuote)) return true;
+    if (SUBSHELL_FLAG_SUFFIX.test(beforeQuote)) return true;
+    return isAfterTransparentWrapperChain(cmd, idx);
+  }
+  if (SUBSHELL_FLAG_SUFFIX.test(trimmed)) return true;
+
+  // No hay separador/comilla justo antes: puede seguir siendo un verbo
+  // real si todo lo que hay entre el ultimo separador y aqui es una
+  // cadena de wrappers transparentes (sudo/env/timeout/find -exec...).
+  return isAfterTransparentWrapperChain(cmd, idx);
+}
+
+// Devuelve true si alguna palabra de `words` aparece en cmd EN POSICION DE
+// VERBO (ver isCommandVerbPosition). Reemplaza el simple lookbehind de
+// P0.3 ("no precedido de guion"), que no distinguia un argumento real
+// (git ref, patron de busqueda, texto entre comillas) de un verbo.
+function hasVerbAtCommandPosition(cmd, words) {
+  const re = new RegExp("\\b(" + words.join("|") + ")\\b", "gi");
+  let m;
+  while ((m = re.exec(cmd)) !== null) {
+    if (isCommandVerbPosition(cmd, m.index)) return true;
+    if (m.index === re.lastIndex) re.lastIndex++; // evita loop infinito en match vacio
+  }
+  return false;
+}
+
 // Devuelve [codigo, razon] si el comando debe bloquearse, o null si es seguro.
 // cwd se usa para cerrar el bypass de "ya estoy parado dentro de deploy/backups
 // o prisma/migrations y borro con ruta relativa corta (sin repetir el prefijo)".
 function evaluate(cmd, cwd) {
   const ENV_EXCLUDE = /\.env\.[a-z0-9]*example\b/i;
 
-  if (READ_VERBS.test(cmd)) {
+  if (hasVerbAtCommandPosition(cmd, READ_VERB_WORDS)) {
     if (/\.env\b/i.test(cmd) && !ENV_EXCLUDE.test(cmd)) {
       return ["P0-ENV", "lectura de archivo .env bloqueada"];
     }

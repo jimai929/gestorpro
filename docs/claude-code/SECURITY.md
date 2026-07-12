@@ -126,6 +126,70 @@ decisión y acción manual de Jim.
   propósito: en el filesystem real falla solo si el directorio no está
   vacío, así que no hace falta la red de seguridad ahí.
 
+## Bug corregido en P0.4 (falso positivo, con test)
+
+- **`READ_VERBS` contra la referencia git `HEAD`**: el guardado `(?<!-)`
+  de P0.3 solo excluía un verbo pegado a un guion (flag). No cubría el caso
+  real encontrado en uso: `head` (case-insensitive) matchea la palabra
+  `HEAD` de Git en cualquier posición — `git show HEAD`, `git diff
+  HEAD~1..HEAD`, `git rev-parse HEAD`, `git log HEAD --oneline` — sin que
+  haya ningún guion delante. Si el mismo comando (o el texto de búsqueda de
+  un `grep`) mencionaba de paso `.env`/`apikey`/`secret`, el hook los
+  denegaba con `P0-ENV`/`P0-SECRET` aunque no hubiera ninguna lectura real.
+  **No se corrigió especial-caseando la palabra `HEAD`** (eso solo movería
+  el mismo bug a la siguiente palabra que colisione) — se corrigió la causa
+  general: un verbo de lectura solo cuenta si está en **posición de
+  verbo**, la primera palabra de su cláusula de comando
+  (`isCommandVerbPosition()` en `deploy-guard.js`). "Posición de verbo" es
+  inicio de string, justo después de un separador (`;`, `&`, `|`, `(`), o
+  justo después de una comilla que se **acaba de abrir** — y solo cuenta
+  como apertura real de sub-shell si lo que precede a esa comilla es a su
+  vez inicio de cláusula o una flag de sub-shell conocida (`/c`, `/k`,
+  `-Command`, `-c`, `-EncodedCommand`); una comilla de **cierre** (`git
+  grep "secret" HEAD`) o una comilla de apertura de un argumento de texto
+  plano sin sub-shell detrás (`git commit -m "cat pictures"`, `echo "less
+  is more"`) no cuentan. Esto también resuelve, como efecto del mismo
+  mecanismo (no como parche aparte), el caso ya cubierto en P0.3
+  (`find -type`, `--expose-gc`) y añade cobertura nueva: `docker logs
+  --tail 50` (`tail` como nombre de una flag real de Docker, no el comando
+  Unix `tail`) ya no se bloquea.
+
+**Dos regresiones encontradas y cerradas en la misma revisión (ambas por
+`release-reviewer`, en dos pasadas, antes de comitear)**: la primera
+versión del fix de arriba exigía que el verbo fuera la primera palabra
+LITERAL de su cláusula, lo que rompía la detección cuando el verbo va
+detrás de un comando "transparente" que sí lo ejecuta como subproceso
+real: `sudo cat .env`, `env cat .env`, `timeout 5 cat .env`, `nohup cat
+.env`, `watch cat .env`, `echo .env | xargs cat`, `find . -name .env
+-exec cat {} +` dejaban de bloquearse (comprobado comparando el
+resultado del hook antes/después del fix contra los mismos strings).
+Corregido con `isAfterTransparentWrapperChain()`: retrocede token por
+token desde el candidato mientras solo encuentre wrappers conocidos
+(`sudo`, `doas`, `env`, `nohup`, `watch`, `xargs`, `command`, `exec`,
+`timeout`), sus propias flags, un argumento de duración (`timeout 30s`)
+o de asignación (`env FOO=bar`), o `find -exec`/`-execdir`; si llega así
+hasta un separador real o el inicio del comando, el verbo cuenta como
+real. También perdona un token suelto cuando va precedido de una flag
+(`sudo -u jim cat .env` — `jim` es el valor de `-u`).
+
+La primera implementación de ese último punto limitaba el perdón a **una
+sola vez por cadena** (una bandera booleana consumida al primer uso). La
+segunda pasada de `release-reviewer` encontró que eso mismo era otra
+regresión: `sudo`/`env`/`doas` admiten varias flags con valor propio
+(`-u USER -g GROUP`), y en cuanto aparecía una SEGUNDA flag-con-valor
+antes del verbo real, el perdón ya gastado cortaba la cadena y el hook
+dejaba pasar la lectura (`sudo -u jim -g jim cat .env` no se bloqueaba).
+Corregido quitando el límite de "una sola vez": el emparejamiento
+token-suelto+flag-inmediata-a-su-izquierda se repite tantas veces como
+haga falta, porque cada ocurrencia se valida por su cuenta contra su
+propia flag — no hacía falta ningún contador para seguir excluyendo `git
+show HEAD` (ahí "show" nunca tiene una flag inmediatamente a su
+izquierda, así que el emparejamiento falla solo, sin necesitar un límite
+artificial). Con test para los 9 casos originales que la primera
+regresión dejaba pasar, 3 casos de la segunda (dos y tres flags-con-valor
+seguidas), y 2 negativos (`watch git status`, `env FOO=bar npm test`, que
+no deben bloquearse por no tener ningún verbo de lectura real detrás).
+
 ## Formas de bypass revisadas en P0.1 (todas cerradas y con test)
 
 - Mayúsculas/minúsculas mezcladas (`GiT PuSh --FORCE`) — ya cubierto por
@@ -155,6 +219,34 @@ decisión y acción manual de Jim.
   `cwd` del input (confirmado como campo real del hook de Claude Code),
   no solo el texto del comando.
 
+## Límite conocido, aceptado sin fix (MEDIUM, hallado en la 3ª pasada de P0.4)
+
+La 3ª pasada de `release-reviewer` sobre el fix de wrappers transparentes
+encontró un falso positivo por SOBRE-bloqueo (nunca un bypass): un
+comando compuesto como `docker exec -u jim -i miContenedor cat README.md
+&& git commit -m "update .env docs"` se deniega con `P0-ENV` aunque no
+lee ningún `.env` real — solo lee `README.md` dentro del contenedor; el
+`.env` es texto no relacionado en el mensaje de commit de una cláusula
+posterior. Causa: (a) `exec` está en `TRANSPARENT_WRAPPERS` (para el
+builtin de shell `exec`) y coincide por accidente con el subcomando
+`docker exec`/`kubectl exec`; (b) el emparejamiento flag+valor sin límite
+(cierre de la 2ª regresión, arriba) puede atravesar dos saltos
+(`-u jim`, `-i miContenedor`) hasta llegar a esa palabra; (c) el chequeo
+de `.env`/secreto ya buscaba en todo el comando aplanado, no solo cerca
+del verbo (límite preexistente desde P0.1, no de esta pasada).
+
+**No se corrige en P0.4.** La dirección del error es siempre hacia
+bloquear de más, nunca hacia dejar pasar algo peligroso — consistente con
+la política fail-closed que este hook declara como intencional. Intentar
+cerrar este caso concreto (p. ej. sacando `exec` de `TRANSPARENT_WRAPPERS`
+o acotando el chequeo de secretos a una ventana alrededor del verbo)
+arriesga abrir una cuarta regresión en un mecanismo que ya pasó por dos
+rondas de hallazgos reales; el costo de la fricción ocasional (un
+`docker exec`/`kubectl exec` con 2+ flags que además mencione `.env` en
+otra cláusula del mismo comando compuesto) es menor que el riesgo de
+seguir iterando sin una razón de negocio que lo pida. Si esto genera
+fricción real en uso, es una tarea aparte, no un P0.4.4.
+
 ## Límite fundamental, no resoluble por regex (documentado, no bug)
 
 Un hook basado en coincidencia de texto **no puede** detectar ofuscación
@@ -182,14 +274,20 @@ prueba.
 
 ## Resultados de prueba
 
-`node scripts/claude/test-deploy-guard.js` — 76/76 casos correctos: los
-51 casos de la base P0.1/P0.0 (comandos peligrosos + solo-lectura que no
-deben bloquearse, 12 formas de bypass revisadas, 8 casos adversariales de
-input malformado, 3 casos de bypass vía `cwd`) más 25 casos nuevos de
-P0.3 — 6 del falso positivo `type`/`gc` en posición de flag, 15 del
-bypass de borrado del directorio padre por texto de comando (9 que deben
-bloquearse: relativo, `-rf`, `-Recurse`, `..` embebido, `rmdir /s /q`,
-ruta absoluta Windows/Unix; 6 que NO deben bloquearse: lectura/listado de
-`deploy`/`prisma`, y nombres parecidos como `deployment`/`deploy_extra`
-que no deben matchear por substring) y 4 vía `cwd`+`..` (parado dentro del
-directorio protegido).
+`node scripts/claude/test-deploy-guard.js` — 118/118 casos correctos: los
+76 casos de P0.1-P0.3 (ver desglose en la versión anterior de esta
+sección, en el historial de git) más 25 casos de la primera pasada de
+P0.4 — 13 que NO deben bloquearse (`git show/diff/rev-parse/log` con
+`HEAD`, `HEAD~1..HEAD`, un `grep`/`git grep` cuyo patrón de búsqueda o
+mensaje de commit menciona `apikey`/`secret`/`HEAD` sin ningún verbo de
+lectura real, mayúsculas/minúsculas mixtas en la referencia, `docker logs
+--tail`, una palabra de `READ_VERB_WORDS` pegada a una comilla de
+apertura que NO abre un sub-shell) y 12 que SÍ deben seguir bloqueándose
+(`head`/`tail`/`cat`/`gc` reales al inicio de cláusula o tras `;`/`&&`,
+`powershell -Command`/`-c`, `bash -c`/`sh -c`, verbo en mayúsculas puras,
+lectura de `id_rsa`) — más 17 casos de las dos revisiones adversariales
+que cerraron la regresión de wrappers transparentes: 15 que SÍ deben
+bloquearse (`sudo`/`env`/`timeout`/`nohup`/`watch`/`xargs`/`find -exec`
+envolviendo un verbo real, con cero, una, dos o tres flags/argumentos
+propios del wrapper de por medio) y 2 que NO (`watch`/`env` envolviendo
+un comando sin ningún verbo de lectura).
