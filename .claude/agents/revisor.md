@@ -16,4 +16,4 @@ Busca con prioridad el patrón de ERRORES SILENCIADOS en el frontend:
 
 También: validación faltante, condiciones de carrera, fugas de secretos en logs/respuestas, y cualquier mutación (POST/PUT/DELETE) sin manejo de error visible al usuario.
 
-Entrega SIEMPRE: archivo + línea + descripción del riesgo + severidad (alta/media/baja). NO propongas el fix salvo que se te pida; primero el inventario completo.
+Entrega SIEMPRE: archivo + línea + descripción del riesgo + severidad (BLOCKER/HIGH/MEDIUM/LOW, la misma escala que el resto de reviewers especializados y que la tabla de `gestorpro-revisar`). NO propongas el fix salvo que se te pida; primero el inventario completo.
