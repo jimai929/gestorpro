@@ -11,7 +11,7 @@
  * diferenciado (no es un error de validación, sino un conflicto de negocio).
  */
 
-import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type FormEvent, type KeyboardEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -102,6 +102,10 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avisoConflicto, setAvisoConflicto] = useState<string | null>(null);
+  // Cerrojo de envío en curso. Es un ref (no el estado `guardando`) para que el
+  // anti-doble-envío sea SÍNCRONO e inmune al cierre obsoleto: dos clics/Enter muy
+  // seguidos comparten el mismo ref y el segundo se descarta antes de re-renderizar.
+  const enviandoRef = useRef(false);
 
   const cargarSedes = useCallback(() => {
     setCargandoSedes(true);
@@ -191,8 +195,30 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
     return acc + (isNaN(n) ? 0 : n);
   }, 0);
 
+  /**
+   * Enter en un campo de texto/número/fecha NO debe registrar el cierre por
+   * accidente (envío implícito del `<form>`): un cierre solo se guarda con un clic
+   * explícito en "Registrar". Se respeta el teclado nativo de `<select>` (desplegable),
+   * `<textarea>` (salto de línea), los botones y la composición IME (idiomas como el
+   * chino). Esto NO añade navegación por Enter entre campos — eso vive en el hook
+   * compartido `useNavegacionEnter`, fuera de esta rama.
+   */
+  const bloquearEnvioImplicito = (evento: KeyboardEvent<HTMLFormElement>) => {
+    if (evento.key !== 'Enter') return;
+    if (evento.ctrlKey || evento.altKey || evento.metaKey) return; // atajos con modificador
+    if (evento.nativeEvent.isComposing) return; // IME en composición
+    const objetivo = evento.target as HTMLElement;
+    const etiqueta = objetivo.tagName;
+    if (etiqueta === 'TEXTAREA' || etiqueta === 'BUTTON' || etiqueta === 'SELECT') return;
+    if (objetivo.isContentEditable) return;
+    const tipo = (objetivo as HTMLInputElement).type;
+    if (tipo === 'submit' || tipo === 'button' || tipo === 'reset') return;
+    evento.preventDefault(); // input de texto/número/fecha/hora: Enter no envía el cierre
+  };
+
   const manejarEnvio = async (evento: FormEvent) => {
     evento.preventDefault();
+    if (enviandoRef.current) return; // ya hay un envío en curso: evita el doble registro del cierre
     setError(null);
     setAvisoConflicto(null);
 
@@ -218,6 +244,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
       return;
     }
 
+    enviandoRef.current = true; // cierra el paso a un 2º envío mientras este está en vuelo
     setGuardando(true);
     try {
       const ventaCreada = await registrarVenta({
@@ -240,6 +267,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
         setError(err instanceof Error ? err.message : t('fin.venta.errRegistrar'));
       }
     } finally {
+      enviandoRef.current = false;
       setGuardando(false);
     }
   };
@@ -258,7 +286,7 @@ export function FormularioVenta({ onRegistrada }: PropiedadesFormulario) {
         </div>
       </div>
 
-      <form onSubmit={(e) => { void manejarEnvio(e); }}>
+      <form onSubmit={(e) => { void manejarEnvio(e); }} onKeyDown={bloquearEnvioImplicito}>
         <div className={styles.cuadricula}>
           {/* Sede */}
           <div className={styles.grupoSelect}>
