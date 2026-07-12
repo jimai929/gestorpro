@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
+import { useNavegacionEnter } from '../../core/ui/useNavegacionEnter';
 import { obtenerSedes } from '../sedes/servicioSedes';
 import type { Sede } from '../sedes/tipos';
 import { crearEmpleado, editarEmpleado, obtenerRolesOperativos } from './servicioEmpleados';
@@ -28,6 +29,7 @@ interface PropiedadesFormulario {
 
 export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: PropiedadesFormulario) {
   const { t } = useTraduccion();
+  const { ref: refFormulario, onKeyDown } = useNavegacionEnter<HTMLDivElement>();
   const esEdicion = empleado !== undefined;
 
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -129,7 +131,7 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
   const completo = numero.trim() && nombre.trim() && sedeId && salario && (esEdicion || pin.length === 4) && (esEdicion || !errorRoles) && !(esEdicion && cargandoRoles);
 
   return (
-    <div className={styles.contenedor}>
+    <div ref={refFormulario} onKeyDown={onKeyDown} className={styles.contenedor}>
       <p className={styles.titulo}>{esEdicion ? t('adm.emp.editar') : t('adm.emp.nuevo')}</p>
 
       {error && <p className={styles.error}>{error}</p>}
@@ -247,7 +249,7 @@ export function FormularioEmpleado({ empleado, onGuardado, onCancelar }: Propied
         <Boton type="button" variante="secundario" onClick={onCancelar} disabled={guardando}>
           {t('comun.cancelar')}
         </Boton>
-        <Boton type="button" cargando={guardando} disabled={!completo} onClick={() => { void guardar(); }}>
+        <Boton type="button" data-enter-submit cargando={guardando} disabled={!completo} onClick={() => { void guardar(); }}>
           {esEdicion ? t('adm.emp.guardarCambios') : t('adm.emp.crear')}
         </Boton>
       </div>

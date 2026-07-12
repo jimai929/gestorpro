@@ -14,6 +14,7 @@ import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
+import { useNavegacionEnter } from '../../core/ui/useNavegacionEnter';
 import {
   obtenerCategoriasGasto,
   obtenerSedes,
@@ -41,6 +42,7 @@ const OPCIONES_TIPO_PAGO = [
 export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
   const { t } = useTraduccion();
   const { usuario } = useAuth();
+  const { ref: refFormulario, onKeyDown } = useNavegacionEnter<HTMLFormElement>();
   // Crear categorías inline: solo admin/supervisor (mismo criterio que el backend).
   const puedeCrearCategoria =
     usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
@@ -207,7 +209,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
         <h2 className={styles.titulo}>{t('fin.gasto.registrar')}</h2>
       </div>
 
-      <form onSubmit={(e) => { void manejarEnvio(e); }}>
+      <form ref={refFormulario} onKeyDown={onKeyDown} onSubmit={(e) => { void manejarEnvio(e); }}>
         <div className={styles.cuadricula}>
           {/* Categoría */}
           <div className={styles.grupoSelect}>
@@ -378,6 +380,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
         <div className={styles.acciones}>
           <Boton
             type="submit"
+            data-enter-submit
             cargando={guardando}
             disabled={!formularioCompleto}
           >
