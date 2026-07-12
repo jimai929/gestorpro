@@ -66,3 +66,32 @@ GestorPro para estructurar el trabajo del día a día:
   piezas (investigar → aprobar → implementar → revisar → tests → aprobar
   commit → commit → aprobar push → push → aprobar deploy → backup/deploy/
   post-check) y dónde está cada punto de parada.
+
+## Memoria, statusline, worktrees, MCP y plugins (P2)
+
+Gobernanza de las capacidades de Claude Code que P0/P1 no cubrieron,
+verificadas contra el binario instalado antes de decidir si había algo que
+crear:
+
+- **`docs/claude-code/MEMORY_POLICY.md`** — no existe un `MEMORY.md` de
+  proyecto auto-cargado en 2.1.207; se documenta dónde va cada tipo de
+  hecho (`CLAUDE.md` para reglas permanentes, `docs/tasks/` para estado
+  temporal de una tarea, la auto-memory de usuario ya activa para
+  experiencia técnica estable) sin crear ningún archivo nuevo.
+- **`docs/claude-code/STATUSLINE.md`** + **`scripts/claude/statusline.
+  ps1`** — el statusline global no muestra rama/HEAD/limpio-sucio/
+  ahead-behind/worktree; se creó el script de proyecto (override de
+  `.claude/settings.json` confirmado soportado) pero **no se activó
+  todavía** — cablearlo es un cambio de una línea en `settings.json` que
+  queda pendiente de autorización explícita, fuera del alcance de este P2.
+- **`docs/claude-code/WORKTREES.md`** — cuándo usar un worktree separado,
+  aislamiento por tipo de tarea, y por qué finanzas/migraciones/release se
+  quedan seriales sin importar cuántos worktrees haya abiertos.
+- **`docs/claude-code/MCP_POLICY.md`** — sin servidores MCP activos hoy;
+  lista de candidatos futuros (todos de solo lectura o locales) y de
+  operaciones que ningún MCP podrá tener nunca (escritura en producción,
+  SSH root, deploy automático, rotación de secretos, escritura en `main`).
+- **`docs/claude-code/PLUGIN_PLAN.md`** — estructura real de empaquetado
+  (`.claude-plugin/plugin.json` + `marketplace.json`) documentada para
+  cuando los skills/agents estén lo bastante probados; nada se empaqueta,
+  instala ni publica en esta fase.
