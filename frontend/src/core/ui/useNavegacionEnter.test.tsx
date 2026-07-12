@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -202,5 +203,45 @@ describe('useNavegacionEnter — formularios ANIDADOS (subformulario dentro de o
     render(<Externo />);
     enterEn(screen.getByLabelText('ext-uno'));
     expect(document.activeElement).toBe(screen.getByLabelText('ext-dos')); // salta el sub
+  });
+});
+
+/**
+ * Formulario externo cuyo subformulario se monta TARDE (tras la primera
+ * renderización), como el sub-flujo "crear categoría inline" de
+ * FormularioGasto: no existe hasta que el usuario lo abre.
+ */
+function ExternoConSubTardio() {
+  const { ref, onKeyDown } = useNavegacionEnter<HTMLFormElement>();
+  const [mostrarSub, setMostrarSub] = useState(false);
+  return (
+    <form ref={ref} onKeyDown={onKeyDown} onSubmit={(e) => e.preventDefault()} data-testid="externo">
+      <input aria-label="ext-uno" />
+      {!mostrarSub && (
+        <button type="button" onClick={() => setMostrarSub(true)}>Mostrar sub</button>
+      )}
+      {mostrarSub && <SubDiv />}
+      <input aria-label="ext-dos" />
+      <button type="submit" data-enter-submit>Guardar externo</button>
+    </form>
+  );
+}
+
+describe('useNavegacionEnter — subformulario que se monta DESPUÉS del primer render (P0.5)', () => {
+  it('el aislamiento de anidado funciona igual aunque el sub-contenedor no exista al montar el externo', async () => {
+    const user = userEvent.setup();
+    render(<ExternoConSubTardio />);
+    await user.click(screen.getByRole('button', { name: 'Mostrar sub' }));
+
+    // El externo sigue ignorando los campos del sub, igual que si hubiera
+    // existido desde el inicio.
+    enterEn(screen.getByLabelText('ext-uno'));
+    expect(document.activeElement).toBe(screen.getByLabelText('ext-dos'));
+
+    // Y el sub navega dentro de sí mismo, sin fugarse al externo.
+    enterEn(screen.getByLabelText('int-uno'));
+    expect(document.activeElement).toBe(screen.getByLabelText('int-ultimo'));
+    enterEn(screen.getByLabelText('int-ultimo'));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Guardar interno' }));
   });
 });

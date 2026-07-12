@@ -43,6 +43,10 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
   const { t } = useTraduccion();
   const { usuario } = useAuth();
   const { ref: refFormulario, onKeyDown } = useNavegacionEnter<HTMLFormElement>();
+  // Contenedor de navegación PROPIO del sub-flujo "crear categoría inline":
+  // sin esto, Enter en nuevaCatInput/checkbox se escapaba al formulario
+  // principal y saltaba directo a Sede, sin forma de crear con teclado.
+  const { ref: refNuevaCat, onKeyDown: onKeyDownNuevaCat } = useNavegacionEnter<HTMLDivElement>();
   // Crear categorías inline: solo admin/supervisor (mismo criterio que el backend).
   const puedeCrearCategoria =
     usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
@@ -243,7 +247,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
               </button>
             )}
             {puedeCrearCategoria && mostrarNuevaCat && (
-              <div className={styles.nuevaCat}>
+              <div ref={refNuevaCat} onKeyDown={onKeyDownNuevaCat} className={styles.nuevaCat}>
                 <input
                   className={styles.nuevaCatInput}
                   type="text"
@@ -265,6 +269,7 @@ export function FormularioGasto({ onRegistrado }: PropiedadesFormulario) {
                 <div className={styles.nuevaCatAcciones}>
                   <button
                     type="button"
+                    data-enter-submit
                     className={styles.nuevaCatBtn}
                     onClick={() => { void crearCategoriaInline(); }}
                     disabled={creandoCat || !nuevaCatNombre.trim()}

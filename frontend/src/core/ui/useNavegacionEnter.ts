@@ -30,7 +30,7 @@
  * El botón principal se marca con `data-enter-submit` (o es `button[type="submit"]`).
  * No usa listeners globales de `document`/`window`.
  */
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useCallback, useRef, type KeyboardEvent } from 'react';
 
 const SELECTOR_CAMPOS = 'input, select, textarea';
 const MARCA = 'data-nav-enter';
@@ -80,11 +80,18 @@ function botonEnvio(cont: HTMLElement): HTMLElement | null {
 }
 
 export function useNavegacionEnter<T extends HTMLElement = HTMLFormElement>() {
-  const ref = useRef<T>(null);
-  // Marca el contenedor: permite distinguir formularios ANIDADOS (el Enter dentro de
-  // un subformulario con su propia navegación lo maneja SOLO el más interno).
-  useEffect(() => {
-    ref.current?.setAttribute(MARCA, '');
+  const nodo = useRef<T | null>(null);
+  // Ref CALLBACK (no useEffect con []): un contenedor que se monta DESPUÉS
+  // del primer render del componente dueño (p. ej. un sub-flujo condicional
+  // como "crear categoría inline", que solo existe una vez el usuario lo
+  // abre) nunca dispararía un efecto con dependencias vacías — la marca se
+  // quedaría sin poner y el aislamiento de anidado se rompería en silencio
+  // (el Enter del sub-flujo se "fugaría" al contenedor externo más cercano
+  // que sí tenga la marca). Con ref callback, React invoca la función cada
+  // vez que el nodo se adjunta, incluida esa primera vez tardía.
+  const ref = useCallback((el: T | null) => {
+    nodo.current = el;
+    el?.setAttribute(MARCA, '');
   }, []);
 
   function onKeyDown(evento: KeyboardEvent<T>) {
@@ -103,7 +110,7 @@ export function useNavegacionEnter<T extends HTMLElement = HTMLFormElement>() {
     if (objetivo.getAttribute('aria-expanded') === 'true') return; // combobox/listbox abierto
     if (objetivo.hasAttribute('data-enter-skip')) return; // el control gestiona su Enter
 
-    const cont = ref.current;
+    const cont = nodo.current;
     if (!cont) return;
     // Evento nacido en un subformulario con navegación PROPIA (más interno) → que lo
     // maneje ESE; este contenedor externo no toca el foco ni bloquea nada.
