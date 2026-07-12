@@ -315,7 +315,7 @@ prueba.
 
 ## Resultados de prueba
 
-`node scripts/claude/test-deploy-guard.js` — 118/118 casos correctos: los
+`node scripts/claude/test-deploy-guard.js` — 153/153 casos correctos: los
 76 casos de P0.1-P0.3 (ver desglose en la versión anterior de esta
 sección, en el historial de git) más 25 casos de la primera pasada de
 P0.4 — 13 que NO deben bloquearse (`git show/diff/rev-parse/log` con
@@ -332,3 +332,27 @@ bloquearse (`sudo`/`env`/`timeout`/`nohup`/`watch`/`xargs`/`find -exec`
 envolviendo un verbo real, con cero, una, dos o tres flags/argumentos
 propios del wrapper de por medio) y 2 que NO (`watch`/`env` envolviendo
 un comando sin ningún verbo de lectura).
+
+Más 35 casos añadidos en 2026-07-12 (118 → 153): 21 del endurecimiento (ver
+sección "Endurecimiento 2026-07-12" — exclusión `.env*example` por token,
+verbos `strings`/`xxd`/`base64`, claves `id_ecdsa`/`id_dsa`/`.p12`/`.pfx`/`.key`,
+opciones globales de git, acotado a la cláusula, `docker compose -f x down`);
+**4 de regresión ReDoS**: el patrón `P0-COMPOSE-DOWN` con cuantificador anidado
+`(\s+-{1,2}\S+(\s+\S+)?)*` sufría backtracking catastrófico ante muchos flags sin
+`down`; se reemplazó por un patrón lineal. Los 4 casos usan un input largo
+(`docker compose` + 80 flags) con un **timeout de spawn de 5 s** (tope explícito de
+tiempo): verifican que el hook no se cuelga, que sigue bloqueando `… down` (sin
+bypass por longitud, bash y PowerShell) y que un `docker compose …; drop table foo`
+largo ya no tapa el `P0-DROP` posterior; y **10 de regresión del bypass del
+terminador de `down`**: dos revisiones adversariales sucesivas mostraron que
+acotar el fin de `down` con una lista blanca de terminadores dejaba huecos —
+primero `(?=\s|$)` dejaba pasar `down;`/`down&&`/`(…down)`/`down>out`, y luego
+`(?=[\s;&|)<>]|$)` seguía dejando pasar `down` pegado a **comilla**
+(`ssh <prod> "docker compose down"`, `bash -c "… down"`, `sh -c '… down'`,
+`alias r="… down"`). El patrón final usa el **negative-lookahead**
+`\bdocker[-\s]compose\b[^;&|]*\sdown(?![\w-])` (semántica de "palabra completa":
+bloquea `down` seguido de cualquier no-palabra/no-guion — separador, paréntesis,
+redirección, comilla, fin de cadena — SIN matchear `down-service`/`downstream`).
+Los 10 casos fijan `down;`, `down&&`, `(…down)`, `down>out`, `docker-compose down;`
+(PowerShell), `bash -c "… down"`, `sh -c '… down'`, `ssh <prod> "… down"` (bash y
+PowerShell) como bloqueados, y `up down-service` como permitido.

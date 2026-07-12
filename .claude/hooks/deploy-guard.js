@@ -380,7 +380,17 @@ function evaluate(cmd, cwd) {
     ["P0-PUSH-FORCE", /\bgit\s+push\b[^;&|]*(--force(-with-lease)?\b|\s-f\b)/i, "git push --force bloqueado"],
     ["P0-RESET-HARD", /\bgit\s+reset\b[^;&|]*--hard\b/i, "git reset --hard bloqueado"],
     ["P0-CLEAN-F", /\bgit\s+clean\b[^;&|]*-[a-z]*f/i, "git clean -f bloqueado"],
-    ["P0-COMPOSE-DOWN", /\bdocker[-\s]compose\b(\s+-{1,2}\S+(\s+\S+)?)*\s+down\b/i, "docker compose down bloqueado"],
+    // P0-COMPOSE-DOWN: `down` en la MISMA clausula que `docker compose`/`docker-compose`,
+    // tolerando flags intermedias (`-f x`, `--profile x`). Patron LINEAL (un solo
+    // `[^;&|]*`, SIN cuantificador anidado): la version previa `(\s+-{1,2}\S+(\s+\S+)?)*`
+    // sufria backtracking catastrofico (ReDoS) ante muchos flags sin `down` y podia colgar
+    // el hook antes de evaluar los patrones destructivos siguientes. El NEGATIVE-lookahead
+    // `(?![\w-])` exige que `down` NO continue en palabra ni guion: bloquea `down` seguido de
+    // fin de cadena, espacio, separador (`;&|`), parentesis/redireccion (`)<>`) y COMILLA
+    // (`ssh host "docker compose down"`, `bash -c "... down"`) — todos vectores reales —
+    // SIN matchear `down-service`/`downstream`/`down_svc`. Es la semantica correcta de
+    // "palabra completa" sin la lista-blanca incompleta de terminadores.
+    ["P0-COMPOSE-DOWN", /\bdocker[-\s]compose\b[^;&|]*\sdown(?![\w-])/i, "docker compose down bloqueado"],
     ["P0-MIGRATE-RESET", /\bprisma\s+migrate\s+reset\b/i, "prisma migrate reset bloqueado"],
     ["P0-DB-PUSH", /\bprisma\s+db\s+push\b/i, "prisma db push bloqueado"],
     ["P0-DB-SEED", /\bprisma\s+db\s+seed\b/i, "prisma db seed bloqueado"],

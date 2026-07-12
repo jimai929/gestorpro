@@ -186,6 +186,18 @@ const CASES = [
   ["Bash", "git -C repo clean -fd", true, "git -C repo clean -fd (opcion global -C antepuesta)"],
   ["Bash", "git reset -q --hard HEAD", true, "git reset -q --hard (flag intermedia entre reset y --hard)"],
   ["Bash", "docker compose -f deploy/compose.yml down", true, "docker compose -f x down (-f intermedio, uso real de despliegue)"],
+  // --- compose down pegado a terminador de clausula/redireccion (no debe evadirse) ---
+  ["Bash", "docker compose down; docker compose up -d", true, "compose down; ... (encadenado con ; sin espacio, forma comun de reinicio): sigue bloqueado"],
+  ["Bash", "docker compose down&&echo listo", true, "compose down&&... (&& sin espacio): bloqueado"],
+  ["Bash", "(docker compose down)", true, "(docker compose down) en subshell: down pegado a ) bloqueado"],
+  ["Bash", "docker compose down>salida.txt", true, "compose down>archivo (redireccion sin espacio): bloqueado"],
+  ["PowerShell", "docker-compose down; docker-compose up -d", true, "docker-compose down; ... (PowerShell): bloqueado"],
+  ["Bash", "docker compose up down-service", false, "servicio llamado 'down-service' (down- no es el subcomando): permitido, sin falso bloqueo"],
+  // --- compose down pegado a COMILLA / dentro de wrapper (vectores reales, deben bloquear) ---
+  ["Bash", 'bash -c "docker compose down"', true, "bash -c con compose down entre comillas (down pegado a comilla): bloqueado"],
+  ["Bash", "sh -c 'docker compose down'", true, "sh -c con compose down entre comillas simples: bloqueado"],
+  ["Bash", 'ssh 45.77.198.133 "docker compose down"', true, "ssh a produccion con compose down entre comillas: bloqueado (vector de destruccion de produccion)"],
+  ["PowerShell", 'ssh root@45.77.198.133 "docker-compose down"', true, "ssh a produccion con docker-compose down (PowerShell): bloqueado"],
 
   // --- Endurecimiento 2026-07-12: [^;&|]* NO cruza clausulas (menos falsos positivos) ---
   ["Bash", "git clean -n; git log --format=%H", false, "git clean -n (dry-run) seguido de git log: la 'f' de --format no debe disparar P0-CLEAN-F"],
@@ -221,6 +233,20 @@ const CWD_CASES = [
   ["PowerShell", "Remove-Item -Recurse ..", "C:\\gestorpro\\prisma\\migrations\\20260101_x", true, "Remove-Item -Recurse .. parado dentro de una migracion (resuelve a prisma/migrations)"],
   ["Bash", "rm -r deploy", "/c/gestorpro", true, "rm -r deploy con cwd en la raiz del repo"],
   ["Bash", "Get-ChildItem ..", "/c/gestorpro/deploy/backups", false, "listado de .. (no es borrado)"],
+];
+
+// Casos ReDoS: input malicioso LARGO debe resolverse en TIEMPO ACOTADO (lo impone
+// el timeout del spawn) y sin bypass. El patron P0-COMPOSE-DOWN previo
+// `(\s+-{1,2}\S+(\s+\S+)?)*` sufria backtracking catastrofico y colgaba el hook
+// (fail-closed) ante muchos flags sin `down`, impidiendo evaluar patrones
+// destructivos posteriores. Si se reintroduce, estos casos FALLAN por timeout, no
+// por resultado. [tool_name, command, shouldBlock, label]
+const REDOS_TIMEOUT_MS = 5000;
+const REDOS_CASES = [
+  ["Bash", "docker compose" + " -a".repeat(80), false, "ReDoS: compose + 80 flags SIN down -> permitido y en tiempo acotado (ni cuelga ni falso bloqueo)"],
+  ["Bash", "docker compose" + " -a".repeat(80) + " down", true, "ReDoS: compose + 80 flags + down -> BLOQUEADO en tiempo acotado (sin bypass por longitud)"],
+  ["PowerShell", "docker-compose" + " -a".repeat(80) + " down", true, "ReDoS: docker-compose (PS) + 80 flags + down -> bloqueado en tiempo acotado"],
+  ["Bash", "docker compose" + " -a".repeat(80) + " ; drop table foo", true, "ReDoS: compose largo NO tapa el patron posterior (drop table sigue bloqueado por P0-DROP)"],
 ];
 
 let failures = 0;
@@ -259,6 +285,20 @@ for (const [toolName, command, cwd, shouldBlock, label] of CWD_CASES) {
   report(label, toolName, result, shouldBlock);
 }
 
-const total = CASES.length + RAW_CASES.length + CWD_CASES.length;
+for (const [toolName, command, shouldBlock, label] of REDOS_CASES) {
+  const input = JSON.stringify({ tool_name: toolName, tool_input: { command } });
+  const result = spawnSync(process.execPath, [HOOK_PATH], { input, encoding: "utf8", timeout: REDOS_TIMEOUT_MS });
+  // spawnSync mata el proceso al vencer el timeout -> status === null: eso ES el fallo
+  // que queremos detectar (el hook nunca debe colgarse), sin dejar que el runner de CI
+  // se quede colgado indefinidamente.
+  if (result.status === null) {
+    failures++;
+    console.log(`FAIL [${toolName}] ${label} -> TIMEOUT (>${REDOS_TIMEOUT_MS}ms, posible ReDoS: ${result.error?.code ?? "kill"})`);
+  } else {
+    report(label, toolName, result, shouldBlock);
+  }
+}
+
+const total = CASES.length + RAW_CASES.length + CWD_CASES.length + REDOS_CASES.length;
 console.log(`\n${total - failures}/${total} casos correctos.`);
 process.exit(failures > 0 ? 1 : 0);
