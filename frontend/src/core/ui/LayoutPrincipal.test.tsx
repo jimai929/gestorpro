@@ -180,6 +180,44 @@ describe('LayoutPrincipal — enlaces de GESTIÓN gateados por rol (Empleados / 
   });
 });
 
+describe('LayoutPrincipal — el enlace del kiosco navega en la MISMA pestaña (no new tab)', () => {
+  function renderApp() {
+    vi.mocked(auth.useAuth).mockReturnValue({
+      usuario: {
+        id: 'u1',
+        nombre: 'Ana',
+        email: 'a@x.local',
+        rol: 'administrador',
+        esSuperAdmin: false,
+        empresaId: 'e1',
+        empresaNombre: 'Acme Panamá',
+        debeCambiarContrasena: false,
+        membresias: [],
+      },
+      estaAutenticado: true,
+      cargando: false,
+      iniciarSesion: vi.fn(),
+      cerrarSesion: vi.fn().mockResolvedValue(undefined),
+      cambiarEmpresa: vi.fn(),
+    });
+    render(
+      <MemoryRouter>
+        <LayoutPrincipal>contenido</LayoutPrincipal>
+      </MemoryRouter>,
+    );
+  }
+
+  it('el enlace "Kiosco" va a /kiosco en la misma pestaña (sin target=_blank) y ya no dice "nuevo tab"', () => {
+    renderApp();
+    const enlace = screen.getByRole('link', { name: 'Kiosco' });
+    // NavLink client-side → <a href="/kiosco"> sin target: no abre nueva pestaña.
+    expect(enlace.getAttribute('href')).toBe('/kiosco');
+    expect(enlace.getAttribute('target')).toBeNull();
+    // El rail ya no muestra el texto de "nueva pestaña" en ningún idioma.
+    expect(screen.queryByText(/nuevo tab|new tab|新标签页/i)).toBeNull();
+  });
+});
+
 describe('LayoutPrincipal — selector de empresa (multi-membresía)', () => {
   const MEMBRESIAS = [
     { empresaId: 'e1', empresaNombre: 'Acme Panamá', rol: 'administrador' as const },

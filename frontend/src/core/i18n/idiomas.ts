@@ -104,7 +104,7 @@ const es: Diccionario = {
   'nav.colaRevision': 'Cola de revisión',
   'nav.jornadas': 'Jornadas',
   'nav.cobros': 'Cobros',
-  'nav.kioscoNuevoTab': 'Kiosco (nuevo tab)',
+  'nav.kiosco': 'Kiosco',
 };
 
 const en: Diccionario = {
@@ -179,7 +179,7 @@ const en: Diccionario = {
   'nav.colaRevision': 'Review queue',
   'nav.jornadas': 'Work shifts',
   'nav.cobros': 'Advances',
-  'nav.kioscoNuevoTab': 'Kiosk (new tab)',
+  'nav.kiosco': 'Kiosk',
 };
 
 const zh: Diccionario = {
@@ -253,7 +253,7 @@ const zh: Diccionario = {
   'nav.colaRevision': '审核队列',
   'nav.jornadas': '工时',
   'nav.cobros': '预支',
-  'nav.kioscoNuevoTab': '打卡机（新标签页）',
+  'nav.kiosco': '打卡机',
 };
 
 // Diccionario final: base (común/login/inicio/nav) + diccionarios por módulo.

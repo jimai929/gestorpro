@@ -22,7 +22,7 @@ import {
   Wallet, Building2, Clock, ShieldCheck,
   Receipt, Truck, CreditCard, Tags, BarChart3,
   MapPin, Users, Monitor, UserCog,
-  ClipboardCheck, CalendarDays, Banknote, ExternalLink,
+  ClipboardCheck, CalendarDays, Banknote,
   KeyRound, LogOut,
 } from 'lucide-react';
 import { useAuth } from '../auth/ContextoAuth';
@@ -110,7 +110,7 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
           { to: '/asistencia/revision', clave: 'nav.colaRevision', icono: ClipboardCheck },
           { to: '/asistencia/jornadas', clave: 'nav.jornadas', icono: CalendarDays },
           { to: '/asistencia/cobros', clave: 'nav.cobros', icono: Banknote },
-          { to: '/kiosco', clave: 'nav.kioscoNuevoTab', icono: ExternalLink, nuevaPestana: true },
+          { to: '/kiosco', clave: 'nav.kiosco', icono: Monitor },
         ],
       },
     );
@@ -176,19 +176,10 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
                       <span className={styles.itemLabel}>{etiqueta}</span>
                     </>
                   );
-                  return item.nuevaPestana ? (
-                    <a
-                      key={item.to}
-                      href={item.to}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.item}
-                      title={etiqueta}
-                      aria-label={etiqueta}
-                    >
-                      {contenido}
-                    </a>
-                  ) : (
+                  // Todos los enlaces del rail navegan EN LA MISMA pestaña (client-side).
+                  // El kiosco (/kiosco) es una ruta pública a pantalla completa: entrar
+                  // en la misma pestaña permite volver con el botón atrás del navegador.
+                  return (
                     <NavLink
                       key={item.to}
                       to={item.to}

@@ -109,13 +109,8 @@ export function PantallaInicio() {
               <Link to="/asistencia/cobros" className={styles.enlaceModulo}>
                 {t('nav.cobros')} →
               </Link>
-              <Link
-                to="/kiosco"
-                className={styles.enlaceModulo}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {t('nav.kioscoNuevoTab')} →
+              <Link to="/kiosco" className={styles.enlaceModulo}>
+                {t('nav.kiosco')} →
               </Link>
             </div>
           </div>
