@@ -162,6 +162,35 @@ const CASES = [
   ["PowerShell", "Rem`ove-Item deploy/backups/x.dump", true, "backtick partiendo la palabra clave"],
   ["PowerShell", `powershell -EncodedCommand ${encodedCommand("git reset --hard HEAD")}`, true, "-EncodedCommand base64/UTF-16LE"],
   ["PowerShell", `powershell -enc ${encodedCommand("Remove-Item deploy/backups/x.dump")}`, true, "-enc (forma corta) base64/UTF-16LE"],
+
+  // --- Endurecimiento 2026-07-12: exclusion .env por TOKEN (no por comando) ---
+  ["Bash", "cat .env.example .env", true, "cat .env.example .env (el .example no debe excluir el .env real)"],
+  ["Bash", "cat .env.example", false, "cat .env.example (plantilla: se permite)"],
+  ["Bash", "cat docs/claude-code/SECURITY.md", false, "cat de un doc que MENCIONA 'apikey' (el comando no lee ningun secreto real)"],
+  ["Bash", "grep -n api-key docs/claude-code/SECURITY.md", false, "grep de 'api-key' en un doc (mencion textual, grep no es verbo de volcado)"],
+
+  // --- Endurecimiento 2026-07-12: mas verbos de volcado y mas claves privadas ---
+  ["Bash", "strings .env", true, "strings .env (volcado de contenido, verbo nuevo)"],
+  ["Bash", "xxd .env", true, "xxd .env (volcado hex, verbo nuevo)"],
+  ["Bash", "base64 .env", true, "base64 .env (volcado codificado, verbo nuevo)"],
+  ["Bash", "strings README.md", false, "strings de un archivo no sensible (el verbo nuevo no sobre-bloquea)"],
+  ["Bash", "cat ~/.ssh/id_ecdsa", true, "cat id_ecdsa (clave privada)"],
+  ["Bash", "cat ~/.ssh/id_dsa", true, "cat id_dsa (clave privada)"],
+  ["Bash", "cat server.key", true, "cat server.key (.key: clave privada)"],
+  ["Bash", "cat cert.p12", true, "cat cert.p12 (almacen de claves)"],
+  ["Bash", "cat store.pfx", true, "cat store.pfx (almacen de claves)"],
+
+  // --- Endurecimiento 2026-07-12: opciones globales de git no evaden el bloqueo ---
+  ["Bash", "git -c advice.setupRename=false reset --hard", true, "git -c ... reset --hard (opcion global antepuesta)"],
+  ["Bash", "git -c http.version=2 push --force origin main", true, "git -c ... push --force (opcion global antepuesta)"],
+  ["Bash", "git -C repo clean -fd", true, "git -C repo clean -fd (opcion global -C antepuesta)"],
+  ["Bash", "git reset -q --hard HEAD", true, "git reset -q --hard (flag intermedia entre reset y --hard)"],
+  ["Bash", "docker compose -f deploy/compose.yml down", true, "docker compose -f x down (-f intermedio, uso real de despliegue)"],
+
+  // --- Endurecimiento 2026-07-12: [^;&|]* NO cruza clausulas (menos falsos positivos) ---
+  ["Bash", "git clean -n; git log --format=%H", false, "git clean -n (dry-run) seguido de git log: la 'f' de --format no debe disparar P0-CLEAN-F"],
+  ["Bash", "git push origin main && grep -f patrones.txt f.txt", false, "el -f de grep en la 2a clausula no debe disparar P0-PUSH-FORCE"],
+  ["PowerShell", 'git commit -F "C:/ruta con espacios/mensaje.txt"', false, "git commit -F con ruta que contiene espacios (PowerShell): no debe bloquearse"],
 ];
 
 // Casos adversariales de input malformado: [rawStdin, shouldBlock, label]

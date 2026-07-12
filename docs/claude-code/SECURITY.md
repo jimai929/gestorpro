@@ -21,9 +21,14 @@ inventó ninguna clave de configuración a partir de memoria.
 **deny** (rechazado directamente por `permissions`):
 `git push --force/-f`, `git reset --hard`, `git clean -f*`,
 `docker compose down`, `prisma migrate reset`, `prisma db push`,
-`prisma db seed`, `npm run db:reset`, lectura de `.env*` (excepto
-`*.env.*example`), lectura de claves privadas (`id_rsa`, `id_ed25519`,
-`*.pem`, `*.ppk`, `*credentials*.json`).
+`prisma db seed`, `npm run db:reset`, lectura de `.env*` con el tool Read
+(sin excepción: el glob `Read(**/.env*)` bloquea también `.env.example`),
+lectura de claves privadas (`id_rsa`, `id_ed25519`, `*.pem`, `*.ppk`,
+`*credentials*.json`).
+
+> La excepción para plantillas `*.env.*example` **no** aplica al tool Read
+> (que bloquea todo `.env*` por diseño fail-closed); solo existe en el hook
+> `deploy-guard.js` para la lectura vía shell (`cat`/`type`/`Get-Content`…).
 
 **No bloqueado por diseño**: `git commit` local. Sigue rigiéndose por
 `CLAUDE.md` (autónomo tras verificación) y por el hook global
@@ -56,6 +61,42 @@ separada — más simple y con la misma cobertura).
 Todas las reglas de bloqueo llevan un código (`P0-XXX`) que aparece en
 `permissionDecisionReason`; el hook nunca imprime el comando completo
 (evita filtrar contenido sensible en logs).
+
+## Endurecimiento 2026-07-12 (cierre de falsos negativos + falsos positivos)
+
+Auditoría adversarial del hook. Todos los cambios **fortalecen** la detección
+o corrigen falsos positivos claros; ninguno debilita el bloqueo de secretos
+reales ni de git destructivo. Cada uno con test de regresión en
+`scripts/claude/test-deploy-guard.js`:
+
+- **Exclusión `.env*example` por token** (`readsRealEnv`): antes se evaluaba
+  sobre TODO el comando, así que `cat .env.example .env` se colaba (el
+  `.example` desactivaba el bloqueo del `.env` real). Ahora se evalúa token a
+  token: solo se excluye el token plantilla, el `.env` real se bloquea.
+- **Opciones globales de git** (`stripGitGlobalOptions`): `git -c k=v reset
+  --hard`, `git -C repo clean -fd`, `git --git-dir=x push --force` evadían los
+  patrones anclados a `git <subcomando>`. Se colapsan las opciones globales
+  conocidas a `git` antes de matchear (lista cerrada; no toca flags de
+  subcomando como `git commit -p`).
+- **Acotado a la cláusula** (`[\s\S]*` → `[^;&|]*`): a la vez (a) permite flags
+  intermedias (`git reset -q --hard`) y (b) evita falsos positivos que cruzaban
+  `;`/`&&`/`|` (p. ej. `git clean -n; git log --format=%H`, cuya `f` de
+  `--format` disparaba P0-CLEAN-F).
+- **`docker compose down` con flags**: `docker compose -f deploy/compose.yml
+  down` (uso real de despliegue) ahora se detecta.
+- **Más verbos de volcado**: `strings`/`xxd`/`base64` (argumento siempre un
+  archivo, sin falsos positivos de patrón de búsqueda como grep/sed/awk).
+- **Más claves privadas en P0-SECRET**: `id_ecdsa`, `id_dsa`, `*.p12`, `*.pfx`,
+  `*.key`.
+
+**Gaps conocidos, deferidos a decisión de Jim** (no aplicados por riesgo de
+falso positivo o por ser self-protection que requiere su confirmación): backtick
+de sustitución de comando (`` echo `cat .env` ``) — el fix arriesga falsos
+positivos en mensajes de commit; verbos `grep`/`sed`/`awk` (su primer argumento
+puede ser el texto a buscar); cobertura SQL adicional (`DELETE`/`UPDATE` sin
+`WHERE`, `DROP SCHEMA/INDEX/COLUMN`, `curl | bash`) y los falsos positivos SQL
+de lenguaje natural (`git commit -m "drop table redesign"`, `vitest run
+truncate.test.ts`); ampliaciones de `settings.json`. Ver reporte de la sesión.
 
 ## Política de fallo: FAIL-CLOSED (corregido en P0.1)
 
