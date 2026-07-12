@@ -13,8 +13,10 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { SelectorIdioma } from '../../core/i18n/SelectorIdioma';
+import { useAuth } from '../../core/auth/ContextoAuth';
 import { obtenerKioscos, registrarFichaje, obtenerTokenKiosco, fijarTokenKiosco } from './servicioKiosco';
 import type {
   Kiosco,
@@ -26,7 +28,7 @@ import type {
   ModoExcepcion,
 } from './tipos';
 import styles from './PantallaKiosco.module.css';
-import { LogIn, Utensils, RotateCcw, LogOut, CheckCircle2, XCircle } from 'lucide-react';
+import { LogIn, Utensils, RotateCcw, LogOut, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // ── Constantes de presentación ─────────────────────────────────────────────
@@ -62,6 +64,12 @@ const SEGUNDOS_REINICIO = 5;
 
 export function PantallaKiosco() {
   const { t } = useTraduccion();
+  const navigate = useNavigate();
+  // Sesión de negocio: `/kiosco` es una ruta PÚBLICA (un dispositivo dedicado NO tiene
+  // sesión JWT, solo su token de kiosco). Si hay `usuario`, quien mira entró desde el
+  // sistema de gestión con sesión iniciada → se le ofrece volver. En el dispositivo real
+  // `usuario` es null (sin sesión), así que el botón no aparece.
+  const { usuario } = useAuth();
   // ── Estado global del flujo ──
   const [paso, setPaso] = useState<PasoKiosco>('seleccion');
 
@@ -293,7 +301,18 @@ export function PantallaKiosco() {
       <div className={styles.encabezado}>
         <span className={styles.logotipoKiosco}>GP</span>
         <h1 className={styles.tituloKiosco}>{t('asi.kiosco.tituloKiosco')}</h1>
-        <div style={{ marginLeft: 'auto' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {/* Solo para quien entró desde la gestión con sesión (no aparece en el dispositivo). */}
+          {usuario && (
+            <button
+              type="button"
+              className={styles.botonVolverGestor}
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
+              {t('asi.kiosco.volverGestorPro')}
+            </button>
+          )}
           <SelectorIdioma />
         </div>
       </div>
