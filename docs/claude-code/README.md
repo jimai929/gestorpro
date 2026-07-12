@@ -31,10 +31,38 @@ global **y** al hook de proyecto **y** a las reglas de `permissions`.
   `CLAUDE.md` (sección "Producción y despliegue"); esta configuración es
   una red de seguridad técnica adicional, no el mecanismo principal de
   autorización (eso sigue siendo pedir confirmación a Jim).
-- Skills y agents específicos de GestorPro: no forman parte de este P0,
-  quedan para una fase posterior (ver plan de auditoría en el historial de
-  la tarea).
 - MCP / plugins: sin cambios en esta fase; ver `MCP_POLICY.md` /
   `PLUGIN_PLAN.md` para el estado y los planes.
 
 Detalle de reglas y matrices de prueba: `SECURITY.md`.
+
+## Skills, agents y task docs (P1)
+
+Sobre la capa de hooks/permisos (P0) se añadió tooling específico de
+GestorPro para estructurar el trabajo del día a día:
+
+- **`.claude/skills/gestorpro-*`** — ocho skills de un solo propósito
+  (investigar, implementar, revisar, e2e, release, incidente, ui-audit,
+  task-close). Frontmatter mínimo confirmado contra el binario instalado
+  (`name` + `description`; ver `SECURITY.md` de esta misma carpeta para el
+  método de verificación). Cada una documenta cuándo usarse, qué necesita
+  de entrada, sus pasos, lo que tiene prohibido, su salida estándar y su
+  punto de parada — ninguna copia el `CLAUDE.md` completo.
+- **`.claude/agents/`** — `revisor.md` (genérico, preexistente) más ocho
+  reviewers especializados: `tenant-security-reviewer`, `finance-reviewer`,
+  `e2e-gap-reviewer`, `ux-accessibility-reviewer`, `api-contract-reviewer`,
+  `migration-reviewer`, `release-reviewer`, `product-workflow-reviewer`.
+  Todos son de solo lectura: `tools: Read, Grep, Glob, Bash` (sin
+  `Edit`/`Write`) más `permissionMode: plan` — campo de frontmatter de
+  agente confirmado real en el binario instalado (`Agent file ... has
+  invalid permissionMode`, enum `acceptEdits|auto|bypassPermissions|
+  default|dontAsk|plan`), no documentado por memoria. Ninguno commitea,
+  pushea, despliega ni afirma una vulnerabilidad sin evidencia citada
+  (archivo:línea).
+- **`docs/tasks/`** — plantilla y ciclo de vida (`DRAFT → ... → CLOSED`)
+  para hechos temporales de una tarea concreta; lo permanente sigue yendo a
+  `CLAUDE.md`, no a un task doc. Ver `docs/tasks/README.md`.
+- **`docs/claude-code/WORKFLOW.md`** — el orden fijo en que se usan estas
+  piezas (investigar → aprobar → implementar → revisar → tests → aprobar
+  commit → commit → aprobar push → push → aprobar deploy → backup/deploy/
+  post-check) y dónde está cada punto de parada.
