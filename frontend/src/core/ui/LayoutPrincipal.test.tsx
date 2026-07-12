@@ -218,6 +218,70 @@ describe('LayoutPrincipal — el enlace del kiosco navega en la MISMA pestaña (
   });
 });
 
+describe('LayoutPrincipal — jerarquía de navegación (Principal / Gestión)', () => {
+  function renderConRol(rol: Usuario['rol']) {
+    vi.mocked(auth.useAuth).mockReturnValue({
+      usuario: {
+        id: 'u1',
+        nombre: 'Ana',
+        email: 'a@x.local',
+        rol,
+        esSuperAdmin: false,
+        empresaId: 'e1',
+        empresaNombre: 'Acme Panamá',
+        debeCambiarContrasena: false,
+        membresias: [],
+      },
+      estaAutenticado: true,
+      cargando: false,
+      iniciarSesion: vi.fn(),
+      cerrarSesion: vi.fn().mockResolvedValue(undefined),
+      cambiarEmpresa: vi.fn(),
+    });
+    return render(
+      <MemoryRouter>
+        <LayoutPrincipal>contenido</LayoutPrincipal>
+      </MemoryRouter>,
+    );
+  }
+
+  it('renderiza DOS grupos con data-grupo distinto (principal y gestion) y sus etiquetas', () => {
+    const { container } = renderConRol('administrador');
+    const variantes = Array.from(container.querySelectorAll('[data-grupo]')).map((g) =>
+      g.getAttribute('data-grupo'),
+    );
+    expect(variantes).toContain('principal');
+    expect(variantes).toContain('gestion');
+    expect(screen.getByText('Principal')).toBeTruthy();
+    expect(screen.getByText('Gestión')).toBeTruthy();
+  });
+
+  it('Proveedores y Categorías de gasto viven en GESTIÓN (auxiliar), no en Principal', () => {
+    const { container } = renderConRol('administrador');
+    const gestion = container.querySelector('[data-grupo="gestion"]') as HTMLElement;
+    const principal = container.querySelector('[data-grupo="principal"]') as HTMLElement;
+    expect(within(gestion).getByRole('link', { name: /proveedores/i })).toBeTruthy();
+    expect(within(gestion).getByRole('link', { name: /categorías de gasto/i })).toBeTruthy();
+    expect(within(principal).queryByRole('link', { name: /proveedores/i })).toBeNull();
+    expect(within(principal).queryByRole('link', { name: /categorías de gasto/i })).toBeNull();
+  });
+
+  it('la operación diaria (Dashboard, Gastos, Kiosco) vive en Principal', () => {
+    const { container } = renderConRol('administrador');
+    const principal = container.querySelector('[data-grupo="principal"]') as HTMLElement;
+    expect(within(principal).getByRole('link', { name: /dashboard/i })).toBeTruthy();
+    expect(within(principal).getByRole('link', { name: /gastos/i })).toBeTruthy();
+    expect(within(principal).getByRole('link', { name: 'Kiosco' })).toBeTruthy();
+  });
+
+  it('empleado: Proveedores sigue visible en Gestión; Categorías (soloGestion) NO', () => {
+    const { container } = renderConRol('empleado');
+    const gestion = container.querySelector('[data-grupo="gestion"]') as HTMLElement;
+    expect(within(gestion).getByRole('link', { name: /proveedores/i })).toBeTruthy();
+    expect(within(gestion).queryByRole('link', { name: /categorías de gasto/i })).toBeNull();
+  });
+});
+
 describe('LayoutPrincipal — selector de empresa (multi-membresía)', () => {
   const MEMBRESIAS = [
     { empresaId: 'e1', empresaNombre: 'Acme Panamá', rol: 'administrador' as const },

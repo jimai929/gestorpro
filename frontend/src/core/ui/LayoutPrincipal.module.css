@@ -118,6 +118,33 @@
   flex-shrink: 0;
 }
 
+/* ── Jerarquía de navegación: PRINCIPAL (acento de marca) vs GESTIÓN (neutro) ──
+   La distinción NO es solo por color: también hay etiqueta de grupo, un separador
+   y espaciado extra antes de Gestión — así se percibe la jerarquía también en el
+   rail colapsado (≤768px), donde el texto se oculta pero el icono y el borde quedan. */
+.grupo[data-grupo='principal'] .grupoTitulo,
+.grupo[data-grupo='principal'] .itemIcono {
+  color: var(--color-sidebar-text-active); /* acento de marca */
+}
+
+.grupo[data-grupo='gestion'] .grupoTitulo,
+.grupo[data-grupo='gestion'] .itemIcono {
+  color: var(--color-sidebar-text); /* neutro/secundario, aún legible */
+}
+
+/* El ítem ACTIVO conserva el icono en acento en AMBOS grupos (estado activo claro). */
+.grupo[data-grupo='principal'] .itemActivo .itemIcono,
+.grupo[data-grupo='gestion'] .itemActivo .itemIcono {
+  color: var(--color-sidebar-text-active);
+}
+
+/* Separador estructural entre Principal y Gestión (no solo color). */
+.grupo[data-grupo='gestion'] {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-sidebar-item-active);
+}
+
 /* Empuja el área de cuenta al fondo del rail. */
 .espaciador {
   flex: 1;

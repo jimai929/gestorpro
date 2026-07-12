@@ -105,6 +105,8 @@ const es: Diccionario = {
   'nav.jornadas': 'Jornadas',
   'nav.cobros': 'Cobros',
   'nav.kiosco': 'Kiosco',
+  'nav.grupoPrincipal': 'Principal',
+  'nav.grupoGestion': 'Gestión',
 };
 
 const en: Diccionario = {
@@ -180,6 +182,8 @@ const en: Diccionario = {
   'nav.jornadas': 'Work shifts',
   'nav.cobros': 'Advances',
   'nav.kiosco': 'Kiosk',
+  'nav.grupoPrincipal': 'Main',
+  'nav.grupoGestion': 'Management',
 };
 
 const zh: Diccionario = {
@@ -254,6 +258,8 @@ const zh: Diccionario = {
   'nav.jornadas': '工时',
   'nav.cobros': '预支',
   'nav.kiosco': '打卡机',
+  'nav.grupoPrincipal': '主要功能',
+  'nav.grupoGestion': '管理',
 };
 
 // Diccionario final: base (común/login/inicio/nav) + diccionarios por módulo.

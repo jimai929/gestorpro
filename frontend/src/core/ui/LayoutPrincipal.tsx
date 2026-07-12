@@ -19,7 +19,7 @@
 import { ReactNode, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import {
-  Wallet, Building2, Clock, ShieldCheck,
+  ShieldCheck, LayoutDashboard, SlidersHorizontal,
   Receipt, Truck, CreditCard, Tags, BarChart3,
   MapPin, Users, Monitor, UserCog,
   ClipboardCheck, CalendarDays, Banknote,
@@ -72,51 +72,51 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
     usuario?.empresaId != null &&
     (usuario?.rol === 'administrador' || usuario?.rol === 'supervisor');
 
+  // Dos grupos por USO (no por módulo): PRINCIPAL = operación diaria; GESTIÓN =
+  // catálogos y configuración. El gating por rol NO cambia: cada ítem conserva su
+  // condición (categorías/empleados = puedeGestionar; usuarios = puedeVerUsuarios).
   const grupos = [];
   if (!esSuperAdmin) {
     grupos.push(
       {
-        clave: 'inicio.finanzas',
-        icono: Wallet,
+        clave: 'nav.grupoPrincipal',
+        variante: 'principal' as const,
+        icono: LayoutDashboard,
         items: [
-          { to: '/cuentas-por-pagar', clave: 'nav.cuentasPorPagar', icono: Receipt },
-          { to: '/proveedores', clave: 'fin.navProveedores', icono: Truck },
-          { to: '/gastos', clave: 'nav.gastos', icono: CreditCard },
-          ...(puedeGestionar
-            ? [{ to: '/categorias-gasto', clave: 'fin.navCategorias', icono: Tags }]
-            : []),
           { to: '/dashboard', clave: 'nav.dashboard', icono: BarChart3 },
-        ],
-      },
-      {
-        clave: 'inicio.administracion',
-        icono: Building2,
-        items: [
-          { to: '/sedes', clave: 'nav.sedes', icono: MapPin },
+          { to: '/cuentas-por-pagar', clave: 'nav.cuentasPorPagar', icono: Receipt },
+          { to: '/gastos', clave: 'nav.gastos', icono: CreditCard },
           // Empleados es página de GESTIÓN (backend `soloGestion`): el empleado no la ve.
           ...(puedeGestionar
             ? [{ to: '/empleados', clave: 'nav.empleados', icono: Users }]
             : []),
-          { to: '/kioscos', clave: 'nav.kioscos', icono: Monitor },
-          ...(puedeVerUsuarios
-            ? [{ to: '/usuarios', clave: 'nav.usuarios', icono: UserCog }]
-            : []),
-        ],
-      },
-      {
-        clave: 'inicio.asistencia',
-        icono: Clock,
-        items: [
           { to: '/asistencia/revision', clave: 'nav.colaRevision', icono: ClipboardCheck },
           { to: '/asistencia/jornadas', clave: 'nav.jornadas', icono: CalendarDays },
           { to: '/asistencia/cobros', clave: 'nav.cobros', icono: Banknote },
           { to: '/kiosco', clave: 'nav.kiosco', icono: Monitor },
         ],
       },
+      {
+        clave: 'nav.grupoGestion',
+        variante: 'gestion' as const,
+        icono: SlidersHorizontal,
+        items: [
+          { to: '/proveedores', clave: 'fin.navProveedores', icono: Truck },
+          ...(puedeGestionar
+            ? [{ to: '/categorias-gasto', clave: 'fin.navCategorias', icono: Tags }]
+            : []),
+          { to: '/sedes', clave: 'nav.sedes', icono: MapPin },
+          { to: '/kioscos', clave: 'nav.kioscos', icono: Monitor },
+          ...(puedeVerUsuarios
+            ? [{ to: '/usuarios', clave: 'nav.usuarios', icono: UserCog }]
+            : []),
+        ],
+      },
     );
   } else {
     grupos.push({
       clave: 'inicio.plataforma',
+      variante: 'principal' as const,
       icono: ShieldCheck,
       items: [{ to: '/plataforma', clave: 'nav.plataforma', icono: ShieldCheck }],
     });
@@ -162,7 +162,7 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
           {grupos.map((grupo) => {
             const IconoGrupo = grupo.icono;
             return (
-              <div key={grupo.clave} className={styles.grupo}>
+              <div key={grupo.clave} className={styles.grupo} data-grupo={grupo.variante}>
                 <p className={styles.grupoTitulo}>
                   <IconoGrupo size={15} strokeWidth={1.75} aria-hidden className={styles.grupoIcono} />
                   <span className={styles.itemLabel}>{t(grupo.clave)}</span>

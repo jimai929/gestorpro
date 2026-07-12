@@ -57,3 +57,15 @@ describe('PantallaInicio — tarjeta de Plataforma (solo super-admin)', () => {
     expect(screen.getByRole('heading', { name: 'Finanzas' })).toBeTruthy();
   });
 });
+
+describe('PantallaInicio — las tarjetas grandes NO incluyen Proveedores ni Categorías de gasto', () => {
+  it('ninguna tarjeta enlaza a /proveedores ni a /categorias-gasto (siguen solo en el rail)', () => {
+    montar(false);
+    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
+    expect(hrefs).not.toContain('/proveedores');
+    expect(hrefs).not.toContain('/categorias-gasto');
+    // Sanity: otras tarjetas de operación siguen presentes.
+    expect(hrefs).toContain('/dashboard');
+    expect(hrefs).toContain('/gastos');
+  });
+});
