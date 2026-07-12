@@ -70,7 +70,7 @@ largo, mismo mecanismo).
 Formato de una línea, en este orden:
 
 ```
-<rama> | <hash corto> | <clean|dirty> | <ahead>↑<behind>↓ | wt:<nombre-worktree>
+<rama> | <hash corto> | <clean|dirty> | <ahead>up <behind>dn | wt:<nombre-worktree>
 ```
 
 - `<rama>`: `git rev-parse --abbrev-ref HEAD` sobre `workspace.current_dir`
