@@ -246,3 +246,30 @@ describe('FormularioEmpleado — edición no guarda durante la carga del catálo
     expect(guardar.disabled).toBe(false);
   });
 });
+
+describe('FormularioEmpleado — navegación por Enter (integración real del hook)', () => {
+  it('Enter cancela el evento y avanza al siguiente campo; Shift+Enter retrocede', async () => {
+    render(<FormularioEmpleado onGuardado={vi.fn()} onCancelar={vi.fn()} />);
+    await screen.findByRole('option', { name: 'Sede A' }); // el formulario terminó de montar
+
+    // "número" y "nombre" son los dos primeros campos navegables del formulario (ambos <input> de texto).
+    const numero = screen.getByLabelText(/número/i);
+    const nombre = screen.getByLabelText(/nombre/i);
+
+    // Enter sobre "número": el hook está cableado REALMENTE en el <div ref={refFormulario}
+    // onKeyDown={onKeyDown}> del formulario (no se mockea useNavegacionEnter). El hook cancela
+    // el evento (preventDefault) y mueve el foco al siguiente campo navegable ("nombre").
+    // dispatchEvent devuelve false ⇔ hubo preventDefault. Sin el cableado del hook este test falla.
+    numero.focus();
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    const noSuprimido = numero.dispatchEvent(enter);
+    expect(noSuprimido).toBe(false);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(nombre);
+
+    // Shift+Enter sobre "nombre": retrocede a "número".
+    const shiftEnter = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    nombre.dispatchEvent(shiftEnter);
+    expect(document.activeElement).toBe(numero);
+  });
+});

@@ -115,6 +115,21 @@ describe('useNavegacionEnter — navegación con Enter', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('Enter en un campo normal CANCELA el evento (preventDefault real) y avanza el foco', () => {
+    render(<Formulario />);
+    const uno = screen.getByLabelText('uno');
+    uno.focus();
+    // jsdom NO simula el envío implícito del <form>, así que aseverar "onSubmit no llamado"
+    // es INERTE respecto al preventDefault. Aquí se observa la cancelación REAL del evento:
+    // dispatchEvent() devuelve false si algún handler llamó preventDefault sobre un evento
+    // cancelable. Sin `evento.preventDefault()` en el hook, este test falla.
+    const evento = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    const noSuprimido = uno.dispatchEvent(evento);
+    expect(noSuprimido).toBe(false); // el hook bloqueó el submit implícito (anti-guardado-accidental)
+    expect(evento.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(screen.getByLabelText('dos')); // y el foco avanzó al siguiente campo
+  });
+
   it('durante composición IME (isComposing) Enter NO navega', () => {
     render(<Formulario />);
     const uno = screen.getByLabelText('uno');
