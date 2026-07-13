@@ -35,7 +35,12 @@ export function Boton({
     .join(' ');
 
   return (
-    <button className={clases} disabled={disabled ?? cargando} {...resto}>
+    // `disabled || cargando` (no `disabled ?? cargando`): con `??`, pasar un
+    // `disabled` booleano explícito (p. ej. `disabled={!formularioCompleto}` →
+    // `false` cuando el form está completo) anulaba el efecto de `cargando`, así
+    // que el botón seguía clicable durante el envío en curso y permitía doble
+    // registro. Ahora `cargando` SIEMPRE deshabilita, como documenta el prop.
+    <button className={clases} disabled={disabled || cargando} {...resto}>
       {cargando ? <span className={styles.spinner} aria-hidden="true" /> : null}
       {children}
     </button>
