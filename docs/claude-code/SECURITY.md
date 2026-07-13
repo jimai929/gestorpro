@@ -21,9 +21,14 @@ inventó ninguna clave de configuración a partir de memoria.
 **deny** (rechazado directamente por `permissions`):
 `git push --force/-f`, `git reset --hard`, `git clean -f*`,
 `docker compose down`, `prisma migrate reset`, `prisma db push`,
-`prisma db seed`, `npm run db:reset`, lectura de `.env*` (excepto
-`*.env.*example`), lectura de claves privadas (`id_rsa`, `id_ed25519`,
-`*.pem`, `*.ppk`, `*credentials*.json`).
+`prisma db seed`, `npm run db:reset`, lectura de `.env*` con el tool Read
+(sin excepción: el glob `Read(**/.env*)` bloquea también `.env.example`),
+lectura de claves privadas (`id_rsa`, `id_ed25519`, `*.pem`, `*.ppk`,
+`*credentials*.json`).
+
+> La excepción para plantillas `*.env.*example` **no** aplica al tool Read
+> (que bloquea todo `.env*` por diseño fail-closed); solo existe en el hook
+> `deploy-guard.js` para la lectura vía shell (`cat`/`type`/`Get-Content`…).
 
 **No bloqueado por diseño**: `git commit` local. Sigue rigiéndose por
 `CLAUDE.md` (autónomo tras verificación) y por el hook global
@@ -56,6 +61,42 @@ separada — más simple y con la misma cobertura).
 Todas las reglas de bloqueo llevan un código (`P0-XXX`) que aparece en
 `permissionDecisionReason`; el hook nunca imprime el comando completo
 (evita filtrar contenido sensible en logs).
+
+## Endurecimiento 2026-07-12 (cierre de falsos negativos + falsos positivos)
+
+Auditoría adversarial del hook. Todos los cambios **fortalecen** la detección
+o corrigen falsos positivos claros; ninguno debilita el bloqueo de secretos
+reales ni de git destructivo. Cada uno con test de regresión en
+`scripts/claude/test-deploy-guard.js`:
+
+- **Exclusión `.env*example` por token** (`readsRealEnv`): antes se evaluaba
+  sobre TODO el comando, así que `cat .env.example .env` se colaba (el
+  `.example` desactivaba el bloqueo del `.env` real). Ahora se evalúa token a
+  token: solo se excluye el token plantilla, el `.env` real se bloquea.
+- **Opciones globales de git** (`stripGitGlobalOptions`): `git -c k=v reset
+  --hard`, `git -C repo clean -fd`, `git --git-dir=x push --force` evadían los
+  patrones anclados a `git <subcomando>`. Se colapsan las opciones globales
+  conocidas a `git` antes de matchear (lista cerrada; no toca flags de
+  subcomando como `git commit -p`).
+- **Acotado a la cláusula** (`[\s\S]*` → `[^;&|]*`): a la vez (a) permite flags
+  intermedias (`git reset -q --hard`) y (b) evita falsos positivos que cruzaban
+  `;`/`&&`/`|` (p. ej. `git clean -n; git log --format=%H`, cuya `f` de
+  `--format` disparaba P0-CLEAN-F).
+- **`docker compose down` con flags**: `docker compose -f deploy/compose.yml
+  down` (uso real de despliegue) ahora se detecta.
+- **Más verbos de volcado**: `strings`/`xxd`/`base64` (argumento siempre un
+  archivo, sin falsos positivos de patrón de búsqueda como grep/sed/awk).
+- **Más claves privadas en P0-SECRET**: `id_ecdsa`, `id_dsa`, `*.p12`, `*.pfx`,
+  `*.key`.
+
+**Gaps conocidos, deferidos a decisión de Jim** (no aplicados por riesgo de
+falso positivo o por ser self-protection que requiere su confirmación): backtick
+de sustitución de comando (`` echo `cat .env` ``) — el fix arriesga falsos
+positivos en mensajes de commit; verbos `grep`/`sed`/`awk` (su primer argumento
+puede ser el texto a buscar); cobertura SQL adicional (`DELETE`/`UPDATE` sin
+`WHERE`, `DROP SCHEMA/INDEX/COLUMN`, `curl | bash`) y los falsos positivos SQL
+de lenguaje natural (`git commit -m "drop table redesign"`, `vitest run
+truncate.test.ts`); ampliaciones de `settings.json`. Ver reporte de la sesión.
 
 ## Política de fallo: FAIL-CLOSED (corregido en P0.1)
 
@@ -274,7 +315,7 @@ prueba.
 
 ## Resultados de prueba
 
-`node scripts/claude/test-deploy-guard.js` — 118/118 casos correctos: los
+`node scripts/claude/test-deploy-guard.js` — 153/153 casos correctos: los
 76 casos de P0.1-P0.3 (ver desglose en la versión anterior de esta
 sección, en el historial de git) más 25 casos de la primera pasada de
 P0.4 — 13 que NO deben bloquearse (`git show/diff/rev-parse/log` con
@@ -291,3 +332,27 @@ bloquearse (`sudo`/`env`/`timeout`/`nohup`/`watch`/`xargs`/`find -exec`
 envolviendo un verbo real, con cero, una, dos o tres flags/argumentos
 propios del wrapper de por medio) y 2 que NO (`watch`/`env` envolviendo
 un comando sin ningún verbo de lectura).
+
+Más 35 casos añadidos en 2026-07-12 (118 → 153): 21 del endurecimiento (ver
+sección "Endurecimiento 2026-07-12" — exclusión `.env*example` por token,
+verbos `strings`/`xxd`/`base64`, claves `id_ecdsa`/`id_dsa`/`.p12`/`.pfx`/`.key`,
+opciones globales de git, acotado a la cláusula, `docker compose -f x down`);
+**4 de regresión ReDoS**: el patrón `P0-COMPOSE-DOWN` con cuantificador anidado
+`(\s+-{1,2}\S+(\s+\S+)?)*` sufría backtracking catastrófico ante muchos flags sin
+`down`; se reemplazó por un patrón lineal. Los 4 casos usan un input largo
+(`docker compose` + 80 flags) con un **timeout de spawn de 5 s** (tope explícito de
+tiempo): verifican que el hook no se cuelga, que sigue bloqueando `… down` (sin
+bypass por longitud, bash y PowerShell) y que un `docker compose …; drop table foo`
+largo ya no tapa el `P0-DROP` posterior; y **10 de regresión del bypass del
+terminador de `down`**: dos revisiones adversariales sucesivas mostraron que
+acotar el fin de `down` con una lista blanca de terminadores dejaba huecos —
+primero `(?=\s|$)` dejaba pasar `down;`/`down&&`/`(…down)`/`down>out`, y luego
+`(?=[\s;&|)<>]|$)` seguía dejando pasar `down` pegado a **comilla**
+(`ssh <prod> "docker compose down"`, `bash -c "… down"`, `sh -c '… down'`,
+`alias r="… down"`). El patrón final usa el **negative-lookahead**
+`\bdocker[-\s]compose\b[^;&|]*\sdown(?![\w-])` (semántica de "palabra completa":
+bloquea `down` seguido de cualquier no-palabra/no-guion — separador, paréntesis,
+redirección, comilla, fin de cadena — SIN matchear `down-service`/`downstream`).
+Los 10 casos fijan `down;`, `down&&`, `(…down)`, `down>out`, `docker-compose down;`
+(PowerShell), `bash -c "… down"`, `sh -c '… down'`, `ssh <prod> "… down"` (bash y
+PowerShell) como bloqueados, y `up down-service` como permitido.

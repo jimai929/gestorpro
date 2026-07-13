@@ -63,8 +63,12 @@ if ($counts) {
 # Worktree: nombre de carpeta raiz del worktree actual
 $top = Git-Try @('rev-parse', '--show-toplevel')
 if ($top) {
-    $normalized = ($top -replace '/', '\').Trim()
-    $wtName = Split-Path -Leaf $normalized
+    # git rev-parse --show-toplevel devuelve SIEMPRE rutas con '/' en toda
+    # plataforma. Split-Path -Leaf ya trata '/' como separador tanto en Windows
+    # como en Unix, asi que se aplica sobre la salida cruda: convertir '/'->'\'
+    # rompia en el Mac mini M4 (pwsh Core sobre Unix), donde '\' no es separador
+    # y devolvia la ruta entera en vez del nombre del worktree.
+    $wtName = Split-Path -Leaf ($top.Trim())
     if ($wtName) { $parts += "wt:$wtName" }
 }
 

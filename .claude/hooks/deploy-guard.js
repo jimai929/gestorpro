@@ -94,7 +94,11 @@ function extractEncodedCommand(cmd) {
 // "git show"/"git diff", no un verbo. Ver isCommandVerbPosition() mas
 // abajo, que generaliza esto (tambien cubre find -type, --expose-gc,
 // sub-shells, comillas...) en vez de listar excepciones por palabra.
-const READ_VERB_WORDS = ["cat", "type", "more", "less", "head", "tail", "get-content", "gc"];
+// `strings`/`xxd`/`base64` vuelcan el contenido de un archivo igual que `cat`
+// (exfiltracion de .env / claves); se anaden porque su argumento es SIEMPRE un
+// archivo, asi que no arrastran falsos positivos de patron de busqueda como
+// grep/sed/awk (cuyo primer argumento puede ser el texto ".env" a buscar).
+const READ_VERB_WORDS = ["cat", "type", "more", "less", "head", "tail", "get-content", "gc", "strings", "xxd", "base64"];
 
 // Verbos de borrado: alias de PowerShell (del/rmdir/rd -> Remove-Item) y
 // Unix (rm). Mismo guardado (?<!-) por consistencia, aunque ninguna flag
@@ -288,6 +292,35 @@ function hasVerbAtCommandPosition(cmd, words) {
   return false;
 }
 
+// ¿El comando lee un archivo .env REAL (no una plantilla `.env*example`)? Se
+// evalua POR TOKEN de ruta, no sobre el comando aplanado: asi `cat .env.example
+// .env` (mezcla plantilla + .env real) SE BLOQUEA, en vez de quedar excluido por
+// la sola presencia de `.env.example` en cualquier parte del comando. Con el
+// chequeo antiguo sobre todo el comando, ese caso se colaba (falso negativo).
+function readsRealEnv(cmd, envExclude) {
+  return cmd.split(" ").some((token) => {
+    const bare = token.replace(/^["']+|["']+$/g, "");
+    return /\.env\b/i.test(bare) && !envExclude.test(bare);
+  });
+}
+
+// Colapsa las OPCIONES GLOBALES de git (las que van ENTRE `git` y su subcomando)
+// a solo `git`, para que anteponerlas no evada los patrones de subcomando
+// destructivo: `git -c k=v reset --hard` / `git -C repo clean -fd` /
+// `git --git-dir=x push --force` -> `git reset --hard` / `git clean -fd` /
+// `git push --force`. Solo se quitan opciones globales CONOCIDAS (lista cerrada),
+// nunca flags de subcomando, asi que `git commit -p` o `git clean -fd` no se tocan.
+function stripGitGlobalOptions(cmd) {
+  const OPT = /\bgit\s+(?:-c\s+\S+|-C\s+\S+|--git-dir(?:=\S+|\s+\S+)|--work-tree(?:=\S+|\s+\S+)|--namespace(?:=\S+|\s+\S+)|--exec-path(?:=\S+)?|--no-optional-locks|--literal-pathspecs|--no-pager|--paginate|--bare|-p)\b/i;
+  let out = cmd;
+  let prev;
+  do {
+    prev = out;
+    out = out.replace(OPT, "git");
+  } while (out !== prev);
+  return out;
+}
+
 // Devuelve [codigo, razon] si el comando debe bloquearse, o null si es seguro.
 // cwd se usa para cerrar el bypass de "ya estoy parado dentro de deploy/backups
 // o prisma/migrations y borro con ruta relativa corta (sin repetir el prefijo)".
@@ -295,10 +328,10 @@ function evaluate(cmd, cwd) {
   const ENV_EXCLUDE = /\.env\.[a-z0-9]*example\b/i;
 
   if (hasVerbAtCommandPosition(cmd, READ_VERB_WORDS)) {
-    if (/\.env\b/i.test(cmd) && !ENV_EXCLUDE.test(cmd)) {
+    if (readsRealEnv(cmd, ENV_EXCLUDE)) {
       return ["P0-ENV", "lectura de archivo .env bloqueada"];
     }
-    if (/\bid_rsa|\bid_ed25519|\.pem\b|\.ppk\b|credentials\.json|api[-_]?key/i.test(cmd)) {
+    if (/\bid_rsa|\bid_ed25519|\bid_ecdsa|\bid_dsa|\.pem\b|\.ppk\b|\.p12\b|\.pfx\b|\.key\b|credentials\.json|api[-_]?key/i.test(cmd)) {
       return ["P0-SECRET", "lectura de clave privada/credencial bloqueada"];
     }
   }
@@ -335,11 +368,29 @@ function evaluate(cmd, cwd) {
     }
   }
 
+  // Los patrones de subcomando git se evaluan sobre el comando con las opciones
+  // globales colapsadas (asi no se evaden anteponiendo `-c`/`-C`/...). Los flags
+  // destructivos se acotan a la MISMA clausula con [^;&|]* (en vez de [\s\S]*),
+  // lo que a la vez (a) permite flags intermedias (`git reset -q --hard`) y
+  // (b) evita falsos positivos que cruzaban `;`/`&&`/`|` hacia comandos seguros
+  // (p. ej. `git clean -n; git log --format=%H`, donde la `f` de `--format`
+  // disparaba P0-CLEAN-F con el `[\s\S]*` codicioso anterior).
+  const cmdGit = stripGitGlobalOptions(cmd);
   const BLOCK = [
-    ["P0-PUSH-FORCE", /\bgit\s+push\b[\s\S]*(--force(-with-lease)?\b|\s-f\b)/i, "git push --force bloqueado"],
-    ["P0-RESET-HARD", /\bgit\s+reset\s+--hard\b/i, "git reset --hard bloqueado"],
-    ["P0-CLEAN-F", /\bgit\s+clean\b[\s\S]*-[a-z]*f/i, "git clean -f bloqueado"],
-    ["P0-COMPOSE-DOWN", /\bdocker[-\s]compose\s+down\b/i, "docker compose down bloqueado"],
+    ["P0-PUSH-FORCE", /\bgit\s+push\b[^;&|]*(--force(-with-lease)?\b|\s-f\b)/i, "git push --force bloqueado"],
+    ["P0-RESET-HARD", /\bgit\s+reset\b[^;&|]*--hard\b/i, "git reset --hard bloqueado"],
+    ["P0-CLEAN-F", /\bgit\s+clean\b[^;&|]*-[a-z]*f/i, "git clean -f bloqueado"],
+    // P0-COMPOSE-DOWN: `down` en la MISMA clausula que `docker compose`/`docker-compose`,
+    // tolerando flags intermedias (`-f x`, `--profile x`). Patron LINEAL (un solo
+    // `[^;&|]*`, SIN cuantificador anidado): la version previa `(\s+-{1,2}\S+(\s+\S+)?)*`
+    // sufria backtracking catastrofico (ReDoS) ante muchos flags sin `down` y podia colgar
+    // el hook antes de evaluar los patrones destructivos siguientes. El NEGATIVE-lookahead
+    // `(?![\w-])` exige que `down` NO continue en palabra ni guion: bloquea `down` seguido de
+    // fin de cadena, espacio, separador (`;&|`), parentesis/redireccion (`)<>`) y COMILLA
+    // (`ssh host "docker compose down"`, `bash -c "... down"`) — todos vectores reales —
+    // SIN matchear `down-service`/`downstream`/`down_svc`. Es la semantica correcta de
+    // "palabra completa" sin la lista-blanca incompleta de terminadores.
+    ["P0-COMPOSE-DOWN", /\bdocker[-\s]compose\b[^;&|]*\sdown(?![\w-])/i, "docker compose down bloqueado"],
     ["P0-MIGRATE-RESET", /\bprisma\s+migrate\s+reset\b/i, "prisma migrate reset bloqueado"],
     ["P0-DB-PUSH", /\bprisma\s+db\s+push\b/i, "prisma db push bloqueado"],
     ["P0-DB-SEED", /\bprisma\s+db\s+seed\b/i, "prisma db seed bloqueado"],
@@ -349,7 +400,7 @@ function evaluate(cmd, cwd) {
   ];
 
   for (const [code, pattern, reason] of BLOCK) {
-    if (pattern.test(cmd)) return [code, reason];
+    if (pattern.test(cmdGit)) return [code, reason];
   }
 
   return null;
