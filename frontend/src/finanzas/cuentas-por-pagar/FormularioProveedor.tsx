@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
+import { useNavegacionEnter } from '../../core/ui/useNavegacionEnter';
 import { crearProveedor, editarProveedor } from './servicioCuentas';
 import type { Proveedor } from './tipos';
 import styles from './FormularioProveedor.module.css';
@@ -32,6 +33,7 @@ function aNullable(valor: string): string | null {
 
 export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: PropiedadesFormulario) {
   const { t } = useTraduccion();
+  const { ref: refFormulario, onKeyDown } = useNavegacionEnter<HTMLDivElement>();
   const esEdicion = proveedor !== undefined;
 
   const [nombre, setNombre] = useState(proveedor?.nombre ?? '');
@@ -73,7 +75,7 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
   };
 
   return (
-    <div className={styles.contenedor}>
+    <div ref={refFormulario} onKeyDown={onKeyDown} className={styles.contenedor}>
       <p className={styles.titulo}>{esEdicion ? t('fin.prov.editar') : t('fin.prov.nuevo')}</p>
 
       {error && <p className={styles.error}>{error}</p>}
@@ -121,6 +123,7 @@ export function FormularioProveedor({ proveedor, onGuardado, onCancelar }: Propi
         </Boton>
         <Boton
           type="button"
+          data-enter-submit
           cargando={guardando}
           disabled={!nombre.trim()}
           onClick={() => { void guardar(); }}

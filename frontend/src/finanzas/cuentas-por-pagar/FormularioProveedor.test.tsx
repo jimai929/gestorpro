@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FormularioProveedor } from './FormularioProveedor';
 import * as servicio from './servicioCuentas';
@@ -45,5 +45,15 @@ describe('FormularioProveedor — manejo de fallo del backend', () => {
     await user.click(screen.getByRole('button', { name: 'Crear proveedor' }));
 
     await waitFor(() => expect(onGuardado).toHaveBeenCalledWith(creado));
+  });
+});
+
+describe('FormularioProveedor — navegación con Enter integrada (useNavegacionEnter)', () => {
+  it('Enter en un campo enfoca el siguiente input del formulario', () => {
+    render(<FormularioProveedor onGuardado={vi.fn()} onCancelar={vi.fn()} />);
+    const campos = screen.getAllByRole('textbox'); // nombre, RUC, teléfono, contacto
+    campos[0]!.focus();
+    fireEvent.keyDown(campos[0]!, { key: 'Enter' });
+    expect(document.activeElement).toBe(campos[1]);
   });
 });

@@ -9,6 +9,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
+import { useNavegacionEnter } from '../../core/ui/useNavegacionEnter';
 import { FormularioProveedor } from './FormularioProveedor';
 import { obtenerProveedores, obtenerSedes, crearCompra } from './servicioCuentas';
 import type { Proveedor, Sede, TipoCompra } from './tipos';
@@ -20,6 +21,7 @@ interface PropiedadesFormulario {
 
 export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
   const { t } = useTraduccion();
+  const { ref: refFormulario, onKeyDown } = useNavegacionEnter<HTMLFormElement>();
   // Datos de selects
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [sedes, setSedes] = useState<Sede[]>([]);
@@ -125,7 +127,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
         <h2 className={styles.titulo}>{t('fin.factura.registrar')}</h2>
       </div>
 
-      <form onSubmit={(e) => { void manejarEnvio(e); }}>
+      <form ref={refFormulario} onKeyDown={onKeyDown} onSubmit={(e) => { void manejarEnvio(e); }}>
         <div className={styles.cuadricula}>
           {/* Proveedor */}
           <div className={`${styles.grupoProveedor} ${styles.campoCompleto}`}>
@@ -259,6 +261,7 @@ export function FormularioFactura({ onRegistrada }: PropiedadesFormulario) {
         <div className={styles.acciones}>
           <Boton
             type="submit"
+            data-enter-submit
             cargando={guardando}
             disabled={!formularioCompleto}
           >
