@@ -137,8 +137,11 @@ export function PantallaCategorias() {
           />
         )}
 
+        {/* `key`: los campos solo se inicializan al montar; sin remonte, pasar de
+            Editar A a Editar B dejaría los datos de A y Guardar los escribiría sobre B. */}
         {puedeGestionar && categoriaEditar && (
           <FormularioCategoria
+            key={categoriaEditar.id}
             categoria={categoriaEditar}
             onGuardado={manejarGuardado}
             onCancelar={() => setCategoriaEditar(null)}

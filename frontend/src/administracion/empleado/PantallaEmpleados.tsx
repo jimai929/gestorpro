@@ -267,8 +267,11 @@ export function PantallaEmpleados() {
         {mostrarFormNuevo && (
           <FormularioEmpleado onGuardado={manejarGuardado} onCancelar={() => setMostrarFormNuevo(false)} />
         )}
+        {/* `key`: los campos solo se inicializan al montar; sin remonte, pasar de
+            Editar A a Editar B dejaría los datos de A y Guardar los escribiría sobre B. */}
         {empleadoEditar && (
           <FormularioEmpleado
+            key={empleadoEditar.id}
             empleado={empleadoEditar}
             onGuardado={manejarGuardado}
             onCancelar={() => setEmpleadoEditar(null)}

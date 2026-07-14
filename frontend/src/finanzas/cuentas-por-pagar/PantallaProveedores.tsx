@@ -117,9 +117,12 @@ export function PantallaProveedores() {
           />
         )}
 
-        {/* Formulario de edición */}
+        {/* Formulario de edición. `key`: los campos solo se inicializan al montar;
+            sin remonte, pasar de Editar A a Editar B dejaría los datos de A y
+            Guardar los escribiría sobre B. */}
         {proveedorEditar && (
           <FormularioProveedor
+            key={proveedorEditar.id}
             proveedor={proveedorEditar}
             onGuardado={manejarGuardado}
             onCancelar={() => setProveedorEditar(null)}

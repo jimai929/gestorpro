@@ -64,6 +64,11 @@ export function PantallaKioscos() {
   };
 
   const regenerar = async (kiosco: Kiosco) => {
+    // Una sola rotación en vuelo: `regenerandoId` es un slot único compartido entre
+    // filas; sin este guard, rotar B con A en vuelo reactivaría el botón de A (y el
+    // finally de A pisaría el slot de B). El token se revela UNA vez: dos rotaciones
+    // concurrentes perderían uno de los dos tokens.
+    if (regenerandoId !== null) return;
     setRegenerandoId(kiosco.id);
     setErrorAccion(null);
     try {
@@ -160,6 +165,7 @@ export function PantallaKioscos() {
                       <Boton
                         variante="secundario"
                         cargando={regenerandoId === kiosco.id}
+                        disabled={regenerandoId !== null}
                         onClick={() => { void regenerar(kiosco); }}
                       >
                         {t('adm.kiosco.regenerarToken')}

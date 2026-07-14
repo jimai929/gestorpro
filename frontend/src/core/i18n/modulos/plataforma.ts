@@ -94,6 +94,7 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.ra.exitoIntro': 'Comunica esta contraseña temporal al administrador de {empresa}:',
     'plataforma.ra.copiar': 'Copiar',
     'plataforma.ra.copiada': 'Copiada',
+    'plataforma.ra.copiarError': 'No se pudo copiar al portapapeles. Copia la contraseña manualmente antes de cerrar.',
     'plataforma.ra.avisoCambio':
       'El administrador DEBE cambiar esta contraseña en su primer inicio de sesión.',
   },
@@ -176,6 +177,7 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.ra.exitoIntro': 'Share this temporary password with the administrator of {empresa}:',
     'plataforma.ra.copiar': 'Copy',
     'plataforma.ra.copiada': 'Copied',
+    'plataforma.ra.copiarError': 'Could not copy to the clipboard. Copy the password manually before closing.',
     'plataforma.ra.avisoCambio':
       'The administrator MUST change this password on their first sign-in.',
   },
@@ -254,6 +256,7 @@ export const plataforma: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'plataforma.ra.exitoIntro': '请将此临时密码转达给 {empresa} 的管理员：',
     'plataforma.ra.copiar': '复制',
     'plataforma.ra.copiada': '已复制',
+    'plataforma.ra.copiarError': '无法复制到剪贴板。关闭前请手动复制该密码。',
     'plataforma.ra.avisoCambio': '管理员必须在首次登录时修改此密码。',
   },
 };

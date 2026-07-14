@@ -48,6 +48,66 @@ describe('PantallaKioscos — listado', () => {
   });
 });
 
+describe('PantallaKioscos — rotación de token (una sola en vuelo)', () => {
+  const kiosco2: Kiosco = {
+    id: 'k2',
+    nombre: 'Kiosco Salida',
+    sedeId: 'sa',
+    activo: true,
+    creadoEn: '2026-01-01',
+    sede: { nombre: 'Sede A', modoExcepcion: 'pin' },
+  };
+
+  // Regresión: `regenerandoId` es un slot único; sin guard, rotar B con A en vuelo
+  // reactivaba el botón de A y el finally de A pisaba el estado de B. El token se
+  // revela UNA sola vez: dos rotaciones concurrentes pierden uno de los dos tokens.
+  it('con una rotación en vuelo, las demás filas quedan deshabilitadas y NO se dispara otra', async () => {
+    vi.mocked(servicioKioscos.obtenerKioscos).mockResolvedValue([kioscoDemo, kiosco2]);
+    let resolver: (v: { id: string; token: string }) => void = () => {};
+    vi.mocked(servicioKioscos.regenerarTokenKiosco).mockReturnValue(
+      new Promise((res) => { resolver = res; }),
+    );
+    const user = userEvent.setup();
+    montar();
+    await screen.findByText('Kiosco Entrada');
+
+    await user.click(screen.getAllByRole('button', { name: 'Regenerar token' })[0]);
+
+    // En vuelo: la otra fila está deshabilitada y clicarla no dispara nada.
+    const botonOtraFila = screen.getAllByRole('button', { name: 'Regenerar token' })[1] as HTMLButtonElement;
+    expect(botonOtraFila.disabled).toBe(true);
+    await user.click(botonOtraFila);
+    expect(servicioKioscos.regenerarTokenKiosco).toHaveBeenCalledTimes(1);
+    expect(servicioKioscos.regenerarTokenKiosco).toHaveBeenCalledWith('k1');
+
+    // Al resolverse, el token se revela y los botones vuelven a habilitarse.
+    resolver({ id: 'k1', token: 'tok-rotado-k1' });
+    expect(await screen.findByText('tok-rotado-k1')).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        (screen.getAllByRole('button', { name: 'Regenerar token' })[1] as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+  });
+
+  it('si la rotación falla, el error se muestra y el botón vuelve a estar disponible', async () => {
+    vi.mocked(servicioKioscos.obtenerKioscos).mockResolvedValue([kioscoDemo]);
+    vi.mocked(servicioKioscos.regenerarTokenKiosco).mockRejectedValue(
+      new Error('No se pudo rotar el token'),
+    );
+    const user = userEvent.setup();
+    montar();
+    await screen.findByText('Kiosco Entrada');
+
+    await user.click(screen.getByRole('button', { name: 'Regenerar token' }));
+
+    expect(await screen.findByText('No se pudo rotar el token')).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Regenerar token' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+});
+
 describe('PantallaKioscos — alta', () => {
   it('da de alta un kiosco con su sede y refresca la lista', async () => {
     vi.mocked(servicioKioscos.crearKiosco).mockResolvedValue({

@@ -271,13 +271,24 @@ export function PantallaKiosco() {
         return;
       }
 
-      // ── Otros errores (404 empleado/kiosco no encontrado, etc.) ──
+      // ── Otros errores (404 empleado/kiosco no encontrado, 429, 500, etc.) ──
+      // Misma discriminación por `extras` que el 401: si el envío salió del paso
+      // de excepción, el error tiene que verse AHÍ (PasoExcepcion solo renderiza
+      // errorExcepcion); en errorEnvio quedaría invisible para el empleado.
       const body = respuesta.datos as { mensaje?: string };
-      setErrorEnvio(body.mensaje ?? t('asi.kiosco.errStatus', { status: respuesta.status }));
+      const mensajeOtros = body.mensaje ?? t('asi.kiosco.errStatus', { status: respuesta.status });
+      if (extras) {
+        setErrorExcepcion(mensajeOtros);
+      } else {
+        setErrorEnvio(mensajeOtros);
+      }
     } catch (err) {
-      setErrorEnvio(
-        err instanceof Error ? err.message : t('asi.kiosco.errRed'),
-      );
+      const mensajeRed = err instanceof Error ? err.message : t('asi.kiosco.errRed');
+      if (extras) {
+        setErrorExcepcion(mensajeRed);
+      } else {
+        setErrorEnvio(mensajeRed);
+      }
     } finally {
       setEnviando(false);
     }

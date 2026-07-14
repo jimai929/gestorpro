@@ -27,16 +27,42 @@ qué un cambio "menor" formó parte de otra parte del trabajo.
 
 ---
 
-## PENDIENTE (parte e): barrido adversarial de los módulos viejos
+## Barrido adversarial de los módulos viejos (parte e)
 
-- **Qué falta:** un barrido adversarial de los módulos **anteriores** (cobro,
+- **Qué era:** un barrido adversarial de los módulos **anteriores** (cobro,
   factura/compras, gastos, proveedores) buscando el **mismo patrón de error
   silenciado** que se halló en `rotarQr` y en el alta inline de proveedor:
   mutaciones (POST/PUT/DELETE) que no muestran el error en la UI, que cierran
   modales/redirigen antes de confirmar éxito, o que no tienen test de fallo del
   backend (ver la convención en `docs/CONVENCIONES.md`).
-- **Cuándo:** se hace en la **parte (e)** del paquete de Administración.
-- **Estado:** PENDIENTE.
+- **Estado: EJECUTADO (2026-07-13)** sobre TODO `frontend/src` (no solo los
+  módulos viejos). Defectos de comportamiento encontrados y corregidos (cada uno
+  con test de regresión):
+  1. Formularios de EDICIÓN sin `key` (Proveedores, Categorías, Sedes,
+     Empleados): pasar de "Editar A" a "Editar B" conservaba los campos de A y
+     Guardar los escribía sobre B.
+  2. `PantallaCobros`: el refresco de saldo post-éxito vivía dentro del try de
+     la mutación — un GET caído tras un POST exitoso mostraba "Error al enviar
+     la solicitud" e invitaba a reenviar (solicitud duplicada). Igual en
+     `manejarPagar`.
+  3. `PantallaKiosco`: los fallos NO-401 (red/500/429) al confirmar la
+     excepción iban a `errorEnvio`, que el paso de excepción no renderiza —
+     fichaje perdido sin feedback.
+  4. `PantallaKioscos`: rotación de token sin guard de "una en vuelo" (el token
+     se revela una sola vez; dos rotaciones concurrentes pierden una).
+  5. `PantallaSedes`: alta/edición OK + recarga fallida no avisaba de que el
+     guardado SÍ corrió (riesgo de sede duplicada). Se replicó el patrón H17 de
+     Empleados.
+  6. `DialogoRestablecerAdmin`: "Copiada" se anunciaba aunque el portapapeles
+     fallara (la temporal se muestra una sola vez).
+- **Deuda restante (solo tests, comportamiento correcto):** faltan tests de
+  fallo de backend en: FormularioGasto (registrarGasto y crearCategoria inline),
+  FormularioCategoria, alternarActivo de PantallaCategorias/Proveedores/Sedes,
+  FormularioFactura (crearCompra), DialogoPago (registrarPago, sin archivo de
+  test), mutaciones de PantallaCobros (aprobar/rechazar/pagar), PantallaJornadas
+  (corregirJornada/barrerHuerfanos, sin archivo de test), PantallaRevision (sin
+  archivo de test), FormularioSede/crearKiosco, PantallaUsuarios
+  (cambiarEstado/cambiarRol, sin archivo de test), registrarFichaje éxito/401.
 
 ---
 

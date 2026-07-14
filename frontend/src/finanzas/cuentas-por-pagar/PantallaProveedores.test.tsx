@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { PantallaProveedores } from './PantallaProveedores';
 import * as servicio from './servicioCuentas';
@@ -41,5 +42,39 @@ describe('PantallaProveedores — columna de deuda total', () => {
     expect(screen.getByText('Deuda total')).toBeTruthy(); // cabecera de la columna
     expect(screen.getByText('B/. 1100.00')).toBeTruthy(); // A debe
     expect(screen.getByText('B/. 0.00')).toBeTruthy(); // B no debe → cero explícito, no vacío
+  });
+});
+
+describe('PantallaProveedores — cambiar de proveedor en edición remonta el formulario', () => {
+  // Regresión: sin `key`, React reutilizaba la instancia del formulario al pasar de
+  // Editar A a Editar B (misma posición JSX) y los campos conservaban los datos de A;
+  // Guardar habría escrito los datos de A sobre el proveedor B.
+  it('Editar A y luego Editar B muestra los datos de B (no los de A)', async () => {
+    const user = userEvent.setup();
+    montar();
+    await screen.findByText('Distribuidora A');
+
+    const botonesEditar = screen.getAllByRole('button', { name: 'Editar' });
+    await user.click(botonesEditar[0]); // fila de A
+    expect(screen.getByDisplayValue('Distribuidora A')).toBeTruthy();
+
+    await user.click(screen.getAllByRole('button', { name: 'Editar' })[1]); // fila de B
+    expect(screen.getByDisplayValue('Distribuidora B')).toBeTruthy();
+    expect(screen.queryByDisplayValue('Distribuidora A')).toBeNull();
+  });
+
+  it('lo tecleado en la edición de A no contamina la edición de B', async () => {
+    const user = userEvent.setup();
+    montar();
+    await screen.findByText('Distribuidora A');
+
+    await user.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
+    const campoNombre = screen.getByDisplayValue('Distribuidora A');
+    await user.clear(campoNombre);
+    await user.type(campoNombre, 'Nombre a medio teclear');
+
+    await user.click(screen.getAllByRole('button', { name: 'Editar' })[1]);
+    expect(screen.getByDisplayValue('Distribuidora B')).toBeTruthy();
+    expect(screen.queryByDisplayValue('Nombre a medio teclear')).toBeNull();
   });
 });

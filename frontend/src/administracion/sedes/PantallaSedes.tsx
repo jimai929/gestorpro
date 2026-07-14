@@ -40,14 +40,21 @@ export function PantallaSedes() {
   const [mostrarFormNueva, setMostrarFormNueva] = useState(false);
   const [sedeEditar, setSedeEditar] = useState<Sede | null>(null);
   const [actualizandoId, setActualizandoId] = useState<string | null>(null);
+  // Aviso de guardado exitoso cuando la recarga posterior falló (ver manejarGuardado).
+  const [avisoGuardado, setAvisoGuardado] = useState<string | null>(null);
 
-  const cargar = useCallback(async () => {
+  // Devuelve `true` si la recarga tuvo éxito, para que quien la dispara tras una
+  // mutación distinga "la sede se guardó pero la lista no se pudo refrescar".
+  const cargar = useCallback(async (): Promise<boolean> => {
     setCargando(true);
     setErrorCarga(null);
     try {
       setSedes(await obtenerSedes({ incluirInactivas: true }));
+      setAvisoGuardado(null); // la fila ya es visible: el aviso deja de hacer falta
+      return true;
     } catch (err) {
       setErrorCarga(err instanceof Error ? err.message : t('adm.sede.errCargar'));
+      return false;
     } finally {
       setCargando(false);
     }
@@ -58,9 +65,17 @@ export function PantallaSedes() {
   }, [cargar]);
 
   const manejarGuardado = () => {
+    // Capturar el modo ANTES de limpiar: tras el reset ya no se sabe si fue edición.
+    const eraEdicion = sedeEditar !== null;
     setMostrarFormNueva(false);
     setSedeEditar(null);
-    void cargar();
+    // Si la recarga falla, decir que el guardado SÍ se completó: sin este aviso el
+    // admin daría el alta por fallida y la repetiría → sede duplicada (el POST ya corrió).
+    void cargar().then((recargaOk) => {
+      if (!recargaOk) {
+        setAvisoGuardado(t(eraEdicion ? 'adm.sede.avisoEdicionOk' : 'adm.sede.avisoAltaOk'));
+      }
+    });
   };
 
   const abrirEdicion = (sede: Sede) => {
@@ -104,8 +119,11 @@ export function PantallaSedes() {
           <FormularioSede onGuardado={manejarGuardado} onCancelar={() => setMostrarFormNueva(false)} />
         )}
 
+        {/* `key`: los campos solo se inicializan al montar; sin remonte, pasar de
+            Editar A a Editar B dejaría los datos de A y Guardar los escribiría sobre B. */}
         {sedeEditar && (
           <FormularioSede
+            key={sedeEditar.id}
             sede={sedeEditar}
             onGuardado={manejarGuardado}
             onCancelar={() => setSedeEditar(null)}
@@ -113,6 +131,7 @@ export function PantallaSedes() {
         )}
 
         <div className={styles.tarjeta}>
+          {avisoGuardado && <div className={styles.avisoInfo}>{avisoGuardado}</div>}
           {errorCarga && (
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>

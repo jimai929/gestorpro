@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { PantallaCobros } from './PantallaCobros';
 import * as servicio from './servicioCobro';
-import type { EmpleadoResumido } from './tipos';
+import type { EmpleadoResumido, SaldoEmpleado, SolicitudCobro } from './tipos';
 
 vi.mock('./servicioCobro');
 // LayoutPrincipal real usa useAuth/router; passthrough para aislar la pantalla.
@@ -94,5 +94,55 @@ describe('PantallaCobros — carga de empleados con fallo visible (antes se trag
     // Sin empleado seleccionable, el flujo de solicitud/saldo no se dispara.
     expect(screen.queryByText('Solicitar adelanto')).toBeNull();
     expect(servicio.obtenerSaldo).not.toHaveBeenCalled();
+  });
+});
+
+describe('PantallaCobros — atribución de errores al enviar la solicitud', () => {
+  const saldoDemo: SaldoEmpleado = {
+    empleadoId: 'emp1', saldo: 100, porcentajeCobrable: 50, disponible: 50,
+  };
+
+  /** Selecciona al empleado, espera el saldo y teclea un monto válido. */
+  async function prepararSolicitud(user: ReturnType<typeof userEvent.setup>) {
+    montar();
+    await screen.findByText('E1 — Juan Pérez');
+    // Primer combobox = selector de empleado (el segundo es el filtro de estado).
+    await user.selectOptions(screen.getAllByRole('combobox')[0], 'emp1');
+    await screen.findByText('Solicitar adelanto'); // saldo cargado → formulario visible
+    await user.type(screen.getByRole('spinbutton'), '10');
+  }
+
+  it('si el POST falla, el error se muestra y NO hay banner de éxito', async () => {
+    vi.mocked(servicio.obtenerSaldo).mockResolvedValue(saldoDemo);
+    vi.mocked(servicio.crearSolicitudCobro).mockRejectedValue(
+      new Error('Monto excede el disponible'),
+    );
+    const user = userEvent.setup();
+    await prepararSolicitud(user);
+
+    await user.click(screen.getByRole('button', { name: 'Solicitar adelanto' }));
+
+    expect(await screen.findByText('Monto excede el disponible')).toBeTruthy();
+    expect(screen.queryByText('Solicitud enviada correctamente.')).toBeNull();
+  });
+
+  it('si el POST triunfa pero el refresco de saldo falla, se ve el ÉXITO y el fallo va a errorSaldo (no sugiere reenviar)', async () => {
+    // Regresión: el refresco vivía dentro del try de la mutación; un GET de saldo
+    // caído tras un POST exitoso mostraba "Error al enviar la solicitud" y empujaba
+    // al usuario a reenviar → solicitud de dinero duplicada.
+    vi.mocked(servicio.obtenerSaldo)
+      .mockResolvedValueOnce(saldoDemo) // al seleccionar al empleado
+      .mockRejectedValueOnce(new Error('Saldo caído')); // refresco tras el POST
+    vi.mocked(servicio.crearSolicitudCobro).mockResolvedValue({} as SolicitudCobro);
+    const user = userEvent.setup();
+    await prepararSolicitud(user);
+
+    await user.click(screen.getByRole('button', { name: 'Solicitar adelanto' }));
+
+    expect(await screen.findByText('Solicitud enviada correctamente.')).toBeTruthy();
+    expect(await screen.findByText('Saldo caído')).toBeTruthy(); // en el bloque de saldo
+    expect(screen.queryByText('Error al enviar la solicitud.')).toBeNull();
+    // El monto se limpió: la solicitud SÍ se envió.
+    expect((screen.getByRole('spinbutton') as HTMLInputElement).value).toBe('');
   });
 });

@@ -133,6 +133,35 @@ describe('DialogoRestablecerAdmin', () => {
     })();
     expect(await screen.findByText('Contraseña restablecida')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Copiar' }));
-    expect(screen.getByRole('button', { name: 'Copiada' })).toBeTruthy();
+    // findBy*: el copiado ahora es async (solo anuncia "Copiada" tras confirmarse).
+    expect(await screen.findByRole('button', { name: 'Copiada' })).toBeTruthy();
+  });
+
+  it('si el portapapeles falla, NO anuncia "Copiada" y avisa de copiar a mano', async () => {
+    // Regresión: copiar() marcaba copiada=true incondicionalmente; si writeText
+    // rechazaba (permiso, WebView), el super-admin cerraba el diálogo creyendo tener
+    // la temporal en el portapapeles — y la contraseña se muestra UNA sola vez.
+    vi.mocked(servicio.restablecerAdminApi).mockResolvedValue({
+      contrasenaTemporal: TEMPORAL,
+      debeCambiarContrasena: true,
+    });
+    montar();
+    const user = await confirmar();
+    expect(await screen.findByText('Contraseña restablecida')).toBeTruthy();
+
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(
+      new DOMException('denegado', 'NotAllowedError'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Copiar' }));
+
+    expect(
+      await screen.findByText(
+        'No se pudo copiar al portapapeles. Copia la contraseña manualmente antes de cerrar.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Copiada' })).toBeNull();
+    // El botón sigue como "Copiar": reintentable, y la temporal sigue visible.
+    expect(screen.getByRole('button', { name: 'Copiar' })).toBeTruthy();
+    expect(screen.getByText(TEMPORAL)).toBeTruthy();
   });
 });

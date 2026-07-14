@@ -290,19 +290,29 @@ export function PantallaCobros() {
 
     try {
       await crearSolicitudCobro({ empleadoId: empleadoSeleccionado, monto: montoNum });
-      setExitoSolicitud(t('asi.cob.exitoSolicitud'));
-      setMonto('');
+    } catch (err) {
+      setErrorSolicitud(
+        err instanceof Error ? err.message : t('asi.cob.errEnviar'),
+      );
+      setEnviandoSolicitud(false);
+      return;
+    }
 
-      // Refrescar saldo y lista tras solicitar
+    setExitoSolicitud(t('asi.cob.exitoSolicitud'));
+    setMonto('');
+
+    // Refrescar saldo y lista tras solicitar. FUERA del try de la mutación: la
+    // solicitud YA se creó; si este GET falla, el error va a errorSaldo (no a
+    // errorSolicitud) para no sugerir que el envío falló y provocar un reenvío
+    // duplicado. cargarCobros captura sus fallos internamente.
+    try {
       const [saldoActualizado] = await Promise.all([
         obtenerSaldo(empleadoSeleccionado),
         cargarCobros(filtroEstado),
       ]);
       setSaldo(saldoActualizado);
     } catch (err) {
-      setErrorSolicitud(
-        err instanceof Error ? err.message : t('asi.cob.errEnviar'),
-      );
+      setErrorSaldo(err instanceof Error ? err.message : t('asi.cob.errSaldo'));
     } finally {
       setEnviandoSolicitud(false);
     }
@@ -342,16 +352,25 @@ export function PantallaCobros() {
     setProcesando((prev) => new Set(prev).add(cobro.id));
     setErrorAccion(null);
     try {
-      const actualizado = await pagarCobro(cobro.id);
-      setCobros((prev) => prev.map((c) => (c.id === actualizado.id ? actualizado : c)));
-
-      // Refrescar saldo si el empleado pagado es el que está seleccionado
-      if (empleadoSeleccionado === cobro.empleadoId) {
-        const saldoActualizado = await obtenerSaldo(empleadoSeleccionado);
-        setSaldo(saldoActualizado);
+      let pagado = false;
+      try {
+        const actualizado = await pagarCobro(cobro.id);
+        setCobros((prev) => prev.map((c) => (c.id === actualizado.id ? actualizado : c)));
+        pagado = true;
+      } catch (err) {
+        setErrorAccion(err instanceof Error ? err.message : t('asi.cob.errPagar'));
       }
-    } catch (err) {
-      setErrorAccion(err instanceof Error ? err.message : t('asi.cob.errPagar'));
+
+      // Refrescar saldo si el empleado pagado es el que está seleccionado. FUERA
+      // del try de la mutación (mismo criterio que enviarSolicitud): el pago YA se
+      // aplicó; un fallo de este GET va a errorSaldo, no a errorAccion.
+      if (pagado && empleadoSeleccionado === cobro.empleadoId) {
+        try {
+          setSaldo(await obtenerSaldo(empleadoSeleccionado));
+        } catch (err) {
+          setErrorSaldo(err instanceof Error ? err.message : t('asi.cob.errSaldo'));
+        }
+      }
     } finally {
       setProcesando((prev) => {
         const sig = new Set(prev);

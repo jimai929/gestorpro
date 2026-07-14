@@ -34,6 +34,7 @@ export function DialogoRestablecerAdmin({ empresa, onCerrar, onExito }: Propieda
   // confirmación); string = éxito (paso de resultado que la muestra UNA vez).
   const [temporal, setTemporal] = useState<string | null>(null);
   const [copiada, setCopiada] = useState(false);
+  const [errorCopia, setErrorCopia] = useState<string | null>(null);
 
   const manejarConfirmar = async () => {
     setError(null);
@@ -50,11 +51,19 @@ export function DialogoRestablecerAdmin({ empresa, onCerrar, onExito }: Propieda
     }
   };
 
-  const copiar = () => {
-    if (temporal) {
-      // Best-effort: en algunos entornos (o sin permiso) no hay clipboard; no rompe el flujo.
-      void navigator.clipboard?.writeText(temporal);
+  const copiar = async () => {
+    if (!temporal) return;
+    try {
+      // Sin optional chaining: si clipboard no existe, cae al catch (nada de éxito mudo).
+      await navigator.clipboard.writeText(temporal);
       setCopiada(true);
+      setErrorCopia(null);
+    } catch {
+      // Permiso denegado, documento sin foco o WebView sin clipboard: NO anunciar
+      // "Copiada". La temporal se muestra UNA sola vez; un éxito falso haría que el
+      // super-admin cerrara el diálogo sin la contraseña y dejara al admin bloqueado.
+      setCopiada(false);
+      setErrorCopia(t('plataforma.ra.copiarError'));
     }
   };
 
@@ -78,10 +87,15 @@ export function DialogoRestablecerAdmin({ empresa, onCerrar, onExito }: Propieda
               </p>
               <div className={styles.temporalCaja}>
                 <code className={styles.temporal}>{temporal}</code>
-                <Boton type="button" variante="secundario" onClick={copiar}>
+                <Boton type="button" variante="secundario" onClick={() => { void copiar(); }}>
                   {copiada ? t('plataforma.ra.copiada') : t('plataforma.ra.copiar')}
                 </Boton>
               </div>
+              {errorCopia && (
+                <p className={styles.error} role="alert">
+                  {errorCopia}
+                </p>
+              )}
               {/* Aviso OBLIGATORIO: el admin debe cambiarla en su primer inicio de sesión. */}
               <p className={styles.aviso} role="alert">
                 {t('plataforma.ra.avisoCambio')}

@@ -80,6 +80,23 @@ describe('PantallaCategorias — permisos de UI por rol', () => {
   });
 });
 
+describe('PantallaCategorias — cambiar de categoría en edición remonta el formulario', () => {
+  // Regresión: sin `key`, pasar de Editar A a Editar B reutilizaba la instancia del
+  // formulario y conservaba el nombre de A; Guardar lo habría escrito sobre B.
+  it('Editar Alquiler y luego Editar Vieja muestra los datos de Vieja', async () => {
+    const user = userEvent.setup();
+    montar();
+    await screen.findByText('Alquiler');
+
+    await user.click(screen.getAllByRole('button', { name: 'Editar' })[0]); // Alquiler
+    expect(screen.getByDisplayValue('Alquiler')).toBeTruthy();
+
+    await user.click(screen.getAllByRole('button', { name: 'Editar' })[1]); // Vieja
+    expect(screen.getByDisplayValue('Vieja')).toBeTruthy();
+    expect(screen.queryByDisplayValue('Alquiler')).toBeNull();
+  });
+});
+
 describe('PantallaCategorias — baja/alta lógica', () => {
   it('desactivar una categoría activa llama a desactivarCategoria(id)', async () => {
     vi.mocked(servicioGastos.desactivarCategoria).mockResolvedValue({ ...catActiva, activo: false });
