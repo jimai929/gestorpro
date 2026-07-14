@@ -23,7 +23,7 @@ import {
   Receipt, Truck, CreditCard, Tags, BarChart3,
   MapPin, Users, Monitor, UserCog,
   ClipboardCheck, CalendarDays, Banknote,
-  KeyRound, LogOut, History, FileText,
+  KeyRound, LogOut, History, FileText, ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../auth/ContextoAuth';
 import { DialogoCambiarContrasena } from '../auth/DialogoCambiarContrasena';
@@ -108,6 +108,10 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
           { to: '/proveedores', clave: 'fin.navProveedores', icono: Truck },
           ...(puedeGestionar
             ? [{ to: '/categorias-gasto', clave: 'fin.navCategorias', icono: Tags }]
+            : []),
+          // Auditoría financiera: herramienta de gestión (backend soloGestion).
+          ...(puedeGestionar
+            ? [{ to: '/auditoria-financiera', clave: 'nav.auditoriaFinanciera', icono: ScrollText }]
             : []),
           { to: '/sedes', clave: 'nav.sedes', icono: MapPin },
           { to: '/kioscos', clave: 'nav.kioscos', icono: Monitor },

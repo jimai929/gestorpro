@@ -1,14 +1,12 @@
-/* ── Historial de pagos a proveedor ───────────────────────────────────────
-   Mismo lenguaje visual que gastos / cuentas por pagar: solo tokens, sin
-   hexadecimales nuevos. */
+/* Centro de auditoría de correcciones. Pantalla + impresión A4 horizontal.
+   Solo tokens: ningún color literal. Al imprimir se quita `data-theme` (ver el
+   componente) → los tokens caen al tema claro, adecuado para papel. */
 
 .contenedor {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: 1.5rem;
 }
-
-/* ── Encabezado ── */
 
 .encabezado {
   display: flex;
@@ -31,11 +29,22 @@
   margin: 0.15rem 0 0;
 }
 
-/* ── Resumen (del conjunto filtrado completo, no de la página) ── */
+.acciones {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Título que solo aparece en la impresión (en pantalla lo cubre el encabezado). */
+.tituloImpresion {
+  display: none;
+}
+
+/* ── Resumen ── */
 
 .resumen {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 1rem;
 }
 
@@ -46,13 +55,15 @@
   padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .etiquetaResumen {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .valorResumen {
@@ -62,14 +73,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.valorResumenFuerte {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Diferencia distinta de cero: hubo correcciones en el rango filtrado. */
 .valorResumenAlerta {
   font-size: 1.25rem;
   font-weight: 700;
@@ -77,14 +80,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+.detalleResumen {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
 /* ── Filtros ── */
 
 .filtros {
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 1rem 1.25rem;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  border: 1px solid var(--color-border);
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
@@ -95,6 +103,11 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+.grupoBusqueda {
+  flex: 1;
+  min-width: 180px;
 }
 
 .etiquetaFiltro {
@@ -115,13 +128,18 @@
   font-family: inherit;
 }
 
+.grupoBusqueda .inputFiltro {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .inputFiltro:focus-visible,
 .selectFiltro:focus-visible {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
-/* ── Tarjeta de la tabla ── */
+/* ── Tabla ── */
 
 .tarjeta {
   background: var(--color-surface);
@@ -131,7 +149,6 @@
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 
-/* La tabla scrollea DENTRO de su tarjeta: en móvil la página no se rompe. */
 .contenedorTabla {
   overflow-x: auto;
 }
@@ -139,27 +156,27 @@
 .tabla {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9375rem;
-  min-width: 720px;
+  font-size: 0.875rem;
+  min-width: 900px;
 }
 
 .tabla th {
   text-align: left;
-  padding: 0.75rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.6rem 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--color-text-secondary);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-strong);
   white-space: nowrap;
 }
 
 .tabla td {
-  padding: 0.75rem 0.75rem;
+  padding: 0.6rem 0.65rem;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text);
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .tabla tbody tr:last-child td {
@@ -170,62 +187,64 @@
   background: var(--color-surface-raised);
 }
 
-/* Pago anulado: se atenúa, pero NUNCA se oculta (el original es inmutable). */
 .filaAnulada td {
-  opacity: 0.62;
+  opacity: 0.72;
 }
 
-.celdaSecundaria {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-}
-
-.montoFactura {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+.colImporte {
+  text-align: right;
 }
 
 .monto {
+  text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-/* Monto original de un pago corregido/anulado: tachado, nunca borrado. */
 .montoTachado {
   text-decoration: line-through;
   color: var(--color-text-secondary);
   font-weight: 500;
 }
 
-.montoVigente {
-  color: var(--color-primary);
+.montoDiferencia {
+  color: var(--color-warning);
+  font-weight: 700;
 }
 
-/* Un pago anulado vale B/. 0.00: se marca en rojo, no se oculta. */
-.montoCero {
-  color: var(--color-danger);
+.celdaFecha {
+  white-space: nowrap;
+  font-size: 0.8125rem;
 }
 
-/* ── Badges de estado ── */
+.celdaObjeto {
+  max-width: 200px;
+}
 
-.badgeVigente,
+.celdaMotivo {
+  max-width: 220px;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.celdaSecundaria {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Badges ── */
+
 .badgeCorregido,
 .badgeAnulado {
   display: inline-flex;
   align-items: center;
   padding: 0.15rem 0.6rem;
   border-radius: 99px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.badgeVigente {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  border: 1px solid var(--color-success);
 }
 
 .badgeCorregido {
@@ -242,32 +261,26 @@
 
 /* ── Acción de fila ── */
 
-.colAccion {
-  text-align: right;
-  white-space: nowrap;
-}
-
 .botonAccion {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   background: none;
   border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  padding: 0.3rem 0.75rem;
+  padding: 0.3rem 0.6rem;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--color-text-secondary);
   cursor: pointer;
+  white-space: nowrap;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .botonAccion:hover {
   background: var(--color-surface-raised);
   border-color: var(--color-text-muted);
-}
-
-.motivoCorreccion {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  font-style: italic;
+  color: var(--color-text);
 }
 
 /* ── Paginación ── */
@@ -288,7 +301,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Estados de carga / vacío / error ── */
+/* ── Estados ── */
 
 .estadoCarga,
 .estadoVacio {
@@ -311,42 +324,13 @@
   gap: 1rem;
 }
 
-/* Fallo NO crítico (catálogo de proveedores del filtro): el historial sigue usable. */
-.errorSuave {
-  background: var(--color-warning-bg);
-  border: 1px solid var(--color-warning);
-  border-radius: 12px;
-  padding: 0.875rem 1.25rem;
-  color: var(--color-warning);
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-/* Aviso de corrección registrada (no es error). */
-.avisoInfo {
-  background: var(--color-primary-bg);
-  border: 1px solid var(--color-primary-bg);
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
-  color: var(--color-primary-hover);
-  font-size: 0.9375rem;
-  margin-bottom: 1rem;
-}
-
-/* Móvil: los filtros se apilan y ocupan el ancho. */
+/* Móvil: filtros apilados. */
 @media (max-width: 640px) {
   .filtros {
     flex-direction: column;
     align-items: stretch;
   }
-
-  .grupoFiltro {
-    width: 100%;
-  }
-
+  .grupoFiltro,
   .inputFiltro,
   .selectFiltro {
     width: 100%;
@@ -354,47 +338,69 @@
   }
 }
 
-/* Enlace al estado de cuenta (no botón sólido: la página no tiene primario). */
-.enlaceEstadoCuenta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.85rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+/* ── IMPRESIÓN (A4 horizontal: la tabla es ancha) ── */
+
+@page {
+  size: A4 landscape;
+  margin: 12mm;
 }
 
-.enlaceEstadoCuenta:hover {
-  background: var(--color-surface-raised);
-  border-color: var(--color-text-muted);
-  color: var(--color-text);
-}
+@media print {
+  .noImprimir {
+    display: none !important;
+  }
 
-.enlaceEstadoCuenta:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
-}
+  .tituloImpresion {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
 
-/* Enlace a la auditoría de un registro ya corregido/anulado. */
-.enlaceAuditoria {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  text-decoration: none;
-  white-space: nowrap;
-}
+  .tituloImpresion h1 {
+    font-size: 1.25rem;
+    margin: 0;
+    color: var(--color-text);
+  }
 
-.enlaceAuditoria:hover {
-  text-decoration: underline;
-}
+  .tituloImpresion p {
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+  }
 
-.enlaceAuditoria:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
-  border-radius: 4px;
+  .tarjeta {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .contenedorTabla {
+    overflow: visible;
+  }
+
+  .tabla {
+    min-width: 0;
+    font-size: 0.7rem;
+  }
+
+  /* Cabecera repetida en cada página y filas sin partir. */
+  .tabla thead {
+    display: table-header-group;
+  }
+
+  .tabla tr,
+  .tarjetaResumen {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .badgeCorregido,
+  .badgeAnulado,
+  .montoDiferencia {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .filaAnulada td {
+    opacity: 1; /* en papel el badge ya distingue la anulación */
+  }
 }

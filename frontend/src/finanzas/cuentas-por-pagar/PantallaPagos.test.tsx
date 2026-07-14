@@ -108,8 +108,11 @@ describe('PantallaPagos — historial, estado y resumen', () => {
     montar();
     await screen.findByRole('table');
     expect(screen.getAllByRole('button', { name: 'Corregir' }).length).toBe(1);
-    expect(screen.getByText('Se pagó de más')).toBeTruthy();
-    expect(screen.getByText('Pago duplicado')).toBeTruthy();
+    // Las filas ya corregidas/anuladas enlazan a la auditoría (el motivo va en el title).
+    const enlaces = screen.getAllByRole('link', { name: 'Ver auditoría' });
+    expect(enlaces.length).toBe(2);
+    expect(enlaces.some((a) => a.getAttribute('title') === 'Se pagó de más')).toBe(true);
+    expect(enlaces.some((a) => a.getAttribute('title') === 'Pago duplicado')).toBe(true);
   });
 
   it('un EMPLEADO ve el historial y los estados, pero NO la acción de corregir', async () => {

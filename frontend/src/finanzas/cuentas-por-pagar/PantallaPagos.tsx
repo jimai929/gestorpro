@@ -381,9 +381,13 @@ export function PantallaPagos() {
                                 {t('fin.corr.btnCorregir')}
                               </button>
                             ) : (
-                              <span className={styles.motivoCorreccion}>
-                                {pago.motivoCorreccion ?? '—'}
-                              </span>
+                              <Link
+                                className={styles.enlaceAuditoria}
+                                to={`/auditoria-financiera?entidad=pago&registroId=${pago.id}`}
+                                title={pago.motivoCorreccion ?? undefined}
+                              >
+                                {t('fin.corr.verAuditoria')}
+                              </Link>
                             )}
                           </td>
                         )}

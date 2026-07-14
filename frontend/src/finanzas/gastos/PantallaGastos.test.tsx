@@ -112,9 +112,11 @@ describe('PantallaGastos — estado de corrección de cada gasto', () => {
     await screen.findByText('Local centro');
     // Solo el gasto vigente tiene botón.
     expect(screen.getAllByRole('button', { name: 'Corregir' }).length).toBe(1);
-    // El motivo de la corrección queda visible en las filas ya corregidas.
-    expect(screen.getByText('Se tecleó 150 en vez de 15')).toBeTruthy();
-    expect(screen.getByText('Gasto duplicado')).toBeTruthy();
+    // Las filas ya corregidas/anuladas enlazan a la auditoría (el motivo va en el title).
+    const enlaces = screen.getAllByRole('link', { name: 'Ver auditoría' });
+    expect(enlaces.length).toBe(2);
+    expect(enlaces.some((a) => a.getAttribute('title') === 'Se tecleó 150 en vez de 15')).toBe(true);
+    expect(enlaces.some((a) => a.getAttribute('title') === 'Gasto duplicado')).toBe(true);
   });
 
   it('un EMPLEADO no ve la acción de corregir (el backend la limita a supervisor/admin)', async () => {

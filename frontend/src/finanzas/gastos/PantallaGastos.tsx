@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -285,9 +286,14 @@ export function PantallaGastos() {
                               {t('fin.corr.btnCorregir')}
                             </button>
                           ) : (
-                            <span className={styles.motivoCorreccion}>
-                              {gasto.motivoCorreccion ?? '—'}
-                            </span>
+                            // Ya corregido/anulado: enlace a la auditoría de ESTE registro.
+                            <Link
+                              className={styles.enlaceAuditoria}
+                              to={`/auditoria-financiera?entidad=gasto&registroId=${gasto.id}`}
+                              title={gasto.motivoCorreccion ?? undefined}
+                            >
+                              {t('fin.corr.verAuditoria')}
+                            </Link>
                           )}
                         </td>
                       )}

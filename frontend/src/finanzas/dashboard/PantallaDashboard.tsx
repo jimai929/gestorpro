@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -663,9 +664,13 @@ export function PantallaDashboard() {
                             {t('fin.corr.btnCorregir')}
                           </button>
                         ) : (
-                          <span className={styles.motivoCorreccion}>
-                            {venta.motivoCorreccion ?? '—'}
-                          </span>
+                          <Link
+                            className={styles.enlaceAuditoria}
+                            to={`/auditoria-financiera?entidad=venta&registroId=${venta.id}`}
+                            title={venta.motivoCorreccion ?? undefined}
+                          >
+                            {t('fin.corr.verAuditoria')}
+                          </Link>
                         )}
                       </td>
                     )}

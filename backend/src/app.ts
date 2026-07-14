@@ -15,6 +15,7 @@ import { gastosRoutes } from './finanzas/gastos/gastos.routes.js';
 import { ventasRoutes } from './finanzas/dashboard/ventas.routes.js';
 import { dashboardRoutes } from './finanzas/dashboard/dashboard.routes.js';
 import { correccionesRoutes } from './finanzas/dashboard/correcciones.routes.js';
+import { auditoriaFinancieraRoutes } from './finanzas/auditoria/auditoria.routes.js';
 import { fichajeRoutes } from './asistencia/fichaje/fichaje.routes.js';
 import { jornadaRoutes } from './asistencia/jornada/jornada.routes.js';
 import { cobroRoutes } from './asistencia/cobro/cobro.routes.js';
@@ -81,6 +82,7 @@ export function construirApp(): FastifyInstance {
   app.register(ventasRoutes);
   app.register(dashboardRoutes);
   app.register(correccionesRoutes);
+  app.register(auditoriaFinancieraRoutes);
 
   // Asistencia
   app.register(fichajeRoutes);
