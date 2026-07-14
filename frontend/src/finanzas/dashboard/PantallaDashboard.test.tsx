@@ -13,6 +13,14 @@ vi.mock('./servicioDashboard');
 vi.mock('../../core/ui/LayoutPrincipal', () => ({
   LayoutPrincipal: (props: { children: ReactNode }) => props.children,
 }));
+// useAuth controlable: el rol decide si se ve la acción de CORREGIR un cierre
+// (la frontera real es el backend: POST /correcciones es supervisor/admin).
+const usuarioMock = vi.hoisted(() => ({
+  actual: { rol: 'administrador', empresaId: 'e1' } as { rol: string; empresaId: string | null },
+}));
+vi.mock('../../core/auth/ContextoAuth', () => ({
+  useAuth: () => ({ usuario: usuarioMock.actual }),
+}));
 // El cierre que "registra" el formulario simulado (H3): su cajera no estaba antes en el filtro.
 const ventaNueva = vi.hoisted(() => ({
   id: 'v-nueva',
@@ -26,6 +34,10 @@ const ventaNueva = vi.hoisted(() => ({
   monto: 250,
   tipo: 'normal',
   detalles: [],
+  estado: 'vigente' as const,
+  montoVigente: 250,
+  motivoCorreccion: null,
+  detallesVigentes: [],
 }));
 // Sustituye el formulario real por un disparador de onRegistrada, para aislar
 // el comportamiento de manejarVentaRegistrada sin teclear todo el cierre.
@@ -55,12 +67,17 @@ const ventaUuidCrudo: VentaDiaria = {
   monto: 100,
   tipo: 'normal',
   detalles: [],
+  estado: 'vigente',
+  montoVigente: 100,
+  motivoCorreccion: null,
+  detallesVigentes: [],
 };
 
 beforeEach(() => {
   // Limpia el historial de llamadas entre tests (B2): la config del proyecto no
   // activa clearMocks y las implementaciones se re-fijan justo debajo.
   vi.clearAllMocks();
+  usuarioMock.actual = { rol: 'administrador', empresaId: 'e1' };
   vi.mocked(servicio.obtenerSedes).mockResolvedValue([sedeA]);
   vi.mocked(servicio.obtenerCajeras).mockResolvedValue([]);
   vi.mocked(servicio.obtenerGanancia).mockResolvedValue(resumen);

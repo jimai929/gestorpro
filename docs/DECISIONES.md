@@ -102,6 +102,17 @@ para que cualquiera que retome el proyecto entienda el porqué de cada cosa.
 - **`CategoriaGasto` es una tabla gestionable** por el admin, no un enum.
 - **Endpoint de corrección único y genérico** (`POST /correcciones`), no
   uno por entidad.
+- **Los listados de dinero anotan el ESTADO de corrección** (2026-07-14). Los
+  listados (`GET /gastos`, `GET /ventas`) siguen devolviendo SOLO los movimientos
+  `normal` — los asientos de reverso/corrección no son filas de la lista —, pero
+  cada fila trae `estado` (`vigente` | `corregido` | `anulado`), `montoVigente`
+  (lo que vale HOY: el original, 0 si se anuló, o el importe corregido),
+  `motivoCorreccion` y, en el cierre de caja, `detallesVigentes` (el arqueo que
+  vale hoy). Es un resumen de PRESENTACIÓN: el monto original nunca se sobrescribe
+  y los cálculos de dinero (dashboard, saldos) siguen sumando los asientos en SQL.
+  Lo calcula `shared/services/correccion.estado.ts` (uno solo para las tres
+  entidades). Sin este dato la UI no podía distinguir un gasto vigente de uno ya
+  anulado, y por eso no existía forma de corregir dinero desde la aplicación.
 - Gastos **rechaza** datos incoherentes de empleado (categoría de empleado
   sin empleadoId, o categoría normal con empleadoId).
 - Dashboard: **revisado 2026-07-09 a criterio CAJA (por decisión de Jim).** La

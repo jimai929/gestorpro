@@ -1,0 +1,171 @@
+/* Diálogo de corrección de dinero. Mismo lenguaje visual que el modal de rechazo
+   de cobros (fondo, tarjeta, textarea) — solo tokens, sin hexadecimales nuevos. */
+
+.fondoModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin: auto;
+}
+
+.tituloModal {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.subtituloModal {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.montoOriginal {
+  color: var(--color-text);
+}
+
+/* Recordatorio de la regla del negocio: el original nunca se toca. */
+.aviso {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: var(--color-primary-bg);
+  color: var(--color-primary-hover);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.modos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.opcionModo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.opcionModo:hover {
+  border-color: var(--color-border-strong);
+}
+
+.opcionModo:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.opcionModo:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.ayudaModo {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.15rem;
+}
+
+.arqueo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.arqueoCampos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.totalArqueo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0.875rem;
+  border-radius: 10px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.etiquetaModal {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.textareaModal {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.textareaModal:focus {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.error {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+
+.botonesModal {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+/* Móvil: el arqueo pasa a una sola columna. */
+@media (max-width: 640px) {
+  .arqueoCampos {
+    grid-template-columns: 1fr;
+  }
+}

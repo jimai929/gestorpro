@@ -1,5 +1,6 @@
 import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorConflicto, ErrorValidacion } from '../../core/errors.js';
+import { resumirCorreccion } from '../../shared/services/correccion.estado.js';
 
 function esErrorPrisma(error: unknown, codigo: string): boolean {
   return (
@@ -161,10 +162,39 @@ export async function listarVentas(filtros: {
           : {}),
       },
       orderBy: [{ fechaOperacion: 'desc' }, { turno: 'asc' }, { cajera: 'asc' }],
-      include: { detalles: true },
+      include: {
+        detalles: true,
+        // Asientos que corrigen este cierre (reverso y, si la hubo, corrección con
+        // su arqueo). El cierre original es INMUTABLE: su estado real solo se
+        // conoce mirando sus asientos.
+        correcciones: {
+          select: {
+            id: true,
+            tipo: true,
+            monto: true,
+            motivo: true,
+            detalles: { select: { tipoArqueo: true, monto: true } },
+          },
+        },
+      },
     }),
   );
-  return ventas.map(aVentaDto);
+  return ventas.map((venta) => {
+    const { correcciones, ...resto } = venta;
+    const resumen = resumirCorreccion(Number(venta.monto), correcciones);
+    const correccion = correcciones.find((c) => c.tipo === 'correccion');
+    return {
+      ...aVentaDto(resto),
+      ...resumen,
+      // Arqueo que vale HOY: el corregido si lo hay; [] si se anuló; el original si sigue vigente.
+      detallesVigentes:
+        resumen.estado === 'corregido' && correccion
+          ? correccion.detalles.map((d) => ({ tipoArqueo: d.tipoArqueo, monto: Number(d.monto) }))
+          : resumen.estado === 'anulado'
+            ? []
+            : venta.detalles.map((d) => ({ tipoArqueo: d.tipoArqueo, monto: Number(d.monto) })),
+    };
+  });
 }
 
 /**

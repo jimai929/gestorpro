@@ -21,8 +21,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioVenta } from './FormularioVenta';
+import { DialogoCorreccion } from '../correcciones';
 import {
   obtenerSedes,
   obtenerGanancia,
@@ -37,6 +39,10 @@ import styles from './PantallaDashboard.module.css';
 
 export function PantallaDashboard() {
   const { t } = useTraduccion();
+  const { usuario } = useAuth();
+  // Corregir un cierre de caja es acción de GESTIÓN: el backend limita
+  // POST /correcciones a supervisor/administrador. La UI se alinea con ese guard.
+  const puedeCorregir = usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
 
   // Tema oscuro para el área de finanzas: montar data-theme="dark" en la raíz
   // mientras esta pantalla esté viva, restaurando el valor previo al desmontar
@@ -83,6 +89,8 @@ export function PantallaDashboard() {
 
   // UI
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  // Cierre de caja que se está corrigiendo (null = diálogo cerrado).
+  const [ventaACorregir, setVentaACorregir] = useState<VentaDiaria | null>(null);
 
   // Feedback de registro: aviso de éxito persistente + id de la fila a resaltar.
   const [avisoExito, setAvisoExito] = useState<string | null>(null);
@@ -207,6 +215,19 @@ export function PantallaDashboard() {
     void cargarDashboard();
     void cargarVentas();
     void cargarCajeras();
+  };
+
+  /**
+   * Tras corregir un cierre (201 confirmado): cerrar el diálogo, avisar, resaltar
+   * la fila corregida y refrescar el dashboard (la ganancia cambia: el reverso y la
+   * corrección entran en la suma de los asientos) y la lista de cierres.
+   */
+  const manejarCierreCorregido = (venta: VentaDiaria) => {
+    setVentaACorregir(null);
+    setAvisoExito(t('fin.corr.exitoCorregido'));
+    setIdResaltado(venta.id);
+    void cargarDashboard();
+    void cargarVentas();
   };
 
   // Calcular el total de gastos para los porcentajes de categorías
@@ -558,14 +579,20 @@ export function PantallaDashboard() {
                   <th>{t('fin.dash.thCajera')}</th>
                   <th>{t('fin.dash.thCerradoPor')}</th>
                   <th>{t('fin.dash.thTotalArqueo')}</th>
-                  <th>{t('fin.dash.thTipo')}</th>
+                  <th>{t('fin.corr.thEstado')}</th>
+                  {puedeCorregir && <th className={styles.colAccion}></th>}
                 </tr>
               </thead>
               <tbody>
                 {ventas.map((venta) => (
                   <tr
                     key={venta.id}
-                    className={venta.id === idResaltado ? styles.filaResaltada : undefined}
+                    className={[
+                      venta.id === idResaltado ? styles.filaResaltada : '',
+                      venta.estado === 'anulado' ? styles.filaAnulada : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ') || undefined}
                   >
                     <td>{formatearFecha(venta.fechaOperacion)}</td>
                     <td>
@@ -576,10 +603,23 @@ export function PantallaDashboard() {
                     <td>{venta.cerradoPor}</td>
                     <td>
                       <div className={styles.celdaTotal}>
-                        <span className={styles.montoTotal}>{formatearDinero(venta.monto)}</span>
-                        {venta.detalles.length > 0 && (
+                        {/* El cierre original es inmutable: si se corrigió, su total se
+                            muestra tachado junto al total que vale hoy. */}
+                        {venta.estado === 'vigente' ? (
+                          <span className={styles.montoTotal}>{formatearDinero(venta.monto)}</span>
+                        ) : (
+                          <>
+                            <span className={styles.montoAnterior}>
+                              {formatearDinero(venta.monto)}
+                            </span>
+                            <span className={styles.montoTotal}>
+                              {formatearDinero(venta.montoVigente)}
+                            </span>
+                          </>
+                        )}
+                        {venta.detallesVigentes.length > 0 && (
                           <span className={styles.desgloseArqueo}>
-                            {venta.detalles
+                            {venta.detallesVigentes
                               .map(
                                 (d) =>
                                   `${t(`fin.arqueo.${d.tipoArqueo}`)}: ${formatearDinero(d.monto)}`,
@@ -590,16 +630,45 @@ export function PantallaDashboard() {
                       </div>
                     </td>
                     <td>
-                      <span
-                        className={
-                          venta.tipo === 'normal'
-                            ? styles.badgeNormal
-                            : styles.badgeCorreccion
-                        }
-                      >
-                        {venta.tipo === 'normal' ? t('fin.dash.tipoNormal') : t('fin.dash.tipoCorreccion')}
-                      </span>
+                      {venta.estado === 'vigente' ? (
+                        <span className={styles.badgeVigente}>{t('fin.corr.estadoVigente')}</span>
+                      ) : (
+                        <span
+                          className={
+                            venta.estado === 'anulado' ? styles.badgeAnulado : styles.badgeCorregido
+                          }
+                          title={venta.motivoCorreccion ?? undefined}
+                        >
+                          {t(
+                            venta.estado === 'anulado'
+                              ? 'fin.corr.estadoAnulado'
+                              : 'fin.corr.estadoCorregido',
+                          )}
+                        </span>
+                      )}
                     </td>
+                    {puedeCorregir && (
+                      <td className={styles.colAccion}>
+                        {/* Un cierre admite UNA sola corrección: ya corregido → sin botón. */}
+                        {venta.estado === 'vigente' ? (
+                          <button
+                            type="button"
+                            className={styles.botonAccion}
+                            onClick={() => {
+                              setAvisoExito(null);
+                              setIdResaltado(null);
+                              setVentaACorregir(venta);
+                            }}
+                          >
+                            {t('fin.corr.btnCorregir')}
+                          </button>
+                        ) : (
+                          <span className={styles.motivoCorreccion}>
+                            {venta.motivoCorreccion ?? '—'}
+                          </span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -607,6 +676,19 @@ export function PantallaDashboard() {
           )}
         </div>
       </div>
+
+      {/* Diálogo de corrección del cierre (reverso + corrección del arqueo). */}
+      {ventaACorregir && (
+        <DialogoCorreccion
+          entidad="venta"
+          movimientoId={ventaACorregir.id}
+          descripcion={`${formatearFecha(ventaACorregir.fechaOperacion)} · ${t(`fin.turno.${ventaACorregir.turno}`)} · ${ventaACorregir.cajera}`}
+          montoOriginal={ventaACorregir.monto}
+          arqueoOriginal={ventaACorregir.detallesVigentes}
+          onCerrar={() => setVentaACorregir(null)}
+          onCorregido={() => manejarCierreCorregido(ventaACorregir)}
+        />
+      )}
     </LayoutPrincipal>
   );
 }

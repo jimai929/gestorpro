@@ -12,6 +12,8 @@ import { adaptadorPago } from '../../src/finanzas/cuentas-por-pagar/pago.correcc
 import { adaptadorGasto } from '../../src/finanzas/gastos/gasto.correccion.js';
 import { adaptadorVenta } from '../../src/finanzas/dashboard/venta.correccion.js';
 import { registrarPago } from '../../src/finanzas/cuentas-por-pagar/cuentas-por-pagar.service.js';
+import { listarGastos } from '../../src/finanzas/gastos/gastos.service.js';
+import { listarVentas } from '../../src/finanzas/dashboard/ventas.service.js';
 
 // CONVENCIÓN RLS (ver PLAN_FASE5_RLS §6.4): los fixtures (arrange) se SIEMBRAN con
 // `semilla()` (bypass, como el migrador). Las aserciones POSITIVAS de negocio se
@@ -497,5 +499,109 @@ describe('POST /correcciones (HTTP): doble corrección → 409', () => {
     expect(segunda.json().mensaje).toBe(
       'El movimiento ya fue corregido: no admite una segunda corrección.',
     );
+  });
+});
+
+// ─── Estado de corrección en los LISTADOS (lo consume la UI de corrección) ───
+
+describe('los listados anotan el estado real de cada movimiento', () => {
+  it('gasto: vigente / corregido (montoVigente = corregido) / anulado (montoVigente = 0)', async () => {
+    const empresaId = await crearEmpresa();
+    contador += 1;
+    const sede = await semilla().sede.create({ data: { nombre: `SedeL ${contador}`, empresaId } });
+    const usuario = await semilla().usuario.create({
+      data: { nombre: 'T', email: `l${contador}@gestorpro.local`, rol: 'administrador', passwordHash: 'x' },
+    });
+    const categoria = await semilla().categoriaGasto.create({
+      data: { nombre: `CatL ${contador}`, empresaId },
+    });
+    const fecha = new Date('2026-04-10');
+    const crearGasto = (monto: number) =>
+      semilla().gasto.create({
+        data: {
+          categoriaId: categoria.id, sedeId: sede.id, monto, fechaOperacion: fecha,
+          tipo: 'normal', usuarioId: usuario.id,
+        },
+      });
+    const vigente = await crearGasto(100);
+    const aCorregir = await crearGasto(150);
+    const aAnular = await crearGasto(80);
+
+    await comoEmpresa(empresaId, () =>
+      corregirMovimiento(adaptadorGasto, {
+        movimientoId: aCorregir.id, motivo: 'se tecleó 150 en vez de 15',
+        usuarioId: usuario.id, montoCorregido: 15,
+      }),
+    );
+    await comoEmpresa(empresaId, () =>
+      corregirMovimiento(adaptadorGasto, {
+        movimientoId: aAnular.id, motivo: 'gasto duplicado', usuarioId: usuario.id,
+      }),
+    );
+
+    const lista = await comoEmpresa(empresaId, () =>
+      listarGastos({ desde: '2026-04-01', hasta: '2026-04-30' }),
+    );
+    // El listado sigue devolviendo SOLO los movimientos normales (los asientos no son filas).
+    expect(lista).toHaveLength(3);
+    const porId = new Map(lista.map((g) => [g.id, g]));
+
+    expect(porId.get(vigente.id)?.estado).toBe('vigente');
+    expect(porId.get(vigente.id)?.montoVigente).toBe(100);
+    expect(porId.get(vigente.id)?.motivoCorreccion).toBeNull();
+
+    // El original es inmutable: `monto` sigue siendo 150 y `montoVigente` es el corregido.
+    expect(porId.get(aCorregir.id)?.estado).toBe('corregido');
+    expect(porId.get(aCorregir.id)?.monto).toBe(150);
+    expect(porId.get(aCorregir.id)?.montoVigente).toBe(15);
+    expect(porId.get(aCorregir.id)?.motivoCorreccion).toBe('se tecleó 150 en vez de 15');
+
+    expect(porId.get(aAnular.id)?.estado).toBe('anulado');
+    expect(porId.get(aAnular.id)?.monto).toBe(80);
+    expect(porId.get(aAnular.id)?.montoVigente).toBe(0);
+    expect(porId.get(aAnular.id)?.motivoCorreccion).toBe('gasto duplicado');
+  });
+
+  it('venta: el cierre corregido expone su arqueo VIGENTE (el corregido), no el original', async () => {
+    const empresaId = await crearEmpresa();
+    contador += 1;
+    const sede = await semilla().sede.create({ data: { nombre: `SedeLV ${contador}`, empresaId } });
+    const usuario = await semilla().usuario.create({
+      data: { nombre: 'T', email: `lv${contador}@gestorpro.local`, rol: 'administrador', passwordHash: 'x' },
+    });
+    const venta = await semilla().ventaDiaria.create({
+      data: {
+        sedeId: sede.id, fechaOperacion: new Date('2026-04-12'), turno: 'manana',
+        cajera: 'E001 - Cajero 1', cerradoPor: 'E004 - Verificador 1', monto: 1000,
+        tipo: 'normal', usuarioId: usuario.id,
+        detalles: { create: [{ tipoArqueo: 'efectivo', monto: 600 }, { tipoArqueo: 'tarjeta', monto: 400 }] },
+      },
+    });
+
+    await comoEmpresa(empresaId, () =>
+      corregirMovimiento(adaptadorVenta, {
+        movimientoId: venta.id, motivo: 'faltaban 100 en efectivo', usuarioId: usuario.id,
+        detallesCorregidos: [
+          { tipoArqueo: 'efectivo', monto: 500 },
+          { tipoArqueo: 'tarjeta', monto: 400 },
+        ],
+      }),
+    );
+
+    const lista = await comoEmpresa(empresaId, () =>
+      listarVentas({ desde: '2026-04-01', hasta: '2026-04-30' }),
+    );
+    expect(lista).toHaveLength(1); // solo el cierre normal; los asientos no son filas
+    const fila = lista[0]!;
+    expect(fila.estado).toBe('corregido');
+    expect(fila.monto).toBe(1000); // original inmutable
+    expect(fila.montoVigente).toBe(900); // 500 + 400
+    expect(fila.motivoCorreccion).toBe('faltaban 100 en efectivo');
+    // El arqueo vigente es el CORREGIDO (el original se conserva aparte, en `detalles`).
+    expect(fila.detallesVigentes).toEqual([
+      { tipoArqueo: 'efectivo', monto: 500 },
+      { tipoArqueo: 'tarjeta', monto: 400 },
+    ]);
+    expect(fila.detalles.reduce((acc, d) => acc + d.monto, 0)).toBe(1000);
   });
 });

@@ -49,6 +49,15 @@ export interface LineaArqueo {
   monto: number;
 }
 
+/**
+ * Estado de corrección de un movimiento de dinero (lo calcula el backend a partir
+ * de los asientos colgados del original, que es inmutable):
+ *   vigente   → sin corregir; vale su monto.
+ *   anulado   → reverso sin corrección; vale 0.
+ *   corregido → reverso + corrección; vale `montoVigente`.
+ */
+export type EstadoMovimiento = 'vigente' | 'anulado' | 'corregido';
+
 /** Elemento de la lista de GET /ventas (un cierre de caja con su arqueo). */
 export interface VentaDiaria {
   id: string;
@@ -59,9 +68,13 @@ export interface VentaDiaria {
   cerradoPor: string;       // snapshot del verificador
   horaApertura: string | null;
   horaCierre: string | null;
-  monto: number;            // total del arqueo (cuadra con Firestec)
+  monto: number;            // total ORIGINAL del arqueo (inmutable)
   tipo: string;
-  detalles: LineaArqueo[];
+  detalles: LineaArqueo[];  // arqueo ORIGINAL
+  estado: EstadoMovimiento;
+  montoVigente: number;     // total que vale hoy (0 si se anuló)
+  motivoCorreccion: string | null;
+  detallesVigentes: LineaArqueo[]; // arqueo que vale hoy ([] si se anuló)
 }
 
 /** Empleado para los selects de cajera/verificador del cierre. */

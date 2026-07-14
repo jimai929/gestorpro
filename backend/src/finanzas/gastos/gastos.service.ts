@@ -1,6 +1,7 @@
 import type { ClienteTx } from '../../core/prisma.js';
 import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../../core/errors.js';
+import { resumirCorreccion } from '../../shared/services/correccion.estado.js';
 
 /** Serializa el monto (Decimal) a number para el contrato de la API. */
 function aGastoDto<T extends { monto: { toString(): string } }>(gasto: T) {
@@ -312,8 +313,16 @@ export async function listarGastos(filtros: {
         : {}),
     },
     orderBy: { fechaOperacion: 'desc' },
-    include: { categoria: true },
+    include: {
+      categoria: true,
+      // Asientos que corrigen este gasto (reverso y, si la hubo, corrección). El
+      // original es INMUTABLE: su estado real solo se conoce mirando sus asientos.
+      correcciones: { select: { id: true, tipo: true, monto: true, motivo: true } },
+    },
     }),
   );
-  return gastos.map(aGastoDto);
+  return gastos.map((gasto) => {
+    const { correcciones, ...resto } = gasto;
+    return { ...aGastoDto(resto), ...resumirCorreccion(Number(gasto.monto), correcciones) };
+  });
 }

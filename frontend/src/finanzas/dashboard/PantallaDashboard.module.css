@@ -476,3 +476,77 @@
   justify-content: space-between;
   gap: 1rem;
 }
+
+/* ── Corrección de cierres de caja (reverso + corrección) ── */
+
+/* Cierre anulado: se atenúa, pero NUNCA se oculta (el original es inmutable). */
+.filaAnulada td {
+  opacity: 0.62;
+}
+
+/* Total original de un cierre corregido/anulado: tachado, nunca borrado. */
+.montoAnterior {
+  text-decoration: line-through;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 0.8125rem;
+}
+
+.badgeVigente,
+.badgeCorregido,
+.badgeAnulado {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeVigente {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.badgeCorregido {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.badgeAnulado {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+}
+
+.colAccion {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.botonAccion {
+  background: none;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.botonAccion:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-text-muted);
+}
+
+/* Motivo de la corrección, en la columna de acción de un cierre ya corregido. */
+.motivoCorreccion {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}

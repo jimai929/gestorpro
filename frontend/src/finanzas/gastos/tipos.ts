@@ -23,16 +23,28 @@ export interface Sede {
 
 // ── Gasto (respuesta del backend) ─────────────────────────────────────────
 
+/**
+ * Estado de corrección de un movimiento de dinero (lo calcula el backend a partir
+ * de los asientos colgados del original, que es inmutable):
+ *   vigente   → sin corregir; vale su monto.
+ *   anulado   → reverso sin corrección; vale 0.
+ *   corregido → reverso + corrección; vale `montoVigente`.
+ */
+export type EstadoMovimiento = 'vigente' | 'anulado' | 'corregido';
+
 export interface Gasto {
   id: string;
   categoriaId: string;
   sedeId: string;
-  monto: number;
+  monto: number;               // monto ORIGINAL (inmutable)
   fechaOperacion: string;      // YYYY-MM-DD
   descripcion: string | null;
   empleadoId: string | null;
   tipoPago: string | null;
   tipo: string;
+  estado: EstadoMovimiento;
+  montoVigente: number;        // lo que vale hoy: original, 0 (anulado) o el corregido
+  motivoCorreccion: string | null;
   categoria: {
     nombre: string;
     esPagoEmpleado: boolean;

@@ -163,6 +163,8 @@ const ventaCreada: VentaDiaria = {
   cajera: 'E001 - María Pérez', cerradoPor: 'E004 - Carlos Méndez',
   horaApertura: null, horaCierre: null, monto: 100, tipo: 'normal',
   detalles: [{ tipoArqueo: 'efectivo', monto: 100 }],
+  estado: 'vigente', montoVigente: 100, motivoCorreccion: null,
+  detallesVigentes: [{ tipoArqueo: 'efectivo', monto: 100 }],
 };
 
 describe('FormularioVenta — Enter no registra el cierre por accidente', () => {

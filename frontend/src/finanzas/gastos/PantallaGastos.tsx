@@ -15,8 +15,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioGasto } from './FormularioGasto';
+import { DialogoCorreccion } from '../correcciones';
 import { obtenerGastos, obtenerEmpleados } from './servicioGastos';
 import { formatearDinero, formatearFecha, primerDiaDelMes, fechaHoy } from './utilidades';
 import type { Gasto } from './tipos';
@@ -24,6 +26,10 @@ import styles from './PantallaGastos.module.css';
 
 export function PantallaGastos() {
   const { t } = useTraduccion();
+  const { usuario } = useAuth();
+  // Corregir dinero es una acción de GESTIÓN: el backend la limita a
+  // supervisor/administrador (POST /correcciones). La UI se alinea con ese guard.
+  const puedeCorregir = usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
 
   // Monta el tema oscuro mientras esta pantalla está visible; restaura el
   // valor previo al desmontar para no dejar dark residual en páginas claras.
@@ -48,6 +54,9 @@ export function PantallaGastos() {
 
   // Estado de UI
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  // Gasto que se está corrigiendo (null = diálogo cerrado) y aviso del resultado.
+  const [gastoACorregir, setGastoACorregir] = useState<Gasto | null>(null);
+  const [avisoCorreccion, setAvisoCorreccion] = useState<string | null>(null);
 
   // Mapa empleadoId → "número - nombre" para mostrar el empleado del gasto
   // (el backend solo devuelve empleadoId). Carga no crítica: si falla, se
@@ -97,11 +106,21 @@ export function PantallaGastos() {
   /** Tras registrar un gasto, cerrar el formulario y refrescar la lista. */
   const manejarGastoRegistrado = () => {
     setMostrarFormulario(false);
+    setAvisoCorreccion(null);
     void cargarGastos();
   };
 
-  // Total del período
-  const totalPeriodo = gastos.reduce((acc, g) => acc + g.monto, 0);
+  /** Tras una corrección (201 confirmado): avisar, cerrar el diálogo y refrescar. */
+  const manejarCorregido = () => {
+    setGastoACorregir(null);
+    setAvisoCorreccion(t('fin.corr.exitoCorregido'));
+    void cargarGastos();
+  };
+
+  // Total del período: cuenta el monto VIGENTE (un gasto anulado suma 0; uno
+  // corregido suma su importe corregido). Así el total refleja lo que de verdad
+  // se gastó, igual que el dashboard, que suma los asientos en SQL.
+  const totalPeriodo = gastos.reduce((acc, g) => acc + g.montoVigente, 0);
 
   return (
     <LayoutPrincipal>
@@ -161,6 +180,7 @@ export function PantallaGastos() {
 
         {/* Tabla de gastos */}
         <div className={styles.tarjeta}>
+          {avisoCorreccion && <div className={styles.avisoInfo}>{avisoCorreccion}</div>}
           {errorCarga && (
             <div className={styles.errorCarga}>
               <span>{errorCarga}</span>
@@ -191,15 +211,33 @@ export function PantallaGastos() {
                     <th>{t('fin.gasto.thFecha')}</th>
                     <th>{t('fin.gasto.thEmpleado')}</th>
                     <th>{t('fin.gasto.thTipoPago')}</th>
+                    <th>{t('fin.corr.thEstado')}</th>
+                    {puedeCorregir && <th className={styles.colAccion}></th>}
                   </tr>
                 </thead>
                 <tbody>
                   {gastos.map((gasto) => (
-                    <tr key={gasto.id}>
+                    <tr
+                      key={gasto.id}
+                      className={gasto.estado === 'anulado' ? styles.filaAnulada : undefined}
+                    >
                       <td>{gasto.categoria.nombre}</td>
                       <td>{gasto.descripcion ?? '—'}</td>
                       <td className={styles.monto}>
-                        {formatearDinero(gasto.monto)}
+                        {/* El original es inmutable: si se corrigió, se muestra tachado
+                            junto al monto que vale hoy (nunca se sobrescribe). */}
+                        {gasto.estado === 'vigente' ? (
+                          formatearDinero(gasto.monto)
+                        ) : (
+                          <>
+                            <span className={styles.montoAnterior}>
+                              {formatearDinero(gasto.monto)}
+                            </span>
+                            <span className={styles.montoVigente}>
+                              {formatearDinero(gasto.montoVigente)}
+                            </span>
+                          </>
+                        )}
                       </td>
                       <td>{formatearFecha(gasto.fechaOperacion)}</td>
                       <td className={styles.celdaEmpleado}>
@@ -214,6 +252,45 @@ export function PantallaGastos() {
                       <td className={styles.celdaEmpleado}>
                         {gasto.tipoPago ?? '—'}
                       </td>
+                      <td>
+                        {gasto.estado === 'vigente' ? (
+                          <span className={styles.badgeVigente}>{t('fin.corr.estadoVigente')}</span>
+                        ) : (
+                          <span
+                            className={
+                              gasto.estado === 'anulado' ? styles.badgeAnulado : styles.badgeCorregido
+                            }
+                            title={gasto.motivoCorreccion ?? undefined}
+                          >
+                            {t(
+                              gasto.estado === 'anulado'
+                                ? 'fin.corr.estadoAnulado'
+                                : 'fin.corr.estadoCorregido',
+                            )}
+                          </span>
+                        )}
+                      </td>
+                      {puedeCorregir && (
+                        <td className={styles.colAccion}>
+                          {/* Un movimiento admite UNA sola corrección: ya corregido → sin botón. */}
+                          {gasto.estado === 'vigente' ? (
+                            <button
+                              type="button"
+                              className={styles.botonAccion}
+                              onClick={() => {
+                                setAvisoCorreccion(null);
+                                setGastoACorregir(gasto);
+                              }}
+                            >
+                              {t('fin.corr.btnCorregir')}
+                            </button>
+                          ) : (
+                            <span className={styles.motivoCorreccion}>
+                              {gasto.motivoCorreccion ?? '—'}
+                            </span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -235,6 +312,18 @@ export function PantallaGastos() {
           )}
         </div>
       </div>
+
+      {/* Diálogo de corrección (reverso + corrección). Solo supervisor/admin. */}
+      {gastoACorregir && (
+        <DialogoCorreccion
+          entidad="gasto"
+          movimientoId={gastoACorregir.id}
+          descripcion={`${gastoACorregir.categoria.nombre} · ${formatearFecha(gastoACorregir.fechaOperacion)}`}
+          montoOriginal={gastoACorregir.monto}
+          onCerrar={() => setGastoACorregir(null)}
+          onCorregido={manejarCorregido}
+        />
+      )}
     </LayoutPrincipal>
   );
 }
