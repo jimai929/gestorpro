@@ -12,7 +12,11 @@ import { RutaNegocio } from './core/auth/RutaNegocio';
 import { PantallaLogin } from './core/auth/PantallaLogin';
 import { PantallaInicio } from './PantallaInicio';
 import { PantallaPlataforma } from './plataforma';
-import { PantallaCuentasPorPagar, PantallaProveedores } from './finanzas/cuentas-por-pagar';
+import {
+  PantallaCuentasPorPagar,
+  PantallaProveedores,
+  PantallaPagos,
+} from './finanzas/cuentas-por-pagar';
 import { PantallaSedes } from './administracion/sedes';
 import { PantallaEmpleados } from './administracion/empleado';
 import { PantallaKioscos } from './administracion/kioscos';
@@ -32,6 +36,7 @@ import { PantallaCobros } from './asistencia/cobro/PantallaCobros';
  *   /kiosco                → Kiosco de fichaje (PÚBLICA — no requiere sesión)
  *   /                      → Guard → PantallaInicio (protegida)
  *   /cuentas-por-pagar     → Módulo de cuentas por pagar (protegida)
+ *   /pagos                 → Historial de pagos a proveedor + corrección (protegida)
  *   /proveedores           → Gestión de proveedores (protegida)
  *   /gastos                → Módulo de gastos (protegida)
  *   /dashboard             → Dashboard de ganancias (protegida)
@@ -71,6 +76,10 @@ const router = createBrowserRouter([
           {
             path: '/proveedores',
             element: <PantallaProveedores />,
+          },
+          {
+            path: '/pagos',
+            element: <PantallaPagos />,
           },
           {
             path: '/gastos',

@@ -13,6 +13,8 @@ import type {
   CuerpoCrearCompra,
   CuerpoRegistrarPago,
   Compra,
+  FiltrosPagos,
+  RespuestaHistorialPagos,
 } from './tipos';
 
 // ── Sedes ─────────────────────────────────────────────────────────────────
@@ -87,4 +89,28 @@ export function obtenerCuentasPorPagar(filtros?: {
  */
 export function registrarPago(cuerpo: CuerpoRegistrarPago): Promise<unknown> {
   return api.post<unknown>('/pagos', cuerpo);
+}
+
+/**
+ * Historial de pagos de la empresa (GET /cuentas-por-pagar/pagos).
+ *
+ * Devuelve la página pedida, su paginación y un resumen calculado sobre TODO el
+ * conjunto filtrado (no solo la página): los totales de arriba son los de verdad.
+ * Cada pago trae su estado de corrección (vigente / corregido / anulado) y el
+ * monto que vale hoy; el monto original nunca se sobrescribe.
+ */
+export function obtenerHistorialPagos(
+  filtros: FiltrosPagos = {},
+): Promise<RespuestaHistorialPagos> {
+  const params = new URLSearchParams();
+  if (filtros.proveedorId) params.set('proveedorId', filtros.proveedorId);
+  if (filtros.desde) params.set('desde', filtros.desde);
+  if (filtros.hasta) params.set('hasta', filtros.hasta);
+  if (filtros.estado) params.set('estado', filtros.estado);
+  if (filtros.pagina) params.set('pagina', String(filtros.pagina));
+  if (filtros.tamano) params.set('tamano', String(filtros.tamano));
+  const query = params.toString();
+  return api.get<RespuestaHistorialPagos>(
+    `/cuentas-por-pagar/pagos${query ? `?${query}` : ''}`,
+  );
 }

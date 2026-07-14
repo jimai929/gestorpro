@@ -16,6 +16,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router';
+import { History } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
@@ -109,11 +111,18 @@ export function PantallaCuentasPorPagar() {
               {t('fin.cxp.subtitulo')}
             </p>
           </div>
-          <Boton
-            onClick={() => setMostrarFormFactura((prev) => !prev)}
-          >
-            {mostrarFormFactura ? t('fin.cerrarFormulario') : t('fin.cxp.btnRegistrar')}
-          </Boton>
+          <div className={styles.accionesEncabezado}>
+            {/* Entrada visible al historial: desde aquí se ve qué se pagó y se corrige. */}
+            <Link to="/pagos" className={styles.enlaceHistorial}>
+              <History size={16} strokeWidth={1.75} aria-hidden />
+              {t('fin.pagos.verHistorial')}
+            </Link>
+            <Boton
+              onClick={() => setMostrarFormFactura((prev) => !prev)}
+            >
+              {mostrarFormFactura ? t('fin.cerrarFormulario') : t('fin.cxp.btnRegistrar')}
+            </Boton>
+          </div>
         </div>
 
         {/* Formulario de nueva factura */}

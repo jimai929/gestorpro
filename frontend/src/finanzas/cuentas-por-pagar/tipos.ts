@@ -92,3 +92,63 @@ export interface CuerpoRegistrarPago {
   monto: number;
   fechaPago?: string;         // YYYY-MM-DD
 }
+
+// ── Historial de pagos (GET /cuentas-por-pagar/pagos) ─────────────────────
+
+/**
+ * Estado de corrección de un pago (lo calcula el backend a partir de los asientos
+ * colgados del original, que es INMUTABLE):
+ *   vigente   → sin corregir; vale su monto.
+ *   anulado   → reverso sin corrección; vale 0.
+ *   corregido → reverso + corrección; vale `montoVigente`.
+ */
+export type EstadoPago = 'vigente' | 'corregido' | 'anulado';
+
+/** Una fila del historial: un pago `normal` con su estado de corrección. */
+export interface PagoHistorial {
+  id: string;
+  fechaPago: string;
+  monto: number;              // monto ORIGINAL (inmutable)
+  estado: EstadoPago;
+  montoVigente: number;       // lo que vale hoy (0 si se anuló)
+  motivoCorreccion: string | null;
+  compraId: string;
+  numeroFactura: string;
+  montoFactura: number;
+  proveedorId: string;
+  proveedorNombre: string;
+  /** Nombre del usuario que registró el pago (null si ya no existe). */
+  registradoPor: string | null;
+  creadoEn: string;
+}
+
+export interface PaginacionPagos {
+  pagina: number;
+  tamano: number;
+  total: number;
+  paginas: number;
+}
+
+/** Resumen del CONJUNTO filtrado completo (no solo de la página visible). */
+export interface ResumenPagos {
+  cantidad: number;
+  totalOriginal: number;
+  totalVigente: number;
+  /** Original − vigente: lo que las correcciones quitaron (negativo si añadieron). */
+  diferencia: number;
+}
+
+export interface RespuestaHistorialPagos {
+  pagos: PagoHistorial[];
+  paginacion: PaginacionPagos;
+  resumen: ResumenPagos;
+}
+
+export interface FiltrosPagos {
+  proveedorId?: string;
+  desde?: string;             // YYYY-MM-DD
+  hasta?: string;             // YYYY-MM-DD
+  estado?: EstadoPago;
+  pagina?: number;
+  tamano?: number;
+}

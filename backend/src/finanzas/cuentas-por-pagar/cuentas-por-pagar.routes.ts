@@ -8,7 +8,28 @@ import {
   listarCompras,
   registrarPago,
   listarCuentasPorPagar,
+  listarPagos,
+  type EstadoPago,
 } from './cuentas-por-pagar.service.js';
+
+/**
+ * GET /cuentas-por-pagar/pagos — historial de pagos. Todo opcional; los tipos se
+ * validan aquí (así una `pagina` no numérica es 400, no una consulta rara).
+ */
+const esquemaHistorialPagos = {
+  querystring: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      proveedorId: { type: 'string', minLength: 1 },
+      desde: { type: 'string', minLength: 1 },
+      hasta: { type: 'string', minLength: 1 },
+      estado: { type: 'string', enum: ['vigente', 'corregido', 'anulado'] },
+      pagina: { type: 'integer', minimum: 1 },
+      tamano: { type: 'integer', minimum: 1, maximum: 100 },
+    },
+  },
+} as const;
 
 const esquemaProveedor = {
   body: {
@@ -169,6 +190,30 @@ export async function cuentasPorPagarRoutes(app: FastifyInstance): Promise<void>
           usuarioId: request.user.sub, // del token, nunca del body
         });
         return await reply.code(201).send(pago);
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Historial de pagos (lectura para cualquier autenticado; corregir sigue siendo
+  // supervisor/admin en POST /correcciones). Va ANTES de rutas más genéricas para
+  // que no lo capture ninguna otra; el tenant sale del token vía RLS.
+  app.get<{
+    Querystring: {
+      proveedorId?: string;
+      desde?: string;
+      hasta?: string;
+      estado?: EstadoPago;
+      pagina?: number;
+      tamano?: number;
+    };
+  }>(
+    '/cuentas-por-pagar/pagos',
+    { ...autenticado, schema: esquemaHistorialPagos },
+    async (request, reply) => {
+      try {
+        return await reply.send(await listarPagos(request.query));
       } catch (error) {
         return responderError(error, request, reply);
       }

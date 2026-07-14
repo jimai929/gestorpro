@@ -1,0 +1,355 @@
+/* ── Historial de pagos a proveedor ───────────────────────────────────────
+   Mismo lenguaje visual que gastos / cuentas por pagar: solo tokens, sin
+   hexadecimales nuevos. */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ── Encabezado ── */
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tituloPagina {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.subtitulo {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  margin: 0.15rem 0 0;
+}
+
+/* ── Resumen (del conjunto filtrado completo, no de la página) ── */
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.tarjetaResumen {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.etiquetaResumen {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.valorResumen {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.valorResumenFuerte {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Diferencia distinta de cero: hubo correcciones en el rango filtrado. */
+.valorResumenAlerta {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-warning);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Filtros ── */
+
+.filtros {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border);
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.grupoFiltro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.etiquetaFiltro {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.inputFiltro,
+.selectFiltro {
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  outline: none;
+  font-family: inherit;
+}
+
+.inputFiltro:focus-visible,
+.selectFiltro:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+/* ── Tarjeta de la tabla ── */
+
+.tarjeta {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* La tabla scrollea DENTRO de su tarjeta: en móvil la página no se rompe. */
+.contenedorTabla {
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  min-width: 720px;
+}
+
+.tabla th {
+  text-align: left;
+  padding: 0.75rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 0.75rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  vertical-align: middle;
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tabla tbody tr:hover {
+  background: var(--color-surface-raised);
+}
+
+/* Pago anulado: se atenúa, pero NUNCA se oculta (el original es inmutable). */
+.filaAnulada td {
+  opacity: 0.62;
+}
+
+.celdaSecundaria {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.montoFactura {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.monto {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+/* Monto original de un pago corregido/anulado: tachado, nunca borrado. */
+.montoTachado {
+  text-decoration: line-through;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.montoVigente {
+  color: var(--color-primary);
+}
+
+/* Un pago anulado vale B/. 0.00: se marca en rojo, no se oculta. */
+.montoCero {
+  color: var(--color-danger);
+}
+
+/* ── Badges de estado ── */
+
+.badgeVigente,
+.badgeCorregido,
+.badgeAnulado {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeVigente {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.badgeCorregido {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.badgeAnulado {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+}
+
+/* ── Acción de fila ── */
+
+.colAccion {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.botonAccion {
+  background: none;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.botonAccion:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-text-muted);
+}
+
+.motivoCorreccion {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* ── Paginación ── */
+
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.indicadorPagina {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Estados de carga / vacío / error ── */
+
+.estadoCarga,
+.estadoVacio {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+.errorCarga {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  color: var(--color-danger);
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Fallo NO crítico (catálogo de proveedores del filtro): el historial sigue usable. */
+.errorSuave {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  border-radius: 12px;
+  padding: 0.875rem 1.25rem;
+  color: var(--color-warning);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Aviso de corrección registrada (no es error). */
+.avisoInfo {
+  background: var(--color-primary-bg);
+  border: 1px solid var(--color-primary-bg);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  color: var(--color-primary-hover);
+  font-size: 0.9375rem;
+  margin-bottom: 1rem;
+}
+
+/* Móvil: los filtros se apilan y ocupan el ancho. */
+@media (max-width: 640px) {
+  .filtros {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .grupoFiltro {
+    width: 100%;
+  }
+
+  .inputFiltro,
+  .selectFiltro {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}

@@ -4,6 +4,12 @@ import {
   ErrorNoEncontrado,
   ErrorValidacion,
 } from '../../core/errors.js';
+import { resumirCorreccion } from '../../shared/services/correccion.estado.js';
+
+/** Redondea a 2 decimales (los montos ya vienen de Decimal; esto solo evita 0.1+0.2). */
+function redondearDinero(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 /** True si `error` es un error conocido de Prisma con el código dado (P2002, etc.). */
 function esErrorPrisma(error: unknown, codigo: string): boolean {
@@ -298,4 +304,186 @@ export async function listarCuentasPorPagar(filtros: {
   );
 
   return filas.map(aCuentaDto);
+}
+
+// ─── Historial de pagos (lectura) ───────────────────────────────────────────
+
+/** Estados de corrección por los que se puede filtrar el historial. */
+export type EstadoPago = 'vigente' | 'corregido' | 'anulado';
+
+export interface FiltrosPagos {
+  proveedorId?: string;
+  desde?: string;
+  hasta?: string;
+  estado?: EstadoPago;
+  pagina?: number;
+  tamano?: number;
+}
+
+/** Tamaño de página por defecto y máximo (evita respuestas ilimitadas). */
+const TAMANO_PAGINA_DEFECTO = 20;
+const TAMANO_PAGINA_MAXIMO = 100;
+
+/**
+ * `where` de Prisma para el historial. Se comparte entre la página, el conteo y
+ * el resumen: los tres tienen que hablar exactamente del MISMO conjunto.
+ *
+ * Solo movimientos `normal` (los asientos de reverso/corrección cuelgan de ellos,
+ * no son filas del historial). El estado se traduce a la existencia de asientos,
+ * que es la MISMA definición que usa `resumirCorreccion`:
+ *   vigente   → sin reverso
+ *   anulado   → con reverso y sin corrección
+ *   corregido → con corrección
+ */
+function whereHistorial(filtros: FiltrosPagos) {
+  const rango =
+    filtros.desde || filtros.hasta
+      ? {
+          fechaPago: {
+            ...(filtros.desde ? { gte: new Date(filtros.desde) } : {}),
+            ...(filtros.hasta ? { lte: new Date(filtros.hasta) } : {}),
+          },
+        }
+      : {};
+
+  const porEstado =
+    filtros.estado === 'vigente'
+      ? { correcciones: { none: { tipo: 'reverso' as const } } }
+      : filtros.estado === 'anulado'
+        ? {
+            AND: [
+              { correcciones: { some: { tipo: 'reverso' as const } } },
+              { correcciones: { none: { tipo: 'correccion' as const } } },
+            ],
+          }
+        : filtros.estado === 'corregido'
+          ? { correcciones: { some: { tipo: 'correccion' as const } } }
+          : {};
+
+  return {
+    tipo: 'normal' as const,
+    ...(filtros.proveedorId ? { compra: { proveedorId: filtros.proveedorId } } : {}),
+    ...rango,
+    ...porEstado,
+  };
+}
+
+/**
+ * Historial de pagos a proveedor de la empresa actual (RLS vía `txEmpresa`:
+ * `pago_proveedor` hereda el tenant por su compra → sede → empresa).
+ *
+ * Devuelve la página pedida MÁS un resumen calculado sobre TODO el conjunto
+ * filtrado (no solo la página): el usuario ve el total real de lo que filtró.
+ * El estado y el monto vigente salen de `resumirCorreccion` — el mismo algoritmo
+ * que usan los listados de gastos y cierres; aquí no hay una segunda versión.
+ *
+ * Nota de modelo: `PagoProveedor` NO tiene método de pago, referencia ni notas.
+ * No se inventan: se expone lo que existe (compra/factura, monto, fecha, quién lo
+ * registró y cuándo).
+ */
+export async function listarPagos(filtros: FiltrosPagos) {
+  const pagina = Math.max(1, Math.trunc(filtros.pagina ?? 1));
+  const tamano = Math.min(
+    TAMANO_PAGINA_MAXIMO,
+    Math.max(1, Math.trunc(filtros.tamano ?? TAMANO_PAGINA_DEFECTO)),
+  );
+  const where = whereHistorial(filtros);
+
+  const { filas, total, todos } = await txEmpresa(async (tx) => {
+    // Página + conteo + material del resumen. El resumen se lee aparte porque debe
+    // cubrir TODO el filtro, no la página: se piden solo monto y asientos (proyección
+    // mínima), no las relaciones de presentación.
+    const [filas, total, todos] = await Promise.all([
+      tx.pagoProveedor.findMany({
+        where,
+        orderBy: [{ fechaPago: 'desc' }, { creadoEn: 'desc' }],
+        skip: (pagina - 1) * tamano,
+        take: tamano,
+        select: {
+          id: true,
+          monto: true,
+          fechaPago: true,
+          creadoEn: true,
+          usuarioId: true,
+          compra: {
+            select: {
+              id: true,
+              numeroFactura: true,
+              montoTotal: true,
+              proveedor: { select: { id: true, nombre: true } },
+            },
+          },
+          // Asientos colgados (reverso y, si la hubo, corrección): de aquí sale el estado.
+          correcciones: { select: { tipo: true, monto: true, motivo: true } },
+        },
+      }),
+      tx.pagoProveedor.count({ where }),
+      tx.pagoProveedor.findMany({
+        where,
+        select: { monto: true, correcciones: { select: { tipo: true, monto: true, motivo: true } } },
+      }),
+    ]);
+    return { filas, total, todos };
+  });
+
+  // Nombres de quien registró cada pago: UNA consulta para todos los ids de la
+  // página (nada de N+1). `usuario` está fuera de RLS (allowlist) y solo se
+  // resuelven los ids que ya vinieron en los pagos de esta empresa.
+  const idsUsuario = [...new Set(filas.map((p) => p.usuarioId))];
+  const usuarios = idsUsuario.length
+    ? await txEmpresa((tx) =>
+        tx.usuario.findMany({
+          where: { id: { in: idsUsuario } },
+          select: { id: true, nombre: true },
+        }),
+      )
+    : [];
+  const nombrePorUsuario = new Map(usuarios.map((u) => [u.id, u.nombre]));
+
+  const pagos = filas.map((p) => {
+    const monto = Number(p.monto);
+    const resumen = resumirCorreccion(monto, p.correcciones);
+    return {
+      id: p.id,
+      fechaPago: p.fechaPago,
+      monto, // monto ORIGINAL (inmutable)
+      ...resumen, // estado · montoVigente · motivoCorreccion
+      compraId: p.compra.id,
+      numeroFactura: p.compra.numeroFactura,
+      montoFactura: Number(p.compra.montoTotal),
+      proveedorId: p.compra.proveedor.id,
+      proveedorNombre: p.compra.proveedor.nombre,
+      registradoPor: nombrePorUsuario.get(p.usuarioId) ?? null,
+      creadoEn: p.creadoEn,
+    };
+  });
+
+  // Resumen del CONJUNTO filtrado completo (mismo `where`, mismo algoritmo de estado).
+  const resumen = todos.reduce(
+    (acc, p) => {
+      const monto = Number(p.monto);
+      const { montoVigente } = resumirCorreccion(monto, p.correcciones);
+      acc.totalOriginal += monto;
+      acc.totalVigente += montoVigente;
+      return acc;
+    },
+    { cantidad: total, totalOriginal: 0, totalVigente: 0 },
+  );
+
+  return {
+    pagos,
+    paginacion: {
+      pagina,
+      tamano,
+      total,
+      paginas: Math.max(1, Math.ceil(total / tamano)),
+    },
+    resumen: {
+      cantidad: resumen.cantidad,
+      totalOriginal: redondearDinero(resumen.totalOriginal),
+      totalVigente: redondearDinero(resumen.totalVigente),
+      // Lo que las correcciones quitaron (o añadieron, si el importe correcto era mayor).
+      diferencia: redondearDinero(resumen.totalOriginal - resumen.totalVigente),
+    },
+  };
 }

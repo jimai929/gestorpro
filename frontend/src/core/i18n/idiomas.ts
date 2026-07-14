@@ -95,6 +95,7 @@ const es: Diccionario = {
 
   // Navegación (enlaces de módulo)
   'nav.cuentasPorPagar': 'Cuentas por pagar',
+  'nav.historialPagos': 'Historial de pagos',
   'nav.gastos': 'Gastos',
   'nav.dashboard': 'Dashboard',
   'nav.sedes': 'Sedes',
@@ -172,6 +173,7 @@ const en: Diccionario = {
   'inicio.asistenciaDesc': 'Clock-in, work shifts and overtime advance payment.',
 
   'nav.cuentasPorPagar': 'Accounts payable',
+  'nav.historialPagos': 'Payment history',
   'nav.gastos': 'Expenses',
   'nav.dashboard': 'Dashboard',
   'nav.sedes': 'Locations',
@@ -248,6 +250,7 @@ const zh: Diccionario = {
   'inicio.asistenciaDesc': '打卡、工时和加班预支。',
 
   'nav.cuentasPorPagar': '应付账款',
+  'nav.historialPagos': '付款历史',
   'nav.gastos': '支出',
   'nav.dashboard': '看板',
   'nav.sedes': '门店',
