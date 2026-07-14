@@ -12,6 +12,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router';
+import { FileText } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -152,6 +154,11 @@ export function PantallaPagos() {
             <h1 className={styles.tituloPagina}>{t('fin.pagos.titulo')}</h1>
             <p className={styles.subtitulo}>{t('fin.pagos.subtitulo')}</p>
           </div>
+          {/* Conciliar con un proveedor concreto: documento imprimible / CSV. */}
+          <Link to="/estado-cuenta" className={styles.enlaceEstadoCuenta}>
+            <FileText size={16} strokeWidth={1.75} aria-hidden />
+            {t('fin.ec.verEstadoCuenta')}
+          </Link>
         </div>
 
         {/* ── Resumen del conjunto FILTRADO completo (no solo de esta página) ── */}

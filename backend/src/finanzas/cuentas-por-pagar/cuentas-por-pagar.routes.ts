@@ -11,6 +11,21 @@ import {
   listarPagos,
   type EstadoPago,
 } from './cuentas-por-pagar.service.js';
+import { estadoCuentaProveedor } from './estado-cuenta.service.js';
+
+/** GET /cuentas-por-pagar/estado-cuenta — proveedor y rango son OBLIGATORIOS. */
+const esquemaEstadoCuenta = {
+  querystring: {
+    type: 'object',
+    required: ['proveedorId', 'desde', 'hasta'],
+    additionalProperties: false,
+    properties: {
+      proveedorId: { type: 'string', minLength: 1 },
+      desde: { type: 'string', minLength: 1 },
+      hasta: { type: 'string', minLength: 1 },
+    },
+  },
+} as const;
 
 /**
  * GET /cuentas-por-pagar/pagos — historial de pagos. Todo opcional; los tipos se
@@ -214,6 +229,21 @@ export async function cuentasPorPagarRoutes(app: FastifyInstance): Promise<void>
     async (request, reply) => {
       try {
         return await reply.send(await listarPagos(request.query));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Estado de cuenta de un proveedor (documento de conciliación). Lectura para
+  // cualquier autenticado, igual que el resto de lecturas del módulo; el tenant sale
+  // del token (RLS): un proveedor de otra empresa da 404.
+  app.get<{ Querystring: { proveedorId: string; desde: string; hasta: string } }>(
+    '/cuentas-por-pagar/estado-cuenta',
+    { ...autenticado, schema: esquemaEstadoCuenta },
+    async (request, reply) => {
+      try {
+        return await reply.send(await estadoCuentaProveedor(request.query));
       } catch (error) {
         return responderError(error, request, reply);
       }

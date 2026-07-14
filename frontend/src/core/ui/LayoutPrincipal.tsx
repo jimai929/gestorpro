@@ -23,7 +23,7 @@ import {
   Receipt, Truck, CreditCard, Tags, BarChart3,
   MapPin, Users, Monitor, UserCog,
   ClipboardCheck, CalendarDays, Banknote,
-  KeyRound, LogOut, History,
+  KeyRound, LogOut, History, FileText,
 } from 'lucide-react';
 import { useAuth } from '../auth/ContextoAuth';
 import { DialogoCambiarContrasena } from '../auth/DialogoCambiarContrasena';
@@ -87,6 +87,8 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
           { to: '/cuentas-por-pagar', clave: 'nav.cuentasPorPagar', icono: Receipt },
           // Historial de pagos: operación diaria (consultar qué se pagó y corregir errores).
           { to: '/pagos', clave: 'nav.historialPagos', icono: History },
+          // Estado de cuenta: conciliar con el proveedor (imprimible / CSV).
+          { to: '/estado-cuenta', clave: 'nav.estadoCuenta', icono: FileText },
           { to: '/gastos', clave: 'nav.gastos', icono: CreditCard },
           // Empleados es página de GESTIÓN (backend `soloGestion`): el empleado no la ve.
           ...(puedeGestionar

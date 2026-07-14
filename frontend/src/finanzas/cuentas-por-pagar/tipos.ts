@@ -152,3 +152,53 @@ export interface FiltrosPagos {
   pagina?: number;
   tamano?: number;
 }
+
+// ── Estado de cuenta (GET /cuentas-por-pagar/estado-cuenta) ───────────────
+
+/**
+ * Tipo de cada movimiento del estado de cuenta:
+ *   compra          → factura a crédito (aumenta la deuda).
+ *   pago            → pago vigente (la reduce).
+ *   correccion_pago → pago corregido: la reduce por su importe CORREGIDO.
+ *   anulacion_pago  → pago anulado: no la reduce (crédito 0).
+ */
+export type TipoMovimientoEC = 'compra' | 'pago' | 'correccion_pago' | 'anulacion_pago';
+
+export interface MovimientoEstadoCuenta {
+  fecha: string;              // YYYY-MM-DD
+  tipo: TipoMovimientoEC;
+  documento: string;          // número de factura
+  concepto: string;
+  debito: number;             // aumenta la deuda
+  credito: number;            // la reduce (importe EFECTIVO)
+  saldo: number;              // saldo corriente tras el movimiento
+  compraId: string;
+  pagoId: string | null;
+  estado: EstadoPago | null;
+  motivoCorreccion: string | null;
+  registradoPor: string | null;
+  creadoEn: string;
+}
+
+export interface EstadoCuentaProveedor {
+  empresa: { id: string; nombre: string } | null;
+  proveedor: {
+    id: string;
+    nombre: string;
+    identificacionFiscal: string | null;
+    telefono: string | null;
+    personaContacto: string | null;
+  };
+  periodo: { desde: string; hasta: string };
+  /** Deuda viva ANTES del período (no es 0 por defecto). */
+  saldoInicial: number;
+  movimientos: MovimientoEstadoCuenta[];
+  resumen: {
+    compras: number;
+    pagos: number;
+    correccionesAnulaciones: number;
+    movimientos: number;
+  };
+  /** saldoInicial + débitos − créditos. */
+  saldoFinal: number;
+}

@@ -1,0 +1,466 @@
+/* ── Estado de cuenta de proveedor ────────────────────────────────────────
+   Pantalla + hoja de impresión (A4 vertical). Solo tokens: ningún color literal.
+   Al imprimir se quita `data-theme` (ver el componente) → los tokens caen al tema
+   claro, que es el adecuado para el papel. */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ── Encabezado de pantalla ── */
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tituloPagina {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.subtitulo {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  margin: 0.15rem 0 0;
+}
+
+.accionesDocumento {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ── Filtros ── */
+
+.filtros {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.grupoFiltro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.etiquetaFiltro {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.inputFiltro,
+.selectFiltro {
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  outline: none;
+  font-family: inherit;
+}
+
+.inputFiltro:focus-visible,
+.selectFiltro:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+/* ── Documento (lo único que se imprime) ── */
+
+.documento {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.75rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cabeceraDocumento {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 2px solid var(--color-border-strong);
+  padding-bottom: 1rem;
+}
+
+.empresa {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.tituloDocumento {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.metaDocumento {
+  text-align: right;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.metaDocumento p {
+  margin: 0 0 0.25rem;
+}
+
+.datosProveedor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nombreProveedor {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.contactoProveedor {
+  margin: 0;
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+/* ── Resumen ── */
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.tarjetaResumen,
+.tarjetaResumenFinal {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  background: var(--color-bg);
+}
+
+.tarjetaResumenFinal {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.etiquetaResumen {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.valorResumen {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.valorResumenAlerta {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-warning);
+  font-variant-numeric: tabular-nums;
+}
+
+.valorResumenFinal {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Tabla de movimientos ── */
+
+.contenedorTabla {
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  min-width: 680px;
+}
+
+.tabla th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border-strong);
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  vertical-align: top;
+}
+
+.colImporte {
+  text-align: right;
+}
+
+.debito,
+.credito,
+.saldo {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.debito {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.credito {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.saldo {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.celdaDocumento {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.concepto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.motivo,
+.registradoPor {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.motivo {
+  font-style: italic;
+}
+
+/* Movimiento de un pago anulado: se atenúa, pero NUNCA se oculta. */
+.filaAnulada td {
+  opacity: 0.7;
+}
+
+.filaSaldoInicial td,
+.filaSaldoFinal td {
+  font-weight: 700;
+  background: var(--color-surface-raised);
+}
+
+.sinMovimientos {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--color-text-secondary);
+}
+
+.badgeCorregido,
+.badgeAnulado {
+  align-self: flex-start;
+  display: inline-flex;
+  padding: 0.1rem 0.5rem;
+  border-radius: 99px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.badgeCorregido {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.badgeAnulado {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+}
+
+/* ── Estados auxiliares ── */
+
+.estadoVacio {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+.errorCarga {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  color: var(--color-danger);
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.errorSuave {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  border-radius: 12px;
+  padding: 0.875rem 1.25rem;
+  color: var(--color-warning);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* El informe visible ya no corresponde a los filtros actuales. */
+.avisoDesactualizado {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  border-radius: 12px;
+  padding: 0.875rem 1.25rem;
+  color: var(--color-warning);
+  font-size: 0.875rem;
+}
+
+.notaImpresion {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+/* Móvil: filtros apilados. */
+@media (max-width: 640px) {
+  .filtros {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .grupoFiltro,
+  .inputFiltro,
+  .selectFiltro {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+/* ── IMPRESIÓN (A4 vertical; el navegador ofrece "Guardar como PDF") ── */
+
+@page {
+  size: A4 portrait;
+  margin: 16mm;
+}
+
+@media print {
+  /* Solo el documento sale en papel: sidebar, navegación, filtros y botones se
+     ocultan por `visibility`, y el documento se saca del flujo para ocupar la hoja. */
+  :global(body) {
+    visibility: hidden;
+    background: none;
+  }
+
+  .documento,
+  .documento * {
+    visibility: visible;
+  }
+
+  .documento {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    background: none;
+  }
+
+  .noImprimir {
+    display: none !important;
+  }
+
+  .contenedorTabla {
+    overflow: visible;
+  }
+
+  .tabla {
+    min-width: 0;
+    font-size: 0.75rem;
+  }
+
+  /* La cabecera se repite en cada página de una tabla larga… */
+  .tabla thead {
+    display: table-header-group;
+  }
+
+  /* …y ninguna transacción se parte por la mitad entre dos páginas. */
+  .tabla tr,
+  .tarjetaResumen,
+  .tarjetaResumenFinal {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cabeceraDocumento {
+    break-after: avoid;
+  }
+
+  /* Los badges y montos conservan su color de estado también en papel. */
+  .badgeCorregido,
+  .badgeAnulado,
+  .debito,
+  .credito {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .filaAnulada td {
+    opacity: 1; /* en papel, la atenuación se pierde: el badge ya lo explica */
+  }
+}

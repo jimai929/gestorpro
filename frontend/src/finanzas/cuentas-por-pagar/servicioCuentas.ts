@@ -15,6 +15,7 @@ import type {
   Compra,
   FiltrosPagos,
   RespuestaHistorialPagos,
+  EstadoCuentaProveedor,
 } from './tipos';
 
 // ── Sedes ─────────────────────────────────────────────────────────────────
@@ -99,6 +100,27 @@ export function registrarPago(cuerpo: CuerpoRegistrarPago): Promise<unknown> {
  * Cada pago trae su estado de corrección (vigente / corregido / anulado) y el
  * monto que vale hoy; el monto original nunca se sobrescribe.
  */
+/**
+ * Estado de cuenta de un proveedor entre dos fechas (documento de conciliación):
+ * saldo inicial, movimientos con saldo corriente y saldo final. El backend aplica el
+ * MISMO criterio de corrección que el resto del módulo (un pago anulado no descuenta;
+ * uno corregido descuenta su importe corregido). Un proveedor de otra empresa → 404.
+ */
+export function obtenerEstadoCuenta(filtros: {
+  proveedorId: string;
+  desde: string;
+  hasta: string;
+}): Promise<EstadoCuentaProveedor> {
+  const params = new URLSearchParams({
+    proveedorId: filtros.proveedorId,
+    desde: filtros.desde,
+    hasta: filtros.hasta,
+  });
+  return api.get<EstadoCuentaProveedor>(
+    `/cuentas-por-pagar/estado-cuenta?${params.toString()}`,
+  );
+}
+
 export function obtenerHistorialPagos(
   filtros: FiltrosPagos = {},
 ): Promise<RespuestaHistorialPagos> {
