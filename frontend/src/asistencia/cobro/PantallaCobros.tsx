@@ -158,6 +158,7 @@ export function PantallaCobros() {
 
   const [empleados, setEmpleados] = useState<EmpleadoResumido[]>([]);
   const [cargandoEmpleados, setCargandoEmpleados] = useState(false);
+  const [errorEmpleados, setErrorEmpleados] = useState<string | null>(null);
 
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState('');
   const [saldo, setSaldo] = useState<SaldoEmpleado | null>(null);
@@ -194,22 +195,28 @@ export function PantallaCobros() {
     };
   }, []);
 
-  // ── Carga inicial: empleados ──────────────────────────────────────────────
+  // ── Carga inicial: empleados (error visible + reintento) ──────────────────
+  // Reutilizable por el botón de reintento. `cargandoEmpleados` deshabilita el
+  // botón mientras la petición está en vuelo (evita solicitudes duplicadas). El
+  // fallo NUNCA se traga: se expone en `errorEmpleados`, igual que errorSaldo /
+  // errorCobros hacen en el resto de esta pantalla.
+
+  const cargarEmpleados = useCallback(async () => {
+    setCargandoEmpleados(true);
+    setErrorEmpleados(null);
+    try {
+      const lista = await obtenerEmpleados();
+      setEmpleados(lista);
+    } catch (err) {
+      setErrorEmpleados(err instanceof Error ? err.message : t('asi.cob.errCargarEmpleados'));
+    } finally {
+      setCargandoEmpleados(false);
+    }
+  }, [t]);
 
   useEffect(() => {
-    const cargar = async () => {
-      setCargandoEmpleados(true);
-      try {
-        const lista = await obtenerEmpleados();
-        setEmpleados(lista);
-      } catch {
-        // Error no crítico — el selector quedará vacío
-      } finally {
-        setCargandoEmpleados(false);
-      }
-    };
-    void cargar();
-  }, []);
+    void cargarEmpleados();
+  }, [cargarEmpleados]);
 
   // ── Cargar saldo cuando cambia el empleado seleccionado ──────────────────
 
@@ -405,6 +412,20 @@ export function PantallaCobros() {
                   ))}
                 </select>
               </div>
+
+              {/* Error de carga de empleados + reintento (mismo patrón que errorCobros) */}
+              {errorEmpleados && (
+                <div className={styles.errorCarga}>
+                  <span>{errorEmpleados}</span>
+                  <Boton
+                    variante="secundario"
+                    onClick={() => { void cargarEmpleados(); }}
+                    disabled={cargandoEmpleados}
+                  >
+                    {t('asi.reintentar')}
+                  </Boton>
+                </div>
+              )}
 
               {/* Bloque de saldo */}
               {empleadoSeleccionado && (
