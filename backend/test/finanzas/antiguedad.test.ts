@@ -132,7 +132,7 @@ describe('antigüedad: saldo, pagos y correcciones', () => {
 
   it('clasifica por tramo según los días desde la compra y reparte la deuda', async () => {
     const empresaId = await crearEmpresa();
-    const { sede, usuario, proveedor } = await base(empresaId);
+    const { sede, proveedor } = await base(empresaId);
     // Hoy = 2026-05-01.
     await compra(proveedor.id, sede.id, 100, '2026-04-20'); // 11 días → 0-30
     await compra(proveedor.id, sede.id, 200, '2026-03-25'); // 37 días → 31-60
@@ -157,7 +157,7 @@ describe('antigüedad: saldo, pagos y correcciones', () => {
 
   it('agrega por proveedor y el resumen es del conjunto completo, no de la página', async () => {
     const empresaId = await crearEmpresa();
-    const { sede, usuario, proveedor } = await base(empresaId);
+    const { sede, proveedor } = await base(empresaId);
     const otro = await semilla().proveedor.create({ data: { nombre: 'Proveedor Z', empresaId } });
     for (let i = 0; i < 3; i += 1) await compra(proveedor.id, sede.id, 100, '2026-04-10');
     await compra(otro.id, sede.id, 50, '2026-04-10');
@@ -182,7 +182,7 @@ describe('antigüedad: saldo, pagos y correcciones', () => {
 
   it('filtra por tramo y por proveedor', async () => {
     const empresaId = await crearEmpresa();
-    const { sede, usuario, proveedor } = await base(empresaId);
+    const { sede, proveedor } = await base(empresaId);
     await compra(proveedor.id, sede.id, 100, '2026-04-20'); // 0-30
     await compra(proveedor.id, sede.id, 400, '2026-01-01'); // 90+
 

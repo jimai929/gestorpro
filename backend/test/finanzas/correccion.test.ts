@@ -602,6 +602,6 @@ describe('los listados anotan el estado real de cada movimiento', () => {
       { tipoArqueo: 'efectivo', monto: 500 },
       { tipoArqueo: 'tarjeta', monto: 400 },
     ]);
-    expect(fila.detalles.reduce((acc, d) => acc + d.monto, 0)).toBe(1000);
+    expect(fila.detalles.reduce((acc, d) => acc + Number(d.monto), 0)).toBe(1000);
   });
 });
