@@ -17,6 +17,7 @@ import {
   PantallaProveedores,
   PantallaPagos,
   PantallaEstadoCuenta,
+  PantallaAntiguedad,
 } from './finanzas/cuentas-por-pagar';
 import { PantallaSedes } from './administracion/sedes';
 import { PantallaEmpleados } from './administracion/empleado';
@@ -40,6 +41,7 @@ import { PantallaCobros } from './asistencia/cobro/PantallaCobros';
  *   /cuentas-por-pagar     → Módulo de cuentas por pagar (protegida)
  *   /pagos                 → Historial de pagos a proveedor + corrección (protegida)
  *   /estado-cuenta         → Estado de cuenta de proveedor (imprimible / CSV) (protegida)
+ *   /cuentas-por-pagar/antiguedad → Antigüedad de cuentas por pagar (protegida)
  *   /proveedores           → Gestión de proveedores (protegida)
  *   /gastos                → Módulo de gastos (protegida)
  *   /dashboard             → Dashboard de ganancias (protegida)
@@ -88,6 +90,10 @@ const router = createBrowserRouter([
           {
             path: '/estado-cuenta',
             element: <PantallaEstadoCuenta />,
+          },
+          {
+            path: '/cuentas-por-pagar/antiguedad',
+            element: <PantallaAntiguedad />,
           },
           {
             path: '/gastos',

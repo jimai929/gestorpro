@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { FileText } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
@@ -41,6 +41,7 @@ const TAMANO_PAGINA = 20;
 
 export function PantallaPagos() {
   const { t } = useTraduccion();
+  const [searchParamsPagos] = useSearchParams();
   const { usuario } = useAuth();
   // Corregir dinero es acción de GESTIÓN (POST /correcciones = supervisor/admin).
   // El empleado ve el historial y los estados, pero no la acción.
@@ -68,7 +69,8 @@ export function PantallaPagos() {
   // resto del historial sigue usable sin ese filtro).
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [errorProveedores, setErrorProveedores] = useState<string | null>(null);
-  const [proveedorId, setProveedorId] = useState('');
+  // El proveedor puede venir en la URL (?proveedorId=) desde la antigüedad.
+  const [proveedorId, setProveedorId] = useState(searchParamsPagos.get('proveedorId') ?? '');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [estado, setEstado] = useState<EstadoPago | ''>('');

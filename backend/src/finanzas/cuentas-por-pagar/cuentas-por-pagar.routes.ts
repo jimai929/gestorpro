@@ -12,6 +12,23 @@ import {
   type EstadoPago,
 } from './cuentas-por-pagar.service.js';
 import { estadoCuentaProveedor } from './estado-cuenta.service.js';
+import { antiguedadCuentasPorPagar, type TramoAntiguedad, type OrdenAntiguedad } from './antiguedad.service.js';
+
+/** GET /cuentas-por-pagar/antiguedad — todo opcional; los tipos se validan aquí. */
+const esquemaAntiguedad = {
+  querystring: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      proveedorId: { type: 'string', minLength: 1 },
+      tramo: { type: 'string', enum: ['todos', 'dias_0_30', 'dias_31_60', 'dias_61_90', 'dias_90_mas'] },
+      texto: { type: 'string' },
+      orden: { type: 'string', enum: ['deuda_desc', 'antiguedad_desc', 'proveedor_asc', 'fecha_asc'] },
+      pagina: { type: 'integer', minimum: 1 },
+      tamano: { type: 'integer', minimum: 1, maximum: 2000 },
+    },
+  },
+} as const;
 
 /** GET /cuentas-por-pagar/estado-cuenta — proveedor y rango son OBLIGATORIOS. */
 const esquemaEstadoCuenta = {
@@ -244,6 +261,28 @@ export async function cuentasPorPagarRoutes(app: FastifyInstance): Promise<void>
     async (request, reply) => {
       try {
         return await reply.send(await estadoCuentaProveedor(request.query));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Antigüedad de cuentas por pagar (lectura, misma política que el resto del módulo).
+  app.get<{
+    Querystring: {
+      proveedorId?: string;
+      tramo?: TramoAntiguedad | 'todos';
+      texto?: string;
+      orden?: OrdenAntiguedad;
+      pagina?: number;
+      tamano?: number;
+    };
+  }>(
+    '/cuentas-por-pagar/antiguedad',
+    { ...autenticado, schema: esquemaAntiguedad },
+    async (request, reply) => {
+      try {
+        return await reply.send(await antiguedadCuentasPorPagar(request.query));
       } catch (error) {
         return responderError(error, request, reply);
       }

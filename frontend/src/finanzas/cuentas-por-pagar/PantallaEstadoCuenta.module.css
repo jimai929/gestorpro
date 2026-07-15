@@ -464,3 +464,25 @@
     opacity: 1; /* en papel, la atenuación se pierde: el badge ya lo explica */
   }
 }
+
+/* Enlace para volver a la antigüedad desde el estado de cuenta. */
+.enlaceVolver {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.enlaceVolver:hover {
+  text-decoration: underline;
+}
+
+.enlaceVolver:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+  border-radius: 4px;
+}

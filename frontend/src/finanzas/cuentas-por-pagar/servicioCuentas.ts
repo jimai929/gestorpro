@@ -17,6 +17,7 @@ import type {
   RespuestaHistorialPagos,
   EstadoCuentaProveedor,
 } from './tipos';
+import type { FiltrosAntiguedad, RespuestaAntiguedad } from './antiguedad-tipos';
 
 // ── Sedes ─────────────────────────────────────────────────────────────────
 
@@ -134,5 +135,29 @@ export function obtenerHistorialPagos(
   const query = params.toString();
   return api.get<RespuestaHistorialPagos>(
     `/cuentas-por-pagar/pagos${query ? `?${query}` : ''}`,
+  );
+}
+
+// ── Antigüedad de cuentas por pagar ─────────────────────────────────────────
+
+/**
+ * Antigüedad de las cuentas por pagar (GET /cuentas-por-pagar/antiguedad).
+ * Solo facturas a crédito con saldo pendiente; el backend aplica el mismo criterio
+ * de corrección/anulación que el resto del módulo. La antigüedad se cuenta en días
+ * desde la fecha de compra (NO es mora contractual).
+ */
+export function obtenerAntiguedad(
+  filtros: FiltrosAntiguedad = {},
+): Promise<RespuestaAntiguedad> {
+  const params = new URLSearchParams();
+  if (filtros.proveedorId) params.set('proveedorId', filtros.proveedorId);
+  if (filtros.tramo && filtros.tramo !== 'todos') params.set('tramo', filtros.tramo);
+  if (filtros.texto) params.set('texto', filtros.texto);
+  if (filtros.orden) params.set('orden', filtros.orden);
+  if (filtros.pagina) params.set('pagina', String(filtros.pagina));
+  if (filtros.tamano) params.set('tamano', String(filtros.tamano));
+  const query = params.toString();
+  return api.get<RespuestaAntiguedad>(
+    `/cuentas-por-pagar/antiguedad${query ? `?${query}` : ''}`,
   );
 }

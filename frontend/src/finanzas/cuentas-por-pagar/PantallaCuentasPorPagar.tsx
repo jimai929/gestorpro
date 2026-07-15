@@ -17,7 +17,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router';
-import { History, FileText } from 'lucide-react';
+import { History, FileText, PieChart } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
@@ -116,6 +116,11 @@ export function PantallaCuentasPorPagar() {
             <Link to="/pagos" className={styles.enlaceHistorial}>
               <History size={16} strokeWidth={1.75} aria-hidden />
               {t('fin.pagos.verHistorial')}
+            </Link>
+            {/* Priorizar pagos: antigüedad de la deuda por tramos y proveedor. */}
+            <Link to="/cuentas-por-pagar/antiguedad" className={styles.enlaceHistorial}>
+              <PieChart size={16} strokeWidth={1.75} aria-hidden />
+              {t('fin.ant.verAntiguedad')}
             </Link>
             {/* Conciliar con el proveedor: documento imprimible / CSV. */}
             <Link to="/estado-cuenta" className={styles.enlaceHistorial}>

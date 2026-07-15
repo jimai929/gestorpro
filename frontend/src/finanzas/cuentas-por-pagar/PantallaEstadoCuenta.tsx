@@ -14,7 +14,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Printer, Download } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
+import { Printer, Download, PieChart } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
@@ -67,8 +68,10 @@ export function PantallaEstadoCuenta() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [errorProveedores, setErrorProveedores] = useState<string | null>(null);
 
-  // Formulario
-  const [proveedorId, setProveedorId] = useState('');
+  // Formulario. El proveedor puede venir en la URL (?proveedorId=) desde la
+  // antigüedad, así al llegar ya queda seleccionado (falta elegir el período).
+  const [searchParams] = useSearchParams();
+  const [proveedorId, setProveedorId] = useState(searchParams.get('proveedorId') ?? '');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
 
@@ -173,6 +176,10 @@ export function PantallaEstadoCuenta() {
           <div>
             <h1 className={styles.tituloPagina}>{t('fin.ec.titulo')}</h1>
             <p className={styles.subtitulo}>{t('fin.ec.subtitulo')}</p>
+            {/* Volver a la mesa de trabajo de antigüedad. */}
+            <Link to="/cuentas-por-pagar/antiguedad" className={styles.enlaceVolver}>
+              <PieChart size={14} strokeWidth={1.75} aria-hidden /> {t('fin.ant.verAntiguedad')}
+            </Link>
           </div>
           {estado && (
             <div className={styles.accionesDocumento}>
