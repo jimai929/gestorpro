@@ -14,8 +14,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router';
-import { Printer, Download, Eye } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
+import { Printer, Download, Eye, TrendingUp } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
@@ -188,6 +188,17 @@ export function PantallaAuditoria() {
           <div>
             <h1 className={styles.tituloPagina}>{t('fin.aud.titulo')}</h1>
             <p className={styles.subtitulo}>{t('fin.aud.subtitulo')}</p>
+            {/* Volver al flujo de caja conservando el rango de fechas. */}
+            <Link
+              to={`/finanzas/flujo-caja${
+                desde || hasta
+                  ? `?${new URLSearchParams({ ...(desde ? { desde } : {}), ...(hasta ? { hasta } : {}) }).toString()}`
+                  : ''
+              }`}
+              className={styles.enlaceFlujo}
+            >
+              <TrendingUp size={14} strokeWidth={1.75} aria-hidden /> {t('fin.flujo.verFlujo')}
+            </Link>
           </div>
           {resumen && resumen.total > 0 && (
             <div className={styles.acciones}>

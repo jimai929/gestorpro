@@ -26,7 +26,7 @@ import { PantallaKioscos } from './administracion/kioscos';
 import { PantallaUsuarios } from './administracion/usuarios';
 import { PantallaGastos, PantallaCategorias } from './finanzas/gastos';
 import { PantallaAuditoria } from './finanzas/auditoria';
-import { PantallaDashboard } from './finanzas/dashboard';
+import { PantallaDashboard, PantallaFlujoCaja } from './finanzas/dashboard';
 import { PantallaKiosco } from './asistencia/kiosco/PantallaKiosco';
 import { PantallaRevision } from './asistencia/revision/PantallaRevision';
 import { PantallaJornadas } from './asistencia/jornada/PantallaJornadas';
@@ -48,6 +48,7 @@ import { PantallaCobros } from './asistencia/cobro/PantallaCobros';
  *   /gastos                → Módulo de gastos (protegida)
  *   /dashboard             → Dashboard de ganancias (protegida)
  *   /auditoria-financiera  → Centro de auditoría de correcciones (protegida — admin/supervisor)
+ *   /finanzas/flujo-caja   → Flujo de caja operativo (protegida — admin/supervisor)
  *   /sedes                 → Administración de sedes (protegida — admin para escribir)
  *   /empleados             → Administración de empleados (protegida — admin para escribir)
  *   /usuarios              → Gestión de usuarios del tenant (protegida — solo admin, lo refuerza el backend)
@@ -116,6 +117,10 @@ const router = createBrowserRouter([
           {
             path: '/auditoria-financiera',
             element: <PantallaAuditoria />,
+          },
+          {
+            path: '/finanzas/flujo-caja',
+            element: <PantallaFlujoCaja />,
           },
           // ── Administración ──
           {

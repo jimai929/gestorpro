@@ -569,3 +569,23 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
   border-radius: 4px;
 }
+
+/* Enlace al flujo de caja operativo desde el encabezado del dashboard. */
+.enlaceFlujo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.enlaceFlujo:hover { text-decoration: underline; }
+
+.enlaceFlujo:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+  border-radius: 4px;
+}

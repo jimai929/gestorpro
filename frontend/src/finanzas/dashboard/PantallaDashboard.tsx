@@ -20,6 +20,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router';
+import { TrendingUp } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -244,6 +245,12 @@ export function PantallaDashboard() {
             <p className={styles.subtitulo}>
               {t('fin.dash.subtitulo')}
             </p>
+            {/* Movimientos reales de caja del período (gestión: admin/supervisor). */}
+            {puedeCorregir && (
+              <Link to="/finanzas/flujo-caja" className={styles.enlaceFlujo}>
+                <TrendingUp size={14} strokeWidth={1.75} aria-hidden /> {t('fin.flujo.verFlujo')}
+              </Link>
+            )}
           </div>
           <Boton onClick={() => setMostrarFormulario((prev) => !prev)}>
             {mostrarFormulario ? t('fin.cerrarFormulario') : t('fin.dash.btnRegistrar')}

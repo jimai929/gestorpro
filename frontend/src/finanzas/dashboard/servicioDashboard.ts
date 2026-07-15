@@ -13,6 +13,7 @@ import type {
   CuerpoRegistrarVenta,
   FiltrosDashboard,
 } from './tipos';
+import type { FiltrosFlujo, RespuestaFlujoCaja } from './flujo-caja-tipos';
 
 // ── Sedes ─────────────────────────────────────────────────────────────────
 
@@ -145,4 +146,28 @@ export function obtenerVentas(filtros: FiltrosDashboard): Promise<VentaDiaria[]>
  */
 export function obtenerCajeras(): Promise<string[]> {
   return api.get<string[]>('/ventas/cajeras');
+}
+
+// ── Flujo de caja operativo ─────────────────────────────────────────────────
+
+/**
+ * Flujo de caja operativo (GET /finanzas/flujo-caja). Solo lectura: reúne los
+ * movimientos de dinero YA registrados (ventas, gastos, pagos), con su monto
+ * vigente y estado. No es ganancia ni el saldo real de banco. El backend aplica el
+ * mismo criterio de corrección que el resto del módulo.
+ */
+export function obtenerFlujoCaja(filtros: FiltrosFlujo): Promise<RespuestaFlujoCaja> {
+  const params = new URLSearchParams();
+  params.set('desde', filtros.desde);
+  params.set('hasta', filtros.hasta);
+  if (filtros.tipo && filtros.tipo !== 'todos') params.set('tipo', filtros.tipo);
+  if (filtros.sedeId) params.set('sedeId', filtros.sedeId);
+  if (filtros.proveedorId) params.set('proveedorId', filtros.proveedorId);
+  if (filtros.categoriaId) params.set('categoriaId', filtros.categoriaId);
+  if (filtros.estado && filtros.estado !== 'todos') params.set('estado', filtros.estado);
+  if (filtros.texto) params.set('texto', filtros.texto);
+  if (filtros.orden) params.set('orden', filtros.orden);
+  if (filtros.pagina) params.set('pagina', String(filtros.pagina));
+  if (filtros.tamano) params.set('tamano', String(filtros.tamano));
+  return api.get<RespuestaFlujoCaja>(`/finanzas/flujo-caja?${params.toString()}`);
 }
