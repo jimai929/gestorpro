@@ -3,3 +3,4 @@ export { PantallaProveedores } from './PantallaProveedores';
 export { PantallaPagos } from './PantallaPagos';
 export { PantallaEstadoCuenta } from './PantallaEstadoCuenta';
 export { PantallaAntiguedad } from './PantallaAntiguedad';
+export { PantallaPlanPagos } from './PantallaPlanPagos';

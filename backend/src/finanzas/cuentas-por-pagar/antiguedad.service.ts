@@ -97,20 +97,18 @@ function diasEntre(desde: Date, hasta: Date): number {
 const porcentaje = (parte: number, total: number): number =>
   total === 0 ? 0 : Math.round((parte / total) * 1000) / 10;
 
-export async function antiguedadCuentasPorPagar(filtros: FiltrosAntiguedad) {
-  const orden = filtros.orden ?? 'deuda_desc';
-  if (filtros.orden && !ORDENES_VALIDOS.includes(filtros.orden)) {
-    throw new ErrorValidacion('El criterio de orden no es válido.');
-  }
-  const pagina = Math.max(1, Math.trunc(filtros.pagina ?? 1));
-  const tamano = Math.min(
-    TAMANO_PAGINA_MAXIMO,
-    Math.max(1, Math.trunc(filtros.tamano ?? TAMANO_PAGINA_DEFECTO)),
-  );
-  const hoy = filtros.hoy ?? new Date();
+/** Datos de un proveedor para presentar (sin empresaId). */
+export interface FacturaPendiente extends FacturaAntiguedad {
+  identificacionFiscal: string | null;
+}
 
-  // Facturas a crédito con SALDO PENDIENTE (> 0): las pagadas quedan fuera. La vista
-  // ya excluye las de contado y ya neteó reversos/correcciones. RLS aísla el tenant.
+/**
+ * Lee TODAS las facturas a crédito con saldo pendiente (> 0), con su antigüedad y
+ * tramo ya etiquetados. Fuente ÚNICA de deuda: la vista `cuenta_por_pagar` (ya netea
+ * reversos/correcciones). La reusan la antigüedad y el planificador de pagos, para no
+ * duplicar el algoritmo de deuda. RLS aísla el tenant.
+ */
+export async function leerFacturasPendientes(hoy: Date): Promise<FacturaPendiente[]> {
   const filas = await txEmpresa((tx) =>
     tx.$queryRaw<FilaVista[]>`
       SELECT cpp.compra_id, cpp.proveedor_id, p.nombre AS proveedor_nombre,
@@ -123,8 +121,7 @@ export async function antiguedadCuentasPorPagar(filtros: FiltrosAntiguedad) {
       LIMIT ${TOPE_FACTURAS}`,
   );
 
-  // Último pago EFECTIVO por compra (una consulta para todas): max(fecha_pago) de los
-  // asientos que suman (normal/corrección), ignorando los reversos.
+  // Último pago EFECTIVO por compra (una consulta para todas), sin N+1.
   const compraIds = filas.map((f) => f.compra_id);
   const ultimoPagoPorCompra = new Map<string, string>();
   if (compraIds.length > 0) {
@@ -140,14 +137,14 @@ export async function antiguedadCuentasPorPagar(filtros: FiltrosAntiguedad) {
     }
   }
 
-  // Mapear a facturas con antigüedad + tramo (etiquetado ÚNICO en el backend).
-  const todas: FacturaAntiguedad[] = filas.map((f) => {
+  return filas.map((f) => {
     const dias = Math.max(0, diasEntre(f.fecha_emision, hoy));
     return {
       compraId: f.compra_id,
       numeroFactura: f.numero_factura,
       proveedorId: f.proveedor_id,
       proveedorNombre: f.proveedor_nombre,
+      identificacionFiscal: f.identificacion_fiscal,
       fechaCompra: aFechaIso(f.fecha_emision),
       diasAntiguedad: dias,
       tramo: tramoDeAntiguedad(dias),
@@ -157,6 +154,22 @@ export async function antiguedadCuentasPorPagar(filtros: FiltrosAntiguedad) {
       ultimoPago: ultimoPagoPorCompra.get(f.compra_id) ?? null,
     };
   });
+}
+
+export async function antiguedadCuentasPorPagar(filtros: FiltrosAntiguedad) {
+  const orden = filtros.orden ?? 'deuda_desc';
+  if (filtros.orden && !ORDENES_VALIDOS.includes(filtros.orden)) {
+    throw new ErrorValidacion('El criterio de orden no es válido.');
+  }
+  const pagina = Math.max(1, Math.trunc(filtros.pagina ?? 1));
+  const tamano = Math.min(
+    TAMANO_PAGINA_MAXIMO,
+    Math.max(1, Math.trunc(filtros.tamano ?? TAMANO_PAGINA_DEFECTO)),
+  );
+  const hoy = filtros.hoy ?? new Date();
+
+  // Facturas pendientes (fuente única compartida con el planificador; trae el RUC).
+  const todas: FacturaPendiente[] = await leerFacturasPendientes(hoy);
 
   // ── Filtros de aplicación ──
   const texto = (filtros.texto ?? '').trim().toLowerCase();
@@ -202,7 +215,7 @@ export async function antiguedadCuentasPorPagar(filtros: FiltrosAntiguedad) {
       agg = {
         proveedorId: f.proveedorId,
         nombre: f.proveedorNombre,
-        identificacionFiscal: filas.find((v) => v.proveedor_id === f.proveedorId)?.identificacion_fiscal ?? null,
+        identificacionFiscal: f.identificacionFiscal,
         deudaCent: 0,
         cantidadFacturas: 0,
         tramosCent: { dias_0_30: 0, dias_31_60: 0, dias_61_90: 0, dias_90_mas: 0 },

@@ -18,6 +18,7 @@ import type {
   EstadoCuentaProveedor,
 } from './tipos';
 import type { FiltrosAntiguedad, RespuestaAntiguedad } from './antiguedad-tipos';
+import type { EntradaPlan, RespuestaPlan } from './plan-pagos-tipos';
 
 // ── Sedes ─────────────────────────────────────────────────────────────────
 
@@ -160,4 +161,15 @@ export function obtenerAntiguedad(
   return api.get<RespuestaAntiguedad>(
     `/cuentas-por-pagar/antiguedad${query ? `?${query}` : ''}`,
   );
+}
+
+// ── Planificador de pagos (SIMULACIÓN, no registra pagos) ───────────────────
+
+/**
+ * Simula un plan de pagos: el backend calcula el reparto del presupuesto entre las
+ * facturas pendientes y devuelve una PROPUESTA. No crea ningún pago. En modo manual
+ * el backend REVALIDA los montos; el front no puede saltarse esa validación.
+ */
+export function simularPlanPagos(entrada: EntradaPlan): Promise<RespuestaPlan> {
+  return api.post<RespuestaPlan>('/cuentas-por-pagar/plan-pagos/simular', entrada);
 }

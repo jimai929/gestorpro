@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { Printer, Download, FileText, History, Receipt } from 'lucide-react';
+import { Printer, Download, FileText, History, Receipt, Wallet } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
@@ -199,6 +199,20 @@ export function PantallaAntiguedad() {
             <p className={styles.subtitulo}>{t('fin.ant.subtitulo')}</p>
           </div>
           <div className={styles.acciones}>
+            {/* Crear plan de pagos llevando el proveedor/tramo del filtro actual. */}
+            <Link
+              to={`/cuentas-por-pagar/plan-pagos${
+                proveedorId || tramo !== 'todos'
+                  ? `?${new URLSearchParams({
+                      ...(proveedorId ? { proveedorId } : {}),
+                      ...(tramo !== 'todos' ? { tramo } : {}),
+                    }).toString()}`
+                  : ''
+              }`}
+              className={styles.enlaceCrearPlan}
+            >
+              <Wallet size={16} strokeWidth={1.75} aria-hidden /> {t('fin.plan.crearPlan')}
+            </Link>
             <Boton variante="secundario" onClick={() => window.print()}>
               <Printer size={16} strokeWidth={1.75} aria-hidden /> {t('fin.ant.imprimir')}
             </Boton>

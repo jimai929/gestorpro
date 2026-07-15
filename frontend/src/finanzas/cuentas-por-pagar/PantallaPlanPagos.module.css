@@ -1,0 +1,568 @@
+/* Planificador de pagos. Pantalla + impresión A4 horizontal. Solo tokens. Al
+   imprimir se quita `data-theme` → tokens claros (papel). */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tituloPagina {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.subtitulo {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  margin: 0.15rem 0 0;
+}
+
+.acciones {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Aviso permanente: no registra pagos. */
+.avisoNoRegistra {
+  background: var(--color-primary-bg);
+  border: 1px solid var(--color-primary);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: var(--color-primary-hover);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.tituloImpresion {
+  display: none;
+}
+
+/* ── Tarjetas ── */
+
+.tarjeta {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.tituloBloque {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 1rem;
+}
+
+/* ── Configuración ── */
+
+.configGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.etiqueta {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.select {
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  outline: none;
+  font-family: inherit;
+}
+
+.select:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.tramosFiltro {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tramosChips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 0.35rem 0.75rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 99px;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--color-text-muted);
+}
+
+.chipActivo {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary-hover);
+}
+
+.accionesPaso1 {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.enlaceRapido {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.enlaceRapido:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.enlaceRapido:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+/* ── Barra de progreso del presupuesto ── */
+
+.progresoCabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.progresoValor {
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.barraProgreso {
+  height: 14px;
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  overflow: hidden;
+}
+
+.barraProgresoRelleno {
+  height: 100%;
+  background: var(--color-primary);
+}
+
+.resumenChips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.chipResumen {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Tablas ── */
+
+.contenedorTabla {
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  min-width: 780px;
+}
+
+.tabla th {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border-strong);
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  vertical-align: middle;
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.colImporte { text-align: right; }
+.colNum { text-align: right; white-space: nowrap; }
+
+.monto {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.saldo {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.celdaFecha { white-space: nowrap; }
+
+.celdaSecundaria {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+/* ── Detalle editable ── */
+
+.cabeceraDetalle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.accionesDetalle {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.restante,
+.restanteNegativo {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.restante { color: var(--color-text); }
+.restanteNegativo { color: var(--color-danger); }
+
+.celdaPago {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.inputPago {
+  width: 90px;
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.inputPago:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.inputInvalido {
+  border-color: var(--color-danger);
+}
+
+/* El monto planificado que se ve al imprimir (el input se oculta). */
+.pagoImpresion {
+  display: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.botonSaldo {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+}
+
+.botonSaldo:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.textoInvalido {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--color-danger);
+  text-align: right;
+  margin-top: 0.15rem;
+}
+
+/* Aviso de estado inválido (exceso de presupuesto o de saldo). */
+.avisoInvalido {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.avisoObsoleto {
+  padding: 0.875rem 1.25rem;
+  border-radius: 12px;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* ── Badges de resultado ── */
+
+.badgeCompleta,
+.badgeParcial {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeCompleta {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.badgeParcial {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+/* ── Reporte de confirmación ── */
+
+.reporteDatos {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+
+.reporteDatos > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.reporteDatos dt {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.reporteDatos dd {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Descargo: el plan no es un pago real. */
+.descargo {
+  margin: 1rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* ── Enlaces de proveedor ── */
+
+.celdaAcciones {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.enlaceMini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  margin-left: 0.3rem;
+}
+
+.enlaceMini:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+/* ── Estados ── */
+
+.estadoVacio {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+.errorCarga {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  color: var(--color-danger);
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .configGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── IMPRESIÓN (A4 horizontal) ── */
+
+@page {
+  size: A4 landscape;
+  margin: 12mm;
+}
+
+@media print {
+  .noImprimir { display: none !important; }
+
+  .tituloImpresion {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .tituloImpresion h1 {
+    font-size: 1.25rem;
+    margin: 0;
+    color: var(--color-text);
+  }
+  .tituloImpresion p {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+  }
+
+  .tarjeta {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 0.75rem;
+  }
+
+  .contenedorTabla { overflow: visible; }
+
+  .tabla {
+    min-width: 0;
+    font-size: 0.68rem;
+  }
+
+  .tabla thead {
+    display: table-header-group;
+  }
+
+  .tabla tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* En papel se ve el monto, no el input. */
+  .inputPago,
+  .botonSaldo {
+    display: none !important;
+  }
+  .pagoImpresion {
+    display: inline;
+  }
+
+  .badgeCompleta,
+  .badgeParcial,
+  .barraProgresoRelleno,
+  .saldo {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -590,3 +590,29 @@
     print-color-adjust: exact;
   }
 }
+
+/* Enlace "crear plan de pagos" en la cabecera (botón secundario visual). */
+.enlaceCrearPlan {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.enlaceCrearPlan:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.enlaceCrearPlan:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}

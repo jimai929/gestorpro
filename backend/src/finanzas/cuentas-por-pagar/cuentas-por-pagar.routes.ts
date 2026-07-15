@@ -13,6 +13,44 @@ import {
 } from './cuentas-por-pagar.service.js';
 import { estadoCuentaProveedor } from './estado-cuenta.service.js';
 import { antiguedadCuentasPorPagar, type TramoAntiguedad, type OrdenAntiguedad } from './antiguedad.service.js';
+import { simularPlanPagos, type EstrategiaPlan } from './plan-pagos.service.js';
+
+/** POST /cuentas-por-pagar/plan-pagos/simular — presupuesto y estrategia obligatorios. */
+const esquemaPlanPagos = {
+  body: {
+    type: 'object',
+    required: ['presupuestoDisponible', 'estrategia'],
+    additionalProperties: false,
+    properties: {
+      presupuestoDisponible: { type: 'number', exclusiveMinimum: 0 },
+      estrategia: {
+        type: 'string',
+        enum: ['mas_antiguas_primero', 'saldos_menores_primero', 'proporcional_por_proveedor', 'manual'],
+      },
+      proveedorIds: { type: 'array', items: { type: 'string', minLength: 1 } },
+      tramos: {
+        type: 'array',
+        items: { type: 'string', enum: ['dias_0_30', 'dias_31_60', 'dias_61_90', 'dias_90_mas'] },
+      },
+      fechaCorte: { type: 'string', minLength: 1 },
+      montoMinimoPago: { type: 'number', minimum: 0 },
+      limitePorProveedor: { type: 'number', exclusiveMinimum: 0 },
+      compraIdsPrioritarias: { type: 'array', items: { type: 'string', minLength: 1 } },
+      asignacionesManuales: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['compraId', 'monto'],
+          additionalProperties: false,
+          properties: {
+            compraId: { type: 'string', minLength: 1 },
+            monto: { type: 'number', minimum: 0 },
+          },
+        },
+      },
+    },
+  },
+} as const;
 
 /** GET /cuentas-por-pagar/antiguedad — todo opcional; los tipos se validan aquí. */
 const esquemaAntiguedad = {
@@ -261,6 +299,33 @@ export async function cuentasPorPagarRoutes(app: FastifyInstance): Promise<void>
     async (request, reply) => {
       try {
         return await reply.send(await estadoCuentaProveedor(request.query));
+      } catch (error) {
+        return responderError(error, request, reply);
+      }
+    },
+  );
+
+  // Planificador de pagos: SIMULACIÓN (no escribe nada). Solo supervisor/admin, igual
+  // que las demás operaciones de gestión; un empleado recibe 403. El tenant sale del
+  // token (RLS). La ruta jamás crea un PagoProveedor: solo calcula una propuesta.
+  app.post<{
+    Body: {
+      presupuestoDisponible: number;
+      estrategia: EstrategiaPlan;
+      proveedorIds?: string[];
+      tramos?: Array<'dias_0_30' | 'dias_31_60' | 'dias_61_90' | 'dias_90_mas'>;
+      fechaCorte?: string;
+      montoMinimoPago?: number;
+      limitePorProveedor?: number;
+      compraIdsPrioritarias?: string[];
+      asignacionesManuales?: Array<{ compraId: string; monto: number }>;
+    };
+  }>(
+    '/cuentas-por-pagar/plan-pagos/simular',
+    { ...soloGestion, schema: esquemaPlanPagos },
+    async (request, reply) => {
+      try {
+        return await reply.send(await simularPlanPagos(request.body));
       } catch (error) {
         return responderError(error, request, reply);
       }

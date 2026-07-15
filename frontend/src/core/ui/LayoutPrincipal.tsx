@@ -23,7 +23,7 @@ import {
   Receipt, Truck, CreditCard, Tags, BarChart3,
   MapPin, Users, Monitor, UserCog,
   ClipboardCheck, CalendarDays, Banknote,
-  KeyRound, LogOut, History, FileText, ScrollText, PieChart,
+  KeyRound, LogOut, History, FileText, ScrollText, PieChart, Wallet,
 } from 'lucide-react';
 import { useAuth } from '../auth/ContextoAuth';
 import { DialogoCambiarContrasena } from '../auth/DialogoCambiarContrasena';
@@ -89,6 +89,10 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
           { to: '/pagos', clave: 'nav.historialPagos', icono: History },
           // Antigüedad: mesa de trabajo de caja diaria (qué priorizar pagar).
           { to: '/cuentas-por-pagar/antiguedad', clave: 'nav.antiguedad', icono: PieChart },
+          // Planificador de pagos: gestión (backend soloGestion); el empleado no lo ve.
+          ...(puedeGestionar
+            ? [{ to: '/cuentas-por-pagar/plan-pagos', clave: 'nav.planPagos', icono: Wallet }]
+            : []),
           // Estado de cuenta: conciliar con el proveedor (imprimible / CSV).
           { to: '/estado-cuenta', clave: 'nav.estadoCuenta', icono: FileText },
           { to: '/gastos', clave: 'nav.gastos', icono: CreditCard },

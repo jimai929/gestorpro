@@ -17,7 +17,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router';
-import { History, FileText, PieChart } from 'lucide-react';
+import { History, FileText, PieChart, Wallet } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
@@ -121,6 +121,11 @@ export function PantallaCuentasPorPagar() {
             <Link to="/cuentas-por-pagar/antiguedad" className={styles.enlaceHistorial}>
               <PieChart size={16} strokeWidth={1.75} aria-hidden />
               {t('fin.ant.verAntiguedad')}
+            </Link>
+            {/* Repartir un presupuesto entre las facturas (simulación). */}
+            <Link to="/cuentas-por-pagar/plan-pagos" className={styles.enlaceHistorial}>
+              <Wallet size={16} strokeWidth={1.75} aria-hidden />
+              {t('fin.plan.planificar')}
             </Link>
             {/* Conciliar con el proveedor: documento imprimible / CSV. */}
             <Link to="/estado-cuenta" className={styles.enlaceHistorial}>
