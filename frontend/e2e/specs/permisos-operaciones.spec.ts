@@ -6,16 +6,19 @@ import { crearEmpleado } from '../helpers/asistencia';
 import { crearUsuarioConRol, loginConCambioForzado, irComoRol } from '../helpers/roles';
 
 /**
- * @full — Permisos a nivel de OPERACIÓN (no solo "abre la página"). Verifica que una
- * operación de ESCRITURA admin-only, disparada por un rol no autorizado, es rechazada por
- * el BACKEND con 403 "No tiene permiso para esta operación.", y que NO produce efecto.
+ * @full — Permisos a nivel de OPERACIÓN (no solo "abre la página"). Verifica el modelo
+ * REAL de permisos de gestión de empleados, confirmado por el backend
+ * (`empleado.routes.ts`: POST/PUT `/empleados` = `soloGestion` → administrador Y supervisor;
+ * QR/PIN = `soloAdmin`) y por la UI (`PantallaEmpleados` redirige a "/" si NO es gestión):
  *
- * Superficie elegida (por su limpieza): `/empleados`. GET /empleados es solo `autenticado`
- * (no admin-only), así que supervisor y empleado CARGAN la tabla y VEN los botones de
- * acción (Editar/Desactivar/QR/PIN son ESTÁTICOS, sin gate de rol en la UI). Al pulsar
- * "Desactivar" (PUT /empleados/:id, admin-only) el backend responde 403 → banner de error;
- * el empleado sigue "Activo" (la operación no se aplicó). Como la lista NO da error al
- * cargar (no es admin-only), el mensaje 403 aparece SOLO tras la acción → assert sin ruido.
+ *  - administrador: gestiona todo (crea empleados).
+ *  - supervisor: gestión AUTORIZADA — accede a /empleados y PUEDE desactivar; pero los
+ *    secretos (QR / Reset PIN) son admin-only y NO se le ofrecen.
+ *  - empleado: NO es gestión → la ruta /empleados lo REDIRIGE a "/" (no puede gestionarlos).
+ *
+ * (El 403 de GET admin-only —/usuarios— para supervisor y empleado lo cubre
+ * `permisos-roles.spec.ts`; el 403 de API de PIN/QR para supervisor, `empleado-permisos.test.ts`
+ * en el backend.)
  *
  * Datos e2e-*; NUNCA toca usuarios/empleados reales. Cada rol en contexto aislado.
  */
@@ -30,7 +33,7 @@ test.describe('@full — permisos a nivel de operación', () => {
     await expect(page.getByRole('row').filter({ hasText: emp.numero })).toBeVisible();
   });
 
-  test('supervisor: DESACTIVAR un empleado (admin-only) → 403; el empleado sigue Activo', async ({ page, browser }) => {
+  test('supervisor: gestión autorizada — PUEDE desactivar; NO ve los secretos admin-only', async ({ page, browser }) => {
     test.setTimeout(120_000);
     const emp = await crearEmpleado(page); // admin crea el empleado e2e objetivo
     const u = await crearUsuarioConRol(page, 'supervisor');
@@ -39,48 +42,40 @@ test.describe('@full — permisos a nivel de operación', () => {
     const sup = await ctx.newPage();
     try {
       await loginConCambioForzado(sup, u.email, CLAVE_E2E, CLAVE_E2E_2);
+      // /empleados es gestión (admin/supervisor): el supervisor SÍ entra (no lo redirige).
       expect(await irComoRol(sup, '/empleados')).toBe('/empleados');
 
       const fila = sup.getByRole('row').filter({ hasText: emp.numero });
       await expect(fila).toBeVisible();
       await expect(fila.getByText('Activo', { exact: true })).toBeVisible();
 
-      // El botón es visible (estático); al enviar, el backend rechaza con 403.
+      // Los SECRETOS (QR / Reset PIN) son admin-only: al supervisor no se le ofrecen.
+      await expect(fila.getByRole('button', { name: 'QR', exact: true })).toHaveCount(0);
+      await expect(fila.getByRole('button', { name: 'Reset PIN', exact: true })).toHaveCount(0);
+
+      // Desactivar es gestión (admin+supervisor): la acción SÍ se aplica (autorizada).
       await fila.getByRole('button', { name: 'Desactivar', exact: true }).click();
-      await expect(sup.getByText('No tiene permiso para esta operación.')).toBeVisible();
-      // El banner de error de acción OCULTA la tabla (PantallaEmpleados solo la pinta con
-      // !errorCarga). Recargamos para confirmar SIN EFECTO: el empleado sigue Activo.
-      expect(await irComoRol(sup, '/empleados')).toBe('/empleados');
+      // No hay banner de permiso; tras aplicarse, el empleado queda Inactivo en la lista.
+      await expect(sup.getByText('No tiene permiso para esta operación.')).toHaveCount(0);
       await expect(
-        sup.getByRole('row').filter({ hasText: emp.numero }).getByText('Activo', { exact: true }),
+        sup.getByRole('row').filter({ hasText: emp.numero }).getByText('Inactivo', { exact: true }),
       ).toBeVisible();
     } finally {
       await ctx.close();
     }
   });
 
-  test('empleado: DESACTIVAR un empleado (admin-only) → 403; el empleado sigue Activo', async ({ page, browser }) => {
+  test('empleado: la ruta /empleados lo REDIRIGE a "/" (gestión = admin/supervisor)', async ({ page, browser }) => {
     test.setTimeout(120_000);
-    const emp = await crearEmpleado(page);
     const u = await crearUsuarioConRol(page, 'empleado');
 
     const ctx = await browser.newContext();
     const e = await ctx.newPage();
     try {
       await loginConCambioForzado(e, u.email, CLAVE_E2E, CLAVE_E2E_2);
-      expect(await irComoRol(e, '/empleados')).toBe('/empleados');
-
-      const fila = e.getByRole('row').filter({ hasText: emp.numero });
-      await expect(fila).toBeVisible();
-      await expect(fila.getByText('Activo', { exact: true })).toBeVisible();
-
-      await fila.getByRole('button', { name: 'Desactivar', exact: true }).click();
-      await expect(e.getByText('No tiene permiso para esta operación.')).toBeVisible();
-      // El banner de error oculta la tabla; recargar confirma SIN EFECTO (sigue Activo).
-      expect(await irComoRol(e, '/empleados')).toBe('/empleados');
-      await expect(
-        e.getByRole('row').filter({ hasText: emp.numero }).getByText('Activo', { exact: true }),
-      ).toBeVisible();
+      // PantallaEmpleados: `if (!puedeGestionar) return <Navigate to="/" />` → el empleado
+      // no llega a la pantalla de gestión (no puede desactivar a nadie por UI).
+      expect(await irComoRol(e, '/empleados')).toBe('/');
     } finally {
       await ctx.close();
     }
