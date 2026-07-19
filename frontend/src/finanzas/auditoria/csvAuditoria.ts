@@ -75,7 +75,7 @@ export function descargarCsvAuditoria(
   t: (clave: string) => string,
 ): void {
   const contenido = construirCsvAuditoria(registros, t);
-  const blob = new Blob([`﻿${contenido}`], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([`\uFEFF${contenido}`], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const enlace = document.createElement('a');
   enlace.href = url;

@@ -85,7 +85,7 @@ export function construirCsvPlanPagos(plan: RespuestaPlan, t: (clave: string) =>
 
 export function descargarCsvPlanPagos(plan: RespuestaPlan, t: (clave: string) => string): void {
   const contenido = construirCsvPlanPagos(plan, t);
-  const blob = new Blob([`﻿${contenido}`], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([`\uFEFF${contenido}`], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const enlace = document.createElement('a');
   enlace.href = url;

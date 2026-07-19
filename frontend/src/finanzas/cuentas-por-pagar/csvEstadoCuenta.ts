@@ -126,8 +126,8 @@ export function descargarCsvEstadoCuenta(
   t: (clave: string, valores?: Record<string, string | number>) => string,
 ): void {
   const contenido = construirCsvEstadoCuenta(estado, t);
-  // ﻿ = BOM: Excel en español necesita la marca para leer UTF-8 sin mojibake.
-  const blob = new Blob([`﻿${contenido}`], { type: 'text/csv;charset=utf-8;' });
+  // \uFEFF = BOM: Excel en español necesita la marca para leer UTF-8 sin mojibake.
+  const blob = new Blob([`\uFEFF${contenido}`], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const enlace = document.createElement('a');
   enlace.href = url;

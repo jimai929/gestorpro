@@ -1,4 +1,4 @@
-import { chromium, type FullConfig } from '@playwright/test';
+import { chromium } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { env, STORAGE_STATE } from './helpers/env';
@@ -13,7 +13,7 @@ import { env, STORAGE_STATE } from './helpers/env';
  * Si faltan credenciales, escribe un estado VACÍO (sin sesión): los specs con
  * `requireAdmin()` se skipean solos, así que la corrida no rompe por falta de auth.
  */
-export default async function globalSetup(_config: FullConfig): Promise<void> {
+export default async function globalSetup(): Promise<void> {
   mkdirSync(dirname(STORAGE_STATE), { recursive: true });
 
   // Sin credenciales → estado vacío; los @full/@readonly con requireAdmin se skipean.

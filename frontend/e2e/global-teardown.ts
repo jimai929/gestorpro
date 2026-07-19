@@ -61,14 +61,12 @@ export default async function globalTeardown(): Promise<void> {
       }
     }
 
-    // eslint-disable-next-line no-console
     console.log(
       `[e2e teardown] baja lógica (reversible) de datos e2e-*: ${usuarios} usuarios, ${empleados} empleados. ` +
         'Residual dev sin API segura de retiro: kioscos "E2E Kiosco ..." + histórico inmutable ' +
         '(fichajes/jornadas/cobros). Limpieza total dev: npm run db:reset. Ver docs §9.',
     );
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.log(`[e2e teardown] best-effort, error ignorado: ${err instanceof Error ? err.message : String(err)}`);
   } finally {
     await ctx.dispose();

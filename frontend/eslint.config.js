@@ -7,7 +7,10 @@ import tseslint from 'typescript-eslint';
 // Configuración plana de ESLint (D3): la que `npm run lint` («eslint .») asumía
 // y no existía. Mismo perfil que el scaffold de Vite react-ts.
 export default tseslint.config(
-  { ignores: ['dist'] },
+  // `android` es el proyecto nativo generado por Capacitor (incluye la salida de
+  // build de Gradle con bundles JS propios y sus eslint-disable): no es código
+  // fuente que este lint deba revisar.
+  { ignores: ['dist', 'android'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
