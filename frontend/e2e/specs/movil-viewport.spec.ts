@@ -1,6 +1,23 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { requireAdmin } from '../helpers/env';
 import { irComoRol } from '../helpers/roles';
+
+/**
+ * Abre `ruta` de forma robusta frente a la carrera de rehidratación del backend dev de
+ * una sola instancia (documentada en E2E_VISIBLE_TESTS §setup): primero CALIENTA la sesión
+ * en una página ligera ("/") y luego reintenta la ruta objetivo (páginas pesadas como
+ * flujo-caja cargan muchos datos y su rehidratación puede competir bajo carga y caer a
+ * /login). Devuelve el pathname final.
+ */
+async function abrirMovil(page: Page, ruta: string): Promise<string> {
+  await irComoRol(page, '/').catch(() => '');
+  let pathname = '';
+  for (let intento = 0; intento < 3; intento++) {
+    pathname = await irComoRol(page, ruta);
+    if (pathname === ruta) return pathname;
+  }
+  return pathname;
+}
 
 /**
  * @readonly — Layout MÓVIL. Carga las páginas clave en viewports de teléfono
@@ -36,7 +53,7 @@ for (const vp of VIEWPORTS) {
 
     for (const ruta of RUTAS) {
       test(`${ruta} renderiza sin desbordamiento horizontal`, async ({ page }) => {
-        expect(await irComoRol(page, ruta)).toBe(ruta); // autenticado en la ruta (no /login)
+        expect(await abrirMovil(page, ruta)).toBe(ruta); // autenticado en la ruta (no /login)
         await expect(page.getByText(/Unexpected Application Error/i)).toHaveCount(0);
 
         // Desbordamiento horizontal a nivel de documento (1px de tolerancia por redondeos).
