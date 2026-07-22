@@ -28,7 +28,7 @@ import type {
   ModoExcepcion,
 } from './tipos';
 import styles from './PantallaKiosco.module.css';
-import { LogIn, Utensils, RotateCcw, LogOut, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { LogIn, Utensils, RotateCcw, LogOut, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // ── Constantes de presentación ─────────────────────────────────────────────
@@ -310,20 +310,23 @@ export function PantallaKiosco() {
     <div className={styles.contenedor}>
       {/* Encabezado del kiosco */}
       <div className={styles.encabezado}>
-        <span className={styles.logotipoKiosco}>GP</span>
+        {/* Con sesión de gestión el logotipo ES el control de volver a GestorPro;
+            en el dispositivo real (sin sesión) es solo decorativo. */}
+        {usuario ? (
+          <button
+            type="button"
+            className={styles.logotipoKiosco}
+            onClick={() => navigate('/')}
+            title={t('asi.kiosco.volverGestorPro')}
+            aria-label={t('asi.kiosco.volverGestorPro')}
+          >
+            GP
+          </button>
+        ) : (
+          <span className={styles.logotipoKiosco}>GP</span>
+        )}
         <h1 className={styles.tituloKiosco}>{t('asi.kiosco.tituloKiosco')}</h1>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* Solo para quien entró desde la gestión con sesión (no aparece en el dispositivo). */}
-          {usuario && (
-            <button
-              type="button"
-              className={styles.botonVolverGestor}
-              onClick={() => navigate('/')}
-            >
-              <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
-              {t('asi.kiosco.volverGestorPro')}
-            </button>
-          )}
           <SelectorIdioma />
         </div>
       </div>
@@ -461,14 +464,20 @@ function PanelTokenDispositivo({
     >
       {!mostrarFormulario ? (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-          <span>{t('asi.kiosco.dispAutorizado')}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+            <CheckCircle2 size={16} strokeWidth={1.75} color="var(--color-success)" aria-hidden />
+            {t('asi.kiosco.dispAutorizado')}
+          </span>
           <button type="button" onClick={onEditar} style={{ cursor: 'pointer', padding: '0.25rem 0.5rem' }}>
             {t('asi.kiosco.reconfigurar')}
           </button>
         </div>
       ) : (
         <div>
-          <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>
+          <p style={{ margin: '0 0 0.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {!configurado && (
+              <AlertTriangle size={16} strokeWidth={1.75} color="var(--color-danger)" aria-hidden />
+            )}
             {configurado ? t('asi.kiosco.reconfigTitulo') : t('asi.kiosco.noConfigurado')}
           </p>
           <p style={{ margin: '0 0 0.5rem' }}>

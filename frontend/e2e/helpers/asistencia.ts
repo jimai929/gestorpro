@@ -83,7 +83,7 @@ export async function pasosFichaje(
   await page.getByPlaceholder('Número de empleado o QR').fill(numero);
   await page.getByRole('button', { name: 'Continuar' }).click();
   const textoFacial =
-    facial === 'match' ? '✅ Coincide — facial aprobado' : '❌ No coincide — facial rechazado';
+    facial === 'match' ? 'Coincide — facial aprobado' : 'No coincide — facial rechazado';
   await page.getByRole('button', { name: textoFacial }).click();
   await page.getByRole('button', { name: 'Registrar fichaje' }).click();
 }
