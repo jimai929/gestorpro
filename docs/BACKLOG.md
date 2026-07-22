@@ -39,3 +39,10 @@ como "de paso": cada uno merece su commit.
   el popup de impresión de QR de empleados usa hex inline (documento aparte,
   fuera del alcance de los tokens). Tokenizarlos = cambio visual deliberado,
   cada uno en su propia tarea.
+
+- **Emojis como icono de UI fuera del kiosco (regla del design system).** Tras
+  limpiar el kiosco (2026-07-21) quedan tres usos de emoji en vez de
+  lucide-react: `PantallaRevision` (estado vacío con check), `FormularioVenta`
+  (aviso de conflicto ⚠, con tests que lo afirman por texto) y
+  `FormularioCrearEmpresa` (check de éxito). Migrarlos a lucide implica tocar
+  también sus tests; tarea propia.
