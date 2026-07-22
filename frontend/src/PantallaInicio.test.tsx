@@ -58,6 +58,51 @@ describe('PantallaInicio — tarjeta de Plataforma (solo super-admin)', () => {
   });
 });
 
+describe('PantallaInicio — gating de gestión ALINEADO con el sidebar', () => {
+  function montarConRol(rol: 'administrador' | 'supervisor' | 'empleado') {
+    vi.mocked(auth.useAuth).mockReturnValue({
+      usuario: {
+        id: 'u1',
+        nombre: 'Ana',
+        email: 'a@x.local',
+        rol,
+        esSuperAdmin: false,
+        empresaId: 'e1',
+        empresaNombre: 'Acme',
+        debeCambiarContrasena: false,
+        membresias: [],
+      },
+      estaAutenticado: true,
+      cargando: false,
+      iniciarSesion: vi.fn(),
+      cerrarSesion: vi.fn().mockResolvedValue(undefined),
+      cambiarEmpresa: vi.fn(),
+    });
+    render(
+      <MemoryRouter>
+        <PantallaInicio />
+      </MemoryRouter>,
+    );
+  }
+
+  it('un EMPLEADO no ve /empleados ni la cola de revisión (mismo criterio que el rail; el backend responde 403)', () => {
+    montarConRol('empleado');
+    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
+    expect(hrefs).not.toContain('/empleados');
+    expect(hrefs).not.toContain('/asistencia/revision');
+    // Lo operativo del día a día sigue visible.
+    expect(hrefs).toContain('/asistencia/jornadas');
+    expect(hrefs).toContain('/gastos');
+  });
+
+  it('la gestión (supervisor) sí ve ambos enlaces', () => {
+    montarConRol('supervisor');
+    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
+    expect(hrefs).toContain('/empleados');
+    expect(hrefs).toContain('/asistencia/revision');
+  });
+});
+
 describe('PantallaInicio — las tarjetas grandes NO incluyen Proveedores ni Categorías de gasto', () => {
   it('ninguna tarjeta enlaza a /proveedores ni a /categorias-gasto (siguen solo en el rail)', () => {
     montar(false);

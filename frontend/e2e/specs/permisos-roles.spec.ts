@@ -10,9 +10,11 @@ import { crearUsuarioConRol, loginConCambioForzado, irComoRol } from '../helpers
  * escritura. NUNCA toca usuarios reales.
  *
  * COMPORTAMIENTO REAL verificado (código + observación en dev), NO asumido:
- *   - El FRONTEND solo guarda `/plataforma` (RutaSoloPlataforma → cualquier NO super-admin
- *     es redirigido a `/`). NO restringe /empleados, /usuarios ni /asistencia/* por rol de
- *     tenant: esas páginas CARGAN para cualquier rol; la frontera real es el BACKEND.
+ *   - El FRONTEND guarda `/plataforma` (RutaSoloPlataforma → cualquier NO super-admin es
+ *     redirigido a `/`) y `/empleados` (PantallaEmpleados: `Navigate to="/"` si no es
+ *     gestión). Desde 2026-07-21 además OCULTA por rol las acciones/enlaces de gestión
+ *     (registrar gasto/cierre/factura, abonar, plan-pagos, cola de revisión), pero las
+ *     demás páginas CARGAN para cualquier rol; la frontera real sigue siendo el BACKEND.
  *   - `/usuarios` es admin-only en el backend (GET /usuarios → 403 para no-admin). La
  *     página monta igual (h1 "Usuarios" + botón "+ Crear usuario" son estáticos), pero la
  *     carga de datos falla y se muestra el error "No tiene permiso para esta operación.".
@@ -84,9 +86,9 @@ test.describe('@full — permisos por rol', () => {
       // Gestión de usuarios es admin-only: el empleado ve el 403.
       expect(await irComoRol(rol, '/usuarios')).toBe('/usuarios');
       await expect(rol.getByText('No tiene permiso para esta operación.')).toBeVisible();
-      // NOTA (comportamiento real, honesto): el frontend NO bloquea /empleados por rol;
-      // el empleado PUEDE ver /empleados (GET /empleados no es admin-only). Ese caso lo
-      // documenta docs/E2E_VISIBLE_TESTS.md; aquí se afirma el límite REAL (plataforma + 403).
+      // NOTA: /empleados SÍ está bloqueado por rol en el frontend (PantallaEmpleados
+      // redirige a "/" si no es gestión; cubierto en permisos-operaciones.spec.ts).
+      // Aquí se afirma el límite de plataforma + el 403 de /usuarios.
     } finally {
       await ctx.close();
     }

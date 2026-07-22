@@ -104,7 +104,12 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
           ...(puedeGestionar
             ? [{ to: '/empleados', clave: 'nav.empleados', icono: Users }]
             : []),
-          { to: '/asistencia/revision', clave: 'nav.colaRevision', icono: ClipboardCheck },
+          // Cola de revisión: el backend la limita a supervisor/administrador
+          // (guard soloJefe = mismo criterio que puedeGestionar); para el
+          // empleado era un enlace muerto que solo mostraba el error.
+          ...(puedeGestionar
+            ? [{ to: '/asistencia/revision', clave: 'nav.colaRevision', icono: ClipboardCheck }]
+            : []),
           { to: '/asistencia/jornadas', clave: 'nav.jornadas', icono: CalendarDays },
           { to: '/asistencia/cobros', clave: 'nav.cobros', icono: Banknote },
           { to: '/kiosco', clave: 'nav.kiosco', icono: Monitor },

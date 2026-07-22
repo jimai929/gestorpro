@@ -15,6 +15,13 @@ import styles from './PantallaInicio.module.css';
 export function PantallaInicio() {
   const { usuario } = useAuth();
   const { t } = useTraduccion();
+  // MISMO criterio que el sidebar (LayoutPrincipal.puedeGestionar): antes este
+  // hub mostraba /empleados y la cola de revisión al empleado —dos gatings
+  // contradictorios para el mismo destino— y ambos acababan en 403/redirect.
+  const puedeGestionar =
+    usuario != null &&
+    usuario.empresaId !== null &&
+    (usuario.rol === 'administrador' || usuario.rol === 'supervisor');
 
   useEffect(() => {
     const raiz = document.documentElement;
@@ -75,9 +82,11 @@ export function PantallaInicio() {
               <Link to="/sedes" className={styles.enlaceModulo}>
                 {t('nav.sedes')} →
               </Link>
-              <Link to="/empleados" className={styles.enlaceModulo}>
-                {t('nav.empleados')} →
-              </Link>
+              {puedeGestionar && (
+                <Link to="/empleados" className={styles.enlaceModulo}>
+                  {t('nav.empleados')} →
+                </Link>
+              )}
               <Link to="/kioscos" className={styles.enlaceModulo}>
                 {t('nav.kioscos')} →
               </Link>
@@ -100,9 +109,11 @@ export function PantallaInicio() {
               {t('inicio.asistenciaDesc')}
             </p>
             <div className={styles.enlacesModulo}>
-              <Link to="/asistencia/revision" className={styles.enlaceModulo}>
-                {t('nav.colaRevision')} →
-              </Link>
+              {puedeGestionar && (
+                <Link to="/asistencia/revision" className={styles.enlaceModulo}>
+                  {t('nav.colaRevision')} →
+                </Link>
+              )}
               <Link to="/asistencia/jornadas" className={styles.enlaceModulo}>
                 {t('nav.jornadas')} →
               </Link>

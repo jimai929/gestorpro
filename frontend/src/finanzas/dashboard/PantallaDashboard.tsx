@@ -42,9 +42,10 @@ import styles from './PantallaDashboard.module.css';
 export function PantallaDashboard() {
   const { t } = useTraduccion();
   const { usuario } = useAuth();
-  // Corregir un cierre de caja es acción de GESTIÓN: el backend limita
-  // POST /correcciones a supervisor/administrador. La UI se alinea con ese guard.
-  const puedeCorregir = usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
+  // Registrar y corregir un cierre de caja son acciones de GESTIÓN: el backend
+  // limita POST /ventas y POST /correcciones a supervisor/administrador.
+  // La UI se alinea con esos guards.
+  const puedeGestionar = usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
 
   // Tema oscuro para el área de finanzas: montar data-theme="dark" en la raíz
   // mientras esta pantalla esté viva, restaurando el valor previo al desmontar
@@ -246,15 +247,20 @@ export function PantallaDashboard() {
               {t('fin.dash.subtitulo')}
             </p>
             {/* Movimientos reales de caja del período (gestión: admin/supervisor). */}
-            {puedeCorregir && (
+            {puedeGestionar && (
               <Link to="/finanzas/flujo-caja" className={styles.enlaceFlujo}>
                 <TrendingUp size={14} strokeWidth={1.75} aria-hidden /> {t('fin.flujo.verFlujo')}
               </Link>
             )}
           </div>
-          <Boton onClick={() => setMostrarFormulario((prev) => !prev)}>
-            {mostrarFormulario ? t('fin.cerrarFormulario') : t('fin.dash.btnRegistrar')}
-          </Boton>
+          {/* Registrar cierre = gestión (backend soloGestion en POST /ventas): el
+              empleado ni ve el botón (antes llenaba el arqueo completo y el envío
+              devolvía 403). */}
+          {puedeGestionar && (
+            <Boton onClick={() => setMostrarFormulario((prev) => !prev)}>
+              {mostrarFormulario ? t('fin.cerrarFormulario') : t('fin.dash.btnRegistrar')}
+            </Boton>
+          )}
         </div>
 
         {/* Aviso de éxito: persiste tras cerrarse el formulario, con cierre manual */}
@@ -276,7 +282,7 @@ export function PantallaDashboard() {
         )}
 
         {/* Formulario de captura de venta diaria */}
-        {mostrarFormulario && (
+        {puedeGestionar && mostrarFormulario && (
           <FormularioVenta onRegistrada={manejarVentaRegistrada} />
         )}
 
@@ -588,7 +594,7 @@ export function PantallaDashboard() {
                   <th>{t('fin.dash.thCerradoPor')}</th>
                   <th>{t('fin.dash.thTotalArqueo')}</th>
                   <th>{t('fin.corr.thEstado')}</th>
-                  {puedeCorregir && <th className={styles.colAccion}></th>}
+                  {puedeGestionar && <th className={styles.colAccion}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -655,7 +661,7 @@ export function PantallaDashboard() {
                         </span>
                       )}
                     </td>
-                    {puedeCorregir && (
+                    {puedeGestionar && (
                       <td className={styles.colAccion}>
                         {/* Un cierre admite UNA sola corrección: ya corregido → sin botón. */}
                         {venta.estado === 'vigente' ? (

@@ -20,6 +20,7 @@ import { Link } from 'react-router';
 import { History, FileText, PieChart, Wallet } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { BadgeEstado } from './BadgeEstado';
 import { FormularioFactura } from './FormularioFactura';
@@ -39,6 +40,12 @@ const OPCIONES_ESTADO: { valor: string; etiquetaKey: string }[] = [
 
 export function PantallaCuentasPorPagar() {
   const { t } = useTraduccion();
+  const { usuario } = useAuth();
+  // Registrar factura, abonar y planificar pagos son acciones de GESTIÓN
+  // (backend soloGestion en POST /compras, POST /pagos y plan-pagos/simular):
+  // el empleado ni las ve — antes llenaba el formulario y el envío daba 403,
+  // o el enlace lo llevaba a una pantalla que solo responde error.
+  const puedeGestionar = usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
 
   // ── Tema oscuro grafito ──────────────────────────────────────────────────
   // Esta pantalla se muestra SIEMPRE en grafito oscuro. Monta data-theme="dark"
@@ -122,26 +129,31 @@ export function PantallaCuentasPorPagar() {
               <PieChart size={16} strokeWidth={1.75} aria-hidden />
               {t('fin.ant.verAntiguedad')}
             </Link>
-            {/* Repartir un presupuesto entre las facturas (simulación). */}
-            <Link to="/cuentas-por-pagar/plan-pagos" className={styles.enlaceHistorial}>
-              <Wallet size={16} strokeWidth={1.75} aria-hidden />
-              {t('fin.plan.planificar')}
-            </Link>
+            {/* Repartir un presupuesto entre las facturas (simulación). Gestión:
+                misma condición que el ítem del sidebar (backend soloGestion). */}
+            {puedeGestionar && (
+              <Link to="/cuentas-por-pagar/plan-pagos" className={styles.enlaceHistorial}>
+                <Wallet size={16} strokeWidth={1.75} aria-hidden />
+                {t('fin.plan.planificar')}
+              </Link>
+            )}
             {/* Conciliar con el proveedor: documento imprimible / CSV. */}
             <Link to="/estado-cuenta" className={styles.enlaceHistorial}>
               <FileText size={16} strokeWidth={1.75} aria-hidden />
               {t('fin.ec.verEstadoCuenta')}
             </Link>
-            <Boton
-              onClick={() => setMostrarFormFactura((prev) => !prev)}
-            >
-              {mostrarFormFactura ? t('fin.cerrarFormulario') : t('fin.cxp.btnRegistrar')}
-            </Boton>
+            {puedeGestionar && (
+              <Boton
+                onClick={() => setMostrarFormFactura((prev) => !prev)}
+              >
+                {mostrarFormFactura ? t('fin.cerrarFormulario') : t('fin.cxp.btnRegistrar')}
+              </Boton>
+            )}
           </div>
         </div>
 
         {/* Formulario de nueva factura */}
-        {mostrarFormFactura && (
+        {puedeGestionar && mostrarFormFactura && (
           <FormularioFactura onRegistrada={manejarFacturaRegistrada} />
         )}
 
@@ -203,7 +215,7 @@ export function PantallaCuentasPorPagar() {
                   <th>{t('fin.cxp.thSaldo')}</th>
                   <th>{t('fin.cxp.thVencimiento')}</th>
                   <th>{t('fin.estado')}</th>
-                  <th className={styles.colAccion}></th>
+                  {puedeGestionar && <th className={styles.colAccion}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -220,17 +232,19 @@ export function PantallaCuentasPorPagar() {
                     <td>
                       <BadgeEstado estado={cuenta.estado} />
                     </td>
-                    <td className={styles.colAccion}>
-                      {cuenta.estado !== 'pagado' && (
-                        <button
-                          type="button"
-                          className={styles.botonAbonar}
-                          onClick={() => setCuentaParaPago(cuenta)}
-                        >
-                          {t('fin.cxp.abonar')}
-                        </button>
-                      )}
-                    </td>
+                    {puedeGestionar && (
+                      <td className={styles.colAccion}>
+                        {cuenta.estado !== 'pagado' && (
+                          <button
+                            type="button"
+                            className={styles.botonAbonar}
+                            onClick={() => setCuentaParaPago(cuenta)}
+                          >
+                            {t('fin.cxp.abonar')}
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -28,9 +28,11 @@ import styles from './PantallaGastos.module.css';
 export function PantallaGastos() {
   const { t } = useTraduccion();
   const { usuario } = useAuth();
-  // Corregir dinero es una acción de GESTIÓN: el backend la limita a
-  // supervisor/administrador (POST /correcciones). La UI se alinea con ese guard.
-  const puedeCorregir = usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
+  // Registrar y corregir dinero son acciones de GESTIÓN: el backend las limita a
+  // supervisor/administrador (POST /gastos y POST /correcciones, soloGestion).
+  // La UI se alinea con ese guard: el empleado ni ve el botón (antes lo veía,
+  // llenaba el formulario completo y recién el envío devolvía 403).
+  const puedeGestionar = usuario?.rol === 'administrador' || usuario?.rol === 'supervisor';
 
   // Monta el tema oscuro mientras esta pantalla está visible; restaura el
   // valor previo al desmontar para no dejar dark residual en páginas claras.
@@ -132,13 +134,15 @@ export function PantallaGastos() {
             <h1 className={styles.tituloPagina}>{t('nav.gastos')}</h1>
             <p className={styles.subtitulo}>{t('fin.gasto.subtitulo')}</p>
           </div>
-          <Boton onClick={() => setMostrarFormulario((prev) => !prev)}>
-            {mostrarFormulario ? t('fin.cerrarFormulario') : t('fin.gasto.btnRegistrar')}
-          </Boton>
+          {puedeGestionar && (
+            <Boton onClick={() => setMostrarFormulario((prev) => !prev)}>
+              {mostrarFormulario ? t('fin.cerrarFormulario') : t('fin.gasto.btnRegistrar')}
+            </Boton>
+          )}
         </div>
 
         {/* Formulario de nuevo gasto */}
-        {mostrarFormulario && (
+        {puedeGestionar && mostrarFormulario && (
           <FormularioGasto onRegistrado={manejarGastoRegistrado} />
         )}
 
@@ -213,7 +217,7 @@ export function PantallaGastos() {
                     <th>{t('fin.gasto.thEmpleado')}</th>
                     <th>{t('fin.gasto.thTipoPago')}</th>
                     <th>{t('fin.corr.thEstado')}</th>
-                    {puedeCorregir && <th className={styles.colAccion}></th>}
+                    {puedeGestionar && <th className={styles.colAccion}></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -271,7 +275,7 @@ export function PantallaGastos() {
                           </span>
                         )}
                       </td>
-                      {puedeCorregir && (
+                      {puedeGestionar && (
                         <td className={styles.colAccion}>
                           {/* Un movimiento admite UNA sola corrección: ya corregido → sin botón. */}
                           {gasto.estado === 'vigente' ? (

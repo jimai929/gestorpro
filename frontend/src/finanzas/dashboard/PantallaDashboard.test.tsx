@@ -93,6 +93,21 @@ function montar() {
   );
 }
 
+describe('PantallaDashboard — registrar cierre es acción de gestión (backend soloGestion)', () => {
+  it('un EMPLEADO no ve "+ Registrar cierre del día" (antes llenaba el arqueo y el envío daba 403)', async () => {
+    usuarioMock.actual = { rol: 'empleado', empresaId: 'e1' };
+    montar();
+    await screen.findByText('Sede A');
+    expect(screen.queryByRole('button', { name: '+ Registrar cierre del día' })).toBeNull();
+  });
+
+  it('la gestión sí ve el botón de registrar cierre', async () => {
+    montar(); // admin por defecto
+    await screen.findByText('Sede A');
+    expect(screen.getByRole('button', { name: '+ Registrar cierre del día' })).toBeTruthy();
+  });
+});
+
 describe('PantallaDashboard — la columna Sede no expone el UUID si fallan las sedes (H4)', () => {
   it('si obtenerSedes falla, la celda Sede muestra un fallback legible, no el sedeId crudo', async () => {
     vi.mocked(servicio.obtenerSedes).mockRejectedValue(new Error('boom'));

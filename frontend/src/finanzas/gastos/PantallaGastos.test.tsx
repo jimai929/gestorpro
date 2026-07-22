@@ -124,8 +124,18 @@ describe('PantallaGastos — estado de corrección de cada gasto', () => {
     montar();
     await screen.findByText('Local centro');
     expect(screen.queryByRole('button', { name: 'Corregir' })).toBeNull();
+    // Tampoco ve "Registrar gasto": POST /gastos es soloGestion — antes llenaba
+    // el formulario completo y recién el envío devolvía 403.
+    expect(screen.queryByRole('button', { name: '+ Registrar gasto' })).toBeNull();
     // Pero sí ve el estado: la información no se le oculta.
     expect(screen.getByText('Corregido')).toBeTruthy();
+  });
+
+  it('la GESTIÓN sí ve el botón de registrar gasto', async () => {
+    usuarioMock.actual = { rol: 'supervisor', empresaId: 'e1' };
+    montar();
+    await screen.findByText('Local centro');
+    expect(screen.getByRole('button', { name: '+ Registrar gasto' })).toBeTruthy();
   });
 });
 
