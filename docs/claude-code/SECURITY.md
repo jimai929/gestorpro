@@ -356,3 +356,26 @@ redirección, comilla, fin de cadena — SIN matchear `down-service`/`downstream
 Los 10 casos fijan `down;`, `down&&`, `(…down)`, `down>out`, `docker-compose down;`
 (PowerShell), `bash -c "… down"`, `sh -c '… down'`, `ssh <prod> "… down"` (bash y
 PowerShell) como bloqueados, y `up down-service` como permitido.
+
+## Whitelist P0-BACKUP-LIMPIEZA (2026-07-21, autorizada por Jim; 153 → 168 casos)
+
+Única excepción de `P0-BACKUP`: la invocación **completa y anclada** del script
+versionado `deploy/limpiar-backups.sh`, que impone sus propias invariantes
+(conservar ≥ 3 pares más recientes, edad mínima ≥ 7 días por timestamp del
+nombre, solo `gestorpro_*.dump`/`roles_*.sql`, `--dry-run`, flags numéricos
+revalidados). Dos formas: local (`bash deploy/limpiar-backups.sh …`) y ssh al
+VPS de producción con **host fijo** y **solo opciones `-o` de una lista cerrada**
+(`BatchMode`, `ConnectTimeout`, `StrictHostKeyChecking`, `ServerAlive*`) con
+valor alfanumérico.
+
+La primera versión usaba `[^;&|'"]*` como tramo de opciones ssh; la revisión
+adversarial (revisor, 2026-07-21) lo marcó BLOCKER: ese charset dejaba colar
+`$(…)`, backticks (que `normalize()` además borra, ocultando el vector),
+`-oProxyCommand=…` o `-F config` — todos ejecutan comando local antes de ssh, y
+como la whitelist hace `return null`, desactivaban el guard entero
+(`ssh $(rm -rf …/deploy/backups) root@<vps> 'bash …/limpiar-backups.sh'` daba
+ALLOW). El patrón final elimina el comodín (host literal + opciones nominadas),
+exige comillas de apertura/cierre emparejadas (backreference) y tiene 15 casos
+de regresión: 5 positivos (dry-run, flags, comillas simples/dobles, local desde
+bash y PowerShell) y 10 negativos (encadenar `;`/`&&`, `rm` directo local y vía
+ssh, `$()`, backticks, `-oProxyCommand`, comillas desparejadas, host distinto).

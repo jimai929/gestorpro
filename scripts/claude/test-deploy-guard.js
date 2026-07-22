@@ -199,6 +199,28 @@ const CASES = [
   ["Bash", 'ssh 45.77.198.133 "docker compose down"', true, "ssh a produccion con compose down entre comillas: bloqueado (vector de destruccion de produccion)"],
   ["PowerShell", 'ssh root@45.77.198.133 "docker-compose down"', true, "ssh a produccion con docker-compose down (PowerShell): bloqueado"],
 
+  // --- Whitelist P0-BACKUP-LIMPIEZA (2026-07-21): SOLO la invocacion exacta
+  // del script de limpieza; toda variacion encadenada o con args extra sigue
+  // el escrutinio normal ---
+  ["Bash", "ssh -o BatchMode=yes root@45.77.198.133 'bash /root/gestorpro/deploy/limpiar-backups.sh --dry-run'", false, "whitelist: limpiar-backups.sh via ssh con --dry-run (permitido)"],
+  ["Bash", "ssh -o BatchMode=yes root@45.77.198.133 'bash /root/gestorpro/deploy/limpiar-backups.sh --dias=30 --conservar=5'", false, "whitelist: limpiar-backups.sh via ssh con flags numericos (permitido)"],
+  ["Bash", 'ssh root@45.77.198.133 "bash /root/gestorpro/deploy/limpiar-backups.sh"', false, "whitelist: limpiar-backups.sh via ssh sin flags, comillas dobles (permitido)"],
+  ["Bash", "bash deploy/limpiar-backups.sh --dry-run", false, "whitelist: invocacion local del script (permitido)"],
+  ["PowerShell", "bash deploy/limpiar-backups.sh --conservar=5", false, "whitelist: invocacion local desde PowerShell (permitido)"],
+  ["Bash", "ssh root@45.77.198.133 'bash /root/gestorpro/deploy/limpiar-backups.sh; rm -rf /root/gestorpro/deploy/backups'", true, "whitelist NO cubre encadenar: ; rm deploy/backups sigue bloqueado"],
+  ["Bash", "ssh root@45.77.198.133 'bash /root/gestorpro/deploy/limpiar-backups.sh && rm /root/gestorpro/deploy/backups/x.dump'", true, "whitelist NO cubre encadenar: && rm sigue bloqueado"],
+  ["Bash", "bash deploy/limpiar-backups.sh --dias=30 && rm deploy/backups/x.dump", true, "whitelist local NO cubre encadenar && rm"],
+  ["Bash", "rm deploy/backups/gestorpro_20260101T000000Z.dump", true, "P0-BACKUP intacto: rm directo sigue bloqueado aunque exista la whitelist"],
+  ["Bash", "ssh root@45.77.198.133 'rm /root/gestorpro/deploy/backups/x.dump'", true, "P0-BACKUP intacto: rm via ssh sigue bloqueado"],
+  // Vectores del hallazgo BLOCKER del revisor (2026-07-21): contenido destructivo
+  // colado en el tramo de opciones ssh de un comando con forma whitelisteada.
+  // Con el charset laxo original ([^;&|'"]*) TODOS estos daban ALLOW.
+  ["Bash", "ssh $(rm -rf /root/gestorpro/deploy/backups) root@45.77.198.133 'bash /root/gestorpro/deploy/limpiar-backups.sh --dry-run'", true, "whitelist NO cubre $() en el tramo ssh: rm dentro de la sustitucion bloqueado"],
+  ["Bash", "ssh `rm -rf /root/gestorpro/deploy/backups` root@45.77.198.133 'bash /root/gestorpro/deploy/limpiar-backups.sh'", true, "whitelist NO cubre backticks en el tramo ssh (normalize los quita, el rm queda visible)"],
+  ["Bash", "ssh -oProxyCommand=rm$IFS-rf$IFS/root/gestorpro/deploy/backups root@45.77.198.133 'bash /root/gestorpro/deploy/limpiar-backups.sh'", true, "whitelist NO cubre -oProxyCommand (opcion fuera de la lista cerrada)"],
+  ["Bash", "ssh root@45.77.198.133 'bash /root/gestorpro/deploy/limpiar-backups.sh\" && rm /root/gestorpro/deploy/backups/x.dump'", true, "comillas de apertura/cierre desparejadas no matchean la whitelist (backreference)"],
+  ["Bash", "ssh root@1.2.3.4 'bash /root/gestorpro/deploy/limpiar-backups.sh; rm -rf /root/gestorpro/deploy/backups'", true, "host distinto del VPS + encadenado: bloqueado"],
+
   // --- Endurecimiento 2026-07-12: [^;&|]* NO cruza clausulas (menos falsos positivos) ---
   ["Bash", "git clean -n; git log --format=%H", false, "git clean -n (dry-run) seguido de git log: la 'f' de --format no debe disparar P0-CLEAN-F"],
   ["Bash", "git push origin main && grep -f patrones.txt f.txt", false, "el -f de grep en la 2a clausula no debe disparar P0-PUSH-FORCE"],

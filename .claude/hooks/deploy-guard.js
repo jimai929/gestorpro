@@ -321,11 +321,46 @@ function stripGitGlobalOptions(cmd) {
   return out;
 }
 
+// ── Whitelist P0-BACKUP-LIMPIEZA (2026-07-21, autorizada explicitamente por
+// Jim) ────────────────────────────────────────────────────────────────────
+// La UNICA via permitida de limpieza de deploy/backups es el script
+// versionado deploy/limpiar-backups.sh, que impone sus propias invariantes
+// (conservar >= 3 pares mas recientes, edad minima >= 7 dias, solo archivos
+// gestorpro_*.dump / roles_*.sql, --dry-run). La whitelist solo acepta la
+// invocacion COMPLETA y anclada (^...$): un unico comando, sin encadenar
+// clausulas (el interior excluye ; & | y comillas anidadas) y con argumentos
+// restringidos a los tres flags conocidos. Cualquier otra forma de borrado
+// sobre deploy/backups sigue bloqueada por P0-BACKUP.
+// El tramo de opciones ssh NO puede ser un comodin permisivo: un charset
+// laxo tipo [^;&|'"]* deja colar `$(...)`, backticks (que normalize() ademas
+// BORRA, ocultando el vector), `-oProxyCommand=...` o `-F config` — todos
+// ejecutan comando local ANTES de ssh, y con `return null` desactivarian el
+// guard entero (hallazgo BLOCKER del revisor, 2026-07-21). Por eso: host
+// FIJO (el VPS de produccion) y solo opciones -o de una lista cerrada con
+// valor alfanumerico.
+const LIMPIEZA_ARGS = "(?:\\s+--(?:dry-run|dias=\\d{1,4}|conservar=\\d{1,3}))*";
+const LIMPIEZA_SSH_OPTS =
+  "(?:-o\\s*(?:BatchMode|ConnectTimeout|StrictHostKeyChecking|ServerAliveInterval|ServerAliveCountMax)=[A-Za-z0-9]+\\s+)*";
+const LIMPIEZA_LOCAL = new RegExp(
+  "^bash\\s+(?:\\./)?deploy/limpiar-backups\\.sh" + LIMPIEZA_ARGS + "$",
+  "i"
+);
+const LIMPIEZA_SSH = new RegExp(
+  "^ssh\\s+" + LIMPIEZA_SSH_OPTS + "root@45\\.77\\.198\\.133\\s+(['\"])bash\\s+/root/gestorpro/deploy/limpiar-backups\\.sh" + LIMPIEZA_ARGS + "\\1$",
+  "i"
+);
+
 // Devuelve [codigo, razon] si el comando debe bloquearse, o null si es seguro.
 // cwd se usa para cerrar el bypass de "ya estoy parado dentro de deploy/backups
 // o prisma/migrations y borro con ruta relativa corta (sin repetir el prefijo)".
 function evaluate(cmd, cwd) {
   const ENV_EXCLUDE = /\.env\.[a-z0-9]*example\b/i;
+
+  // Whitelist P0-BACKUP-LIMPIEZA: la invocacion exacta del script de limpieza
+  // se permite ANTES de cualquier otra regla. Es seguro saltarse el resto del
+  // escrutinio porque el patron esta anclado de inicio a fin: el comando no
+  // puede contener nada mas que esta invocacion.
+  if (LIMPIEZA_LOCAL.test(cmd) || LIMPIEZA_SSH.test(cmd)) return null;
 
   if (hasVerbAtCommandPosition(cmd, READ_VERB_WORDS)) {
     if (readsRealEnv(cmd, ENV_EXCLUDE)) {
