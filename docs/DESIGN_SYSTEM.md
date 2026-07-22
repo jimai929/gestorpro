@@ -89,9 +89,9 @@ Tres niveles de jerarquía, **no más**. Solo dos pesos: **400** (`--fw-regular`
 - Referenciar SIEMPRE por variable: `color: var(--color-text)`, `padding: var(--space-md)`,
   `border-radius: var(--radius-card)`, `font-size: var(--fs-body)`.
 - NO escribir hexadecimales nuevos en componentes ni en CSS modules.
-- Migración GRADUAL: los tokens legados en español (`--color-primario`, `--radio-base`…)
-  siguen en uso; se retiran solo cuando ninguna página los referencie. Al tocar una página
-  (p. ej. en la fase responsive M2), migrarla a estos tokens de paso.
+- Migración COMPLETADA (2026-07-21): los tokens legados en español (`--color-primario`,
+  `--radio-base`…) fueron retirados de `global.css`; ninguna hoja los referencia.
+  `body` y `a` usan los tokens del sistema, así que heredan bien bajo `data-theme="dark"`.
 - Página de referencia / plantilla: `PantallaInicio.tsx` (primer patrón aplicado).
 
 ---

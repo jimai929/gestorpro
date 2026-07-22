@@ -7,21 +7,11 @@
 
 /* Variables de diseño */
 :root {
-  --color-primario: #1a56db;
-  --color-primario-oscuro: #1648c0;
-  --color-fondo: #f3f4f6;
-  --color-superficie: #ffffff;
-  --color-texto: #111928;
-  --color-texto-suave: #6b7280;
-  --color-borde: #e5e7eb;
-  --color-error: #dc2626;
-  --radio-base: 8px;
-  --sombra-tarjeta: 0 1px 6px rgba(0, 0, 0, 0.06);
-
   /* ── Design tokens (sistema de diseño — ver docs/DESIGN_SYSTEM.md) ──────────
-     Se AÑADEN aquí; todavía NO se referencian (cero cambio visual). Las páginas
-     migran a estos tokens de forma gradual. Regla: color/tamaño/espacio siempre
-     por variable; nunca hexadecimales nuevos en componentes. */
+     Los tokens legados en español (--color-primario, --radio-base…) fueron
+     retirados el 2026-07-21: ninguna hoja los referencia ya. Regla: color/
+     tamaño/espacio siempre por variable; nunca hexadecimales nuevos en
+     componentes. */
 
   /* Color — primario (azul marino tinta) */
   --color-primary: #1E3A5F;
@@ -166,8 +156,8 @@ html {
 
 body {
   margin: 0;
-  background: var(--color-fondo);
-  color: var(--color-texto);
+  background: var(--color-bg);
+  color: var(--color-text);
   line-height: 1.6;
 }
 
@@ -183,7 +173,7 @@ p {
 }
 
 a {
-  color: var(--color-primario);
+  color: var(--color-primary);
   text-decoration: none;
 }
 a:hover {
