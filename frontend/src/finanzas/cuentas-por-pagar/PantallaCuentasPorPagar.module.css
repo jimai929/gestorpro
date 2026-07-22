@@ -104,6 +104,7 @@
   padding: 0.875rem 1rem;
   vertical-align: middle;
   border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
 }
 
 .tabla tbody tr:last-child td {
