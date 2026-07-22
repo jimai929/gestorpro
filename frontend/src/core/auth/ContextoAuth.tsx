@@ -19,6 +19,7 @@ import React, {
 } from 'react';
 import {
   api,
+  ErrorHttp,
   fijarAccessToken,
   fijarManejadorRefresh,
   fijarManejadorDebeCambiar,
@@ -60,6 +61,18 @@ interface ValorContextoAuth {
 // ── Contexto ───────────────────────────────────────────────────────────────
 
 const ContextoAuth = createContext<ValorContextoAuth | null>(null);
+
+/**
+ * true si /auth/refresh RECHAZÓ la sesión (401: refresh token inválido o
+ * expirado). Solo en ese caso corresponde borrar el token guardado. Un fallo
+ * de red, un fetch abortado por navegación, un 429 o un 5xx NO son rechazo:
+ * el token puede seguir siendo válido y borrarlo desloguearía al usuario por
+ * un problema transitorio (causa raíz de la pérdida de sesión en móvil con
+ * red inestable y de los E2E flaky de rehidratación).
+ */
+function esSesionRechazada(err: unknown): boolean {
+  return err instanceof ErrorHttp && err.status === 401;
+}
 
 // ── Proveedor ──────────────────────────────────────────────────────────────
 
@@ -104,11 +117,20 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
           })
           .catch(() => undefined);
         return accessToken;
-      } catch {
-        // El refresh token expiró o es inválido: sesión muerta.
-        fijarAccessToken(null);
-        eliminarRefreshToken();
-        setUsuario(null);
+      } catch (err) {
+        if (esSesionRechazada(err)) {
+          // El refresh token expiró o es inválido: sesión muerta. Es una
+          // escritura intencional de sesión → bump de versión, para que un
+          // cambiarEmpresa en vuelo NO resucite la sesión recién invalidada
+          // (hallazgo del revisor: sin esto, su POST tardío pasaba el guard).
+          versionSesion.current += 1;
+          fijarAccessToken(null);
+          eliminarRefreshToken();
+          setUsuario(null);
+        }
+        // Fallo transitorio (red/abort/429/5xx): se CONSERVAN token y usuario.
+        // La petición original fallará con su error visible y el próximo 401
+        // volverá a intentar el refresco.
         return null;
       }
     });
@@ -129,7 +151,13 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
     return () => fijarManejadorDebeCambiar(null);
   }, []);
 
-  /** Rehidratar sesión al arrancar si existe un refresh token guardado. */
+  /**
+   * Rehidratar sesión al arrancar si existe un refresh token guardado.
+   * Ante un fallo TRANSITORIO (red caída un instante, fetch abortado por una
+   * navegación encadenada) se reintenta hasta 3 veces con espera corta; si aun
+   * así falla, el token se CONSERVA (la próxima carga volverá a intentarlo).
+   * Solo un rechazo real del backend (401) borra la sesión guardada.
+   */
   useEffect(() => {
     const rehidratar = async () => {
       const refreshToken = obtenerRefreshTokenGuardado();
@@ -138,16 +166,39 @@ export function ProveedorAuth({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Guard de versión: si durante los reintentos hubo un login/logout
+      // intencional, este flujo ya es de OTRA sesión y no debe escribir NADA
+      // de sesión (ni siquiera borrar el token, que ya sería el nuevo). El
+      // `cargando` sí se cierra SIEMPRE: un login hecho desde /login mientras
+      // esto reintentaba dejaría la pantalla de carga colgada para siempre.
+      const version = versionSesion.current;
       try {
-        const { accessToken } = await refrescarTokenApi(refreshToken);
-        fijarAccessToken(accessToken);
-        // Obtener los datos del usuario llamando a GET /auth/me con el nuevo access token
-        const usuarioActual = await api.get<Usuario>('/auth/me');
-        setUsuario(usuarioActual);
-      } catch {
-        // El refresh token expiró o es inválido — limpiar todo
-        eliminarRefreshToken();
-        fijarAccessToken(null);
+        for (let intento = 0; intento < 3; intento++) {
+          try {
+            const { accessToken } = await refrescarTokenApi(refreshToken);
+            if (version !== versionSesion.current) return;
+            fijarAccessToken(accessToken);
+            // Obtener los datos del usuario llamando a GET /auth/me con el nuevo access token
+            const usuarioActual = await api.get<Usuario>('/auth/me');
+            if (version !== versionSesion.current) return;
+            setUsuario(usuarioActual);
+            return;
+          } catch (err) {
+            if (version !== versionSesion.current) return;
+            if (esSesionRechazada(err)) {
+              // El refresh token expiró o es inválido — limpiar todo
+              eliminarRefreshToken();
+              fijarAccessToken(null);
+              return;
+            }
+            if (intento < 2) {
+              await new Promise((resolver) => setTimeout(resolver, 400 * (intento + 1)));
+              // Tras la espera puede haber ocurrido un login: no gastar otro
+              // POST /auth/refresh con el token viejo (hallazgo del revisor).
+              if (version !== versionSesion.current) return;
+            }
+          }
+        }
       } finally {
         setCargando(false);
       }

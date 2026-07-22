@@ -3,7 +3,7 @@
  * Encapsula todas las llamadas al backend para este módulo.
  */
 
-import { api, obtenerAccessToken } from '../../core/api';
+import { api, ErrorHttp } from '../../core/api';
 import type {
   Sede,
   ResumenGanancia,
@@ -77,54 +77,29 @@ export class ErrorCierreDuplicado extends Error {
   }
 }
 
-const URL_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
-
 /**
  * Registra el cierre de caja de un turno (con su arqueo).
  * Lanza `ErrorCierreDuplicado` si el backend responde 409 (ya existe el cierre
  * normal de esa sede, fecha, turno y cajera). Para cualquier otro error, lanza Error.
+ *
+ * Va por el cliente central (`ErrorHttp` ya conserva el status para distinguir
+ * el 409): así este POST tiene el mismo refresh-on-401 y manejo de contraseña
+ * temporal que el resto de la app — con el fetch crudo anterior, un token
+ * expirado durante el llenado del arqueo hacía fallar el envío sin recuperación.
  */
 export async function registrarVenta(cuerpo: CuerpoRegistrarVenta): Promise<VentaDiaria> {
-  // Necesitamos acceder al status HTTP crudo para distinguir 409 del resto;
-  // el cliente genérico (api.post) ya consume el cuerpo del error y lanza Error,
-  // por eso usamos fetch directamente aquí.
-  const token = obtenerAccessToken();
-  const cabeceras: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    cabeceras['Authorization'] = `Bearer ${token}`;
-  }
-
-  const respuesta = await fetch(`${URL_BASE}/ventas`, {
-    method: 'POST',
-    headers: cabeceras,
-    body: JSON.stringify(cuerpo),
-  });
-
-  if (respuesta.status === 409) {
-    let mensaje = 'Ya existe el cierre de esa cajera y turno; use una corrección para ajustarlo.';
-    try {
-      const cuerpoError = await respuesta.json() as { mensaje?: string };
-      mensaje = cuerpoError.mensaje ?? mensaje;
-    } catch {
-      // El cuerpo no es JSON — usar el mensaje por defecto
+  try {
+    return await api.post<VentaDiaria>('/ventas', cuerpo);
+  } catch (err) {
+    if (err instanceof ErrorHttp && err.status === 409) {
+      const mensaje =
+        err.message && err.message !== 'Error 409'
+          ? err.message
+          : 'Ya existe el cierre de esa cajera y turno; use una corrección para ajustarlo.';
+      throw new ErrorCierreDuplicado(mensaje);
     }
-    throw new ErrorCierreDuplicado(mensaje);
+    throw err;
   }
-
-  if (!respuesta.ok) {
-    let mensajeError = `Error ${respuesta.status}`;
-    try {
-      const cuerpoError = await respuesta.json() as { mensaje?: string; message?: string; error?: string };
-      mensajeError = cuerpoError.mensaje ?? cuerpoError.message ?? cuerpoError.error ?? mensajeError;
-    } catch {
-      // El cuerpo no es JSON — mantener el mensaje genérico
-    }
-    throw new Error(mensajeError);
-  }
-
-  return respuesta.json() as Promise<VentaDiaria>;
 }
 
 /**

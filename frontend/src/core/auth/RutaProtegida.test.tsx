@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 import { RutaProtegida } from './RutaProtegida';
 import * as auth from './ContextoAuth';
 import * as servicio from './servicioAuth';
@@ -65,6 +65,35 @@ describe('RutaProtegida — gate de cambio de contraseña forzado', () => {
   it('no autenticado → redirige a /login', () => {
     montar({ estaAutenticado: false, usuario: null });
     expect(screen.getByText('PANTALLA LOGIN')).toBeTruthy();
+  });
+
+  it('la redirección a /login conserva ruta + query en state.desde (deep-link recuperable)', () => {
+    vi.mocked(auth.useAuth).mockReturnValue({
+      usuario: null,
+      estaAutenticado: false,
+      cargando: false,
+      iniciarSesion: vi.fn(),
+      cerrarSesion: vi.fn().mockResolvedValue(undefined),
+      cambiarEmpresa: vi.fn(),
+    });
+    function LoginConEstado() {
+      const location = useLocation();
+      const desde = (location.state as { desde?: string } | null)?.desde;
+      return <div>LOGIN desde={desde ?? '(sin)'}</div>;
+    }
+    render(
+      <MemoryRouter initialEntries={['/auditoria-financiera?entidad=gasto&registroId=g1']}>
+        <Routes>
+          <Route element={<RutaProtegida />}>
+            <Route path="/auditoria-financiera" element={<div>AUDITORIA</div>} />
+          </Route>
+          <Route path="/login" element={<LoginConEstado />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByText('LOGIN desde=/auditoria-financiera?entidad=gasto&registroId=g1'),
+    ).toBeTruthy();
   });
 
   it('cambio forzado exitoso → cierra la sesión (contrato 1: re-login, no reutiliza el token)', async () => {

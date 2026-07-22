@@ -5,7 +5,7 @@
  * de carga en lugar de redirigir, para evitar un flash de redirección falso.
  */
 
-import { Navigate, Outlet } from 'react-router';
+import { Navigate, Outlet, useLocation } from 'react-router';
 import { useAuth } from './ContextoAuth';
 import { PantallaCambioForzado } from './PantallaCambioForzado';
 import { Cargando } from '../ui/Cargando';
@@ -20,13 +20,23 @@ import { Cargando } from '../ui/Cargando';
  */
 export function RutaProtegida() {
   const { estaAutenticado, cargando, usuario } = useAuth();
+  const location = useLocation();
 
   if (cargando) {
     return <Cargando />;
   }
 
   if (!estaAutenticado) {
-    return <Navigate to="/login" replace />;
+    // Se conserva el destino (ruta + query) para volver tras el login: la app
+    // genera muchos deep-links con query (?entidad=…&registroId=…) y perderlos
+    // obligaba a rehacer la navegación a mano.
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ desde: location.pathname + location.search }}
+      />
+    );
   }
 
   // Contraseña temporal: se BLOQUEA todo el app y se obliga a cambiarla antes de entrar

@@ -3,11 +3,12 @@
  *
  * - Valida que email y contraseña no estén vacíos antes de enviar.
  * - Muestra el error devuelto por el backend si las credenciales son incorrectas.
- * - Al autenticar correctamente navega a la raíz ("/").
+ * - Al autenticar correctamente vuelve a la ruta que originó el login (state.desde
+ *   de RutaProtegida, conservando el query de los deep-links) o a la raíz.
  */
 
 import { FormEvent, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useAuth } from './ContextoAuth';
 import { useTraduccion } from '../i18n/ContextoIdioma';
 import { SelectorIdioma } from '../i18n/SelectorIdioma';
@@ -17,15 +18,22 @@ export function PantallaLogin() {
   const { iniciarSesion, estaAutenticado } = useAuth();
   const { t } = useTraduccion();
   const navegar = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
+  // Destino tras autenticar: la ruta desde la que RutaProtegida redirigió aquí
+  // (conservando el query de los deep-links), o la raíz. Solo se aceptan rutas
+  // internas ("/x", no "//host" ni URLs absolutas).
+  const desde = (location.state as { desde?: string } | null)?.desde;
+  const destino = desde && desde.startsWith('/') && !desde.startsWith('//') ? desde : '/';
+
   // Si ya tiene sesión, redirigir con Navigate (no con navegar() durante el render)
   if (estaAutenticado) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={destino} replace />;
   }
 
   const manejarEnvio = async (e: FormEvent) => {
@@ -45,7 +53,7 @@ export function PantallaLogin() {
     setEnviando(true);
     try {
       await iniciarSesion(email.trim(), password);
-      navegar('/', { replace: true });
+      navegar(destino, { replace: true });
     } catch (err: unknown) {
       const mensaje =
         err instanceof Error ? err.message : t('login.errorGenerico');

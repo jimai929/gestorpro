@@ -10,13 +10,19 @@ import type { Usuario } from './tipos';
 // cambiar-empresa actualiza TODAS las sesiones del usuario, así que otra pestaña o
 // dispositivo puede cambiar la empresa activa y el token renovado llega con OTRA
 // empresa — sin re-sync, la UI mostraría datos de una empresa bajo la etiqueta de otra.
-vi.mock('../api', () => ({
-  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
-  fijarAccessToken: vi.fn(),
-  fijarManejadorRefresh: vi.fn(),
-  fijarManejadorDebeCambiar: vi.fn(),
-  esperarRefrescoEnCurso: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock('../api', async (importOriginal) => {
+  // ErrorHttp REAL: el contexto distingue "sesión rechazada" (401) de fallo
+  // transitorio con `instanceof ErrorHttp`; un mock lo rompería.
+  const real = await importOriginal<typeof import('../api')>();
+  return {
+    ErrorHttp: real.ErrorHttp,
+    api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+    fijarAccessToken: vi.fn(),
+    fijarManejadorRefresh: vi.fn(),
+    fijarManejadorDebeCambiar: vi.fn(),
+    esperarRefrescoEnCurso: vi.fn().mockResolvedValue(undefined),
+  };
+});
 vi.mock('./servicioAuth', () => ({
   cambiarEmpresaApi: vi.fn(),
   eliminarRefreshToken: vi.fn(),
@@ -106,6 +112,109 @@ describe('ContextoAuth — re-sincronización de usuario tras el refresh silenci
     });
 
     expect(screen.getByText('Acme Panamá')).toBeTruthy(); // usuario intacto
+  });
+});
+
+describe('ContextoAuth — rehidratación resiliente (solo un 401 mata la sesión)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fallo TRANSITORIO al rehidratar: reintenta, recupera la sesión y NO borra el refresh token', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(servicioAuth.obtenerRefreshTokenGuardado).mockReturnValue('rt-guardado');
+      vi.mocked(servicioAuth.refrescarTokenApi)
+        .mockRejectedValueOnce(new TypeError('Failed to fetch')) // red caída un instante
+        .mockResolvedValueOnce({ accessToken: 'acc-nuevo' });
+      vi.mocked(api.api.get).mockResolvedValue(usuarioDe('Acme Panamá'));
+
+      render(
+        <ProveedorAuth>
+          <Sonda />
+        </ProveedorAuth>,
+      );
+      // Avanza la espera del reintento (400 ms) y deja resolver las promesas.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+
+      expect(screen.getByText('Acme Panamá')).toBeTruthy();
+      expect(vi.mocked(servicioAuth.refrescarTokenApi)).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(servicioAuth.eliminarRefreshToken)).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rechazo REAL (401) al rehidratar: borra el token a la primera, sin reintentos', async () => {
+    vi.mocked(servicioAuth.obtenerRefreshTokenGuardado).mockReturnValue('rt-caducado');
+    vi.mocked(servicioAuth.refrescarTokenApi).mockRejectedValue(
+      new api.ErrorHttp(401, 'Sesión inválida o expirada.'),
+    );
+
+    render(
+      <ProveedorAuth>
+        <Sonda />
+      </ProveedorAuth>,
+    );
+
+    expect(await screen.findByText('sin-usuario')).toBeTruthy();
+    expect(vi.mocked(servicioAuth.refrescarTokenApi)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(servicioAuth.eliminarRefreshToken)).toHaveBeenCalledTimes(1);
+  });
+
+  it('refresh-on-401 con fallo TRANSITORIO: devuelve null pero CONSERVA usuario y token', async () => {
+    let manejador: (() => Promise<string | null>) | null = null;
+    vi.mocked(api.fijarManejadorRefresh).mockImplementation((fn) => {
+      if (fn) manejador = fn;
+    });
+    vi.mocked(servicioAuth.obtenerRefreshTokenGuardado).mockReturnValue('rt-guardado');
+    vi.mocked(servicioAuth.refrescarTokenApi)
+      .mockResolvedValueOnce({ accessToken: 'acc-inicial' }) // rehidratación al montar
+      .mockRejectedValueOnce(new TypeError('Failed to fetch')); // refresh posterior, red caída
+    vi.mocked(api.api.get).mockResolvedValueOnce(usuarioDe('Acme Panamá'));
+
+    render(
+      <ProveedorAuth>
+        <Sonda />
+      </ProveedorAuth>,
+    );
+    expect(await screen.findByText('Acme Panamá')).toBeTruthy();
+
+    await act(async () => {
+      const token = await manejador!();
+      expect(token).toBeNull(); // la petición original fallará, pero…
+    });
+
+    expect(screen.getByText('Acme Panamá')).toBeTruthy(); // …el usuario sigue
+    expect(vi.mocked(servicioAuth.eliminarRefreshToken)).not.toHaveBeenCalled();
+  });
+
+  it('refresh-on-401 con rechazo REAL (401): cierra la sesión y borra el token', async () => {
+    let manejador: (() => Promise<string | null>) | null = null;
+    vi.mocked(api.fijarManejadorRefresh).mockImplementation((fn) => {
+      if (fn) manejador = fn;
+    });
+    vi.mocked(servicioAuth.obtenerRefreshTokenGuardado).mockReturnValue('rt-guardado');
+    vi.mocked(servicioAuth.refrescarTokenApi)
+      .mockResolvedValueOnce({ accessToken: 'acc-inicial' })
+      .mockRejectedValueOnce(new api.ErrorHttp(401, 'Sesión inválida o expirada.'));
+    vi.mocked(api.api.get).mockResolvedValueOnce(usuarioDe('Acme Panamá'));
+
+    render(
+      <ProveedorAuth>
+        <Sonda />
+      </ProveedorAuth>,
+    );
+    expect(await screen.findByText('Acme Panamá')).toBeTruthy();
+
+    await act(async () => {
+      await manejador!();
+    });
+
+    expect(screen.getByText('sin-usuario')).toBeTruthy();
+    expect(vi.mocked(servicioAuth.eliminarRefreshToken)).toHaveBeenCalledTimes(1);
   });
 });
 
