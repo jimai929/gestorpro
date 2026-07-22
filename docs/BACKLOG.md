@@ -27,3 +27,15 @@ como "de paso": cada uno merece su commit.
   aviso informativo preexistente, no un error de build. Posible mejora futura:
   `manualChunks` o `import()` dinámico para code-splitting. Sin impacto
   funcional; no es bloqueo de release.
+
+- **Islas claras con hex crudo sobre las páginas oscuras (post-retirada de
+  tokens legados, 2026-07-21).** Al retirar los tokens legados quedó constancia
+  de componentes que declaran TODOS sus colores con hex crudo (autocontenidos,
+  legibles, nada roto) pero visualmente claros aunque se abran sobre una página
+  grafito: `DialogoCambiarContrasena` (diálogo blanco lanzado desde
+  LayoutPrincipal), `Cargando` (spinner sobre fondo `#f9fafb`), `PantallaLogin`
+  (azul legado `#1a56db`, página propia claro) y el kiosco (fondo `#0f172a` +
+  acento marino; DESIGN_SYSTEM ya prevé recalibrarlo a grafito+ámbar). También
+  el popup de impresión de QR de empleados usa hex inline (documento aparte,
+  fuera del alcance de los tokens). Tokenizarlos = cambio visual deliberado,
+  cada uno en su propia tarea.
