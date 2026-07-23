@@ -18,6 +18,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
+import { useModal } from '../../core/ui/useModal';
 import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { obtenerJornadas, corregirJornada, barrerHuerfanos } from './servicioJornada';
@@ -62,6 +63,10 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
   const [resolverAnomalia, setResolverAnomalia] = useState(jornada.anomalia);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Accesibilidad compartida del modal; mientras envía NO se cierra.
+  const refModal = useModal<HTMLDivElement>(() => {
+    if (!enviando) alCerrar();
+  });
 
   const puedeEnviar = motivo.trim().length > 0;
 
@@ -87,7 +92,7 @@ function ModalCorreccion({ jornada, alCerrar, alCorregir }: PropiedadesModalCorr
   };
 
   return (
-    <div className={styles.fondoModal} role="dialog" aria-modal="true" aria-labelledby="titulo-modal-correccion">
+    <div ref={refModal} className={styles.fondoModal} role="dialog" aria-modal="true" aria-labelledby="titulo-modal-correccion">
       <div className={styles.modal}>
         <h2 className={styles.tituloModal} id="titulo-modal-correccion">
           {t('asi.jor.corregirTitulo')}

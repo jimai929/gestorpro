@@ -17,6 +17,7 @@ import QRCode from 'qrcode';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useModal } from '../../core/ui/useModal';
 import { useAuth } from '../../core/auth/ContextoAuth';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { FormularioEmpleado } from './FormularioEmpleado';
@@ -189,6 +190,18 @@ export function PantallaEmpleados() {
     setQr(null);
     setQrError(null);
   };
+
+  // Accesibilidad compartida de los dos modales (inline → se enganchan al
+  // abrir); mientras regeneran/guardan NO se cierran.
+  const refModalQr = useModal<HTMLDivElement>(() => {
+    if (!regenerando) cerrarQr();
+  }, qr !== null);
+  const refModalPin = useModal<HTMLDivElement>(() => {
+    if (!guardandoPin) {
+      setPinDe(null);
+      setPinValor('');
+    }
+  }, pinDe !== null);
 
   const rotarQr = async () => {
     if (!qr) return;
@@ -364,9 +377,9 @@ export function PantallaEmpleados() {
 
       {/* Modal de QR */}
       {qr && (
-        <div className={styles.overlay} role="dialog" aria-modal="true">
+        <div ref={refModalQr} className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="titulo-modal-qr">
           <div className={styles.modal}>
-            <h2 className={styles.modalTitulo}>{t('adm.emp.qrTitulo', { nombre: qr.nombre })}</h2>
+            <h2 className={styles.modalTitulo} id="titulo-modal-qr">{t('adm.emp.qrTitulo', { nombre: qr.nombre })}</h2>
             <div className={styles.qrCaja}>
               {qrImagen ? (
                 <img src={qrImagen} alt={t('adm.emp.qrTitulo', { nombre: qr.nombre })} className={styles.qrImagen} />
@@ -395,9 +408,9 @@ export function PantallaEmpleados() {
 
       {/* Modal de reset de PIN */}
       {pinDe && (
-        <div className={styles.overlay} role="dialog" aria-modal="true">
+        <div ref={refModalPin} className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="titulo-modal-pin">
           <div className={styles.modal}>
-            <h2 className={styles.modalTitulo}>{t('adm.emp.resetPinTitulo', { nombre: pinDe.nombre })}</h2>
+            <h2 className={styles.modalTitulo} id="titulo-modal-pin">{t('adm.emp.resetPinTitulo', { nombre: pinDe.nombre })}</h2>
             {pinError && <p className={styles.error}>{pinError}</p>}
             <Entrada
               etiqueta={t('adm.emp.nuevoPin')}

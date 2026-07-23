@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
+import { useModal } from '../../core/ui/useModal';
 import { Boton } from '../../core/ui/Boton';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { obtenerColaRevision, revisarFichaje } from './servicioRevision';
@@ -123,6 +124,12 @@ export function PantallaRevision() {
     setMotivoRechazo('');
     setErrorRevision(null);
   };
+
+  // Accesibilidad compartida del modal (inline → se engancha al abrir);
+  // mientras envía NO se cierra.
+  const refModalRechazo = useModal<HTMLDivElement>(() => {
+    if (!enviandoRevision) cerrarModalRechazo();
+  }, fichajeARechazar !== null);
 
   // ── Confirmar rechazo desde el modal ─────────────────────────────────────
 
@@ -273,9 +280,9 @@ export function PantallaRevision() {
 
       {/* Modal de motivo de rechazo */}
       {fichajeARechazar && (
-        <div className={styles.fondoModal} role="dialog" aria-modal="true">
+        <div ref={refModalRechazo} className={styles.fondoModal} role="dialog" aria-modal="true" aria-labelledby="titulo-modal-rechazo">
           <div className={styles.modal}>
-            <h2 className={styles.tituloModal}>{t('asi.rev.modalTitulo')}</h2>
+            <h2 className={styles.tituloModal} id="titulo-modal-rechazo">{t('asi.rev.modalTitulo')}</h2>
             <p className={styles.subtituloModal}>
               {t('asi.rev.modalEmpleadoLabel')} <strong>{fichajeARechazar.empleado.nombre}</strong>
               {t('asi.rev.modalDetalle', {

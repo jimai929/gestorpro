@@ -9,6 +9,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
+import { useModal } from '../../core/ui/useModal';
 import { Entrada } from '../../core/ui/Entrada';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { restablecerContrasenaApi } from './servicioUsuarios';
@@ -34,6 +35,10 @@ export function DialogoRestablecerContrasena({ usuario, onCerrar, onExito }: Pro
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
+  // Accesibilidad compartida del modal; mientras guarda NO se cierra.
+  const refModal = useModal<HTMLDivElement>(() => {
+    if (!guardando) onCerrar();
+  });
 
   const manejarEnvio = async (evento: FormEvent) => {
     evento.preventDefault();
@@ -64,6 +69,7 @@ export function DialogoRestablecerContrasena({ usuario, onCerrar, onExito }: Pro
 
   return (
     <div
+      ref={refModal}
       className={styles.fondo}
       role="dialog"
       aria-modal="true"

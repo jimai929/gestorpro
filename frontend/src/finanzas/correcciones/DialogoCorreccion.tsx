@@ -14,6 +14,7 @@
 import { useState } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useModal } from '../../core/ui/useModal';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { TIPOS_ARQUEO } from '../dashboard/tipos';
 import type { LineaArqueo, TipoArqueo } from '../dashboard/tipos';
@@ -69,6 +70,12 @@ export function DialogoCorreccion(props: PropiedadesDialogoCorreccion) {
   });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Accesibilidad compartida del modal (Escape, trampa de foco, foco de vuelta).
+  // Mientras se envía NO se cierra (misma regla que el botón Cancelar).
+  const refModal = useModal<HTMLDivElement>(() => {
+    if (!guardando) onCerrar();
+  });
 
   // Total del arqueo tecleado (los campos vacíos cuentan como cero): el operador ve
   // en vivo el total que va a quedar, igual que en el formulario de cierre.
@@ -129,6 +136,7 @@ export function DialogoCorreccion(props: PropiedadesDialogoCorreccion) {
 
   return (
     <div
+      ref={refModal}
       className={styles.fondoModal}
       role="dialog"
       aria-modal="true"

@@ -12,6 +12,7 @@
 
 import { useState } from 'react';
 import { Boton } from '../core/ui/Boton';
+import { useModal } from '../core/ui/useModal';
 import { useTraduccion } from '../core/i18n/ContextoIdioma';
 import { restablecerAdminApi } from './servicioPlataforma';
 import type { EmpresaListada } from './tipos';
@@ -30,6 +31,10 @@ export function DialogoRestablecerAdmin({ empresa, onCerrar, onExito }: Propieda
   const { t } = useTraduccion();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Accesibilidad compartida del modal; mientras guarda NO se cierra.
+  const refModal = useModal<HTMLDivElement>(() => {
+    if (!guardando) onCerrar();
+  });
   // Contraseña temporal devuelta por el backend. null = aún no restablecida (paso de
   // confirmación); string = éxito (paso de resultado que la muestra UNA vez).
   const [temporal, setTemporal] = useState<string | null>(null);
@@ -69,6 +74,7 @@ export function DialogoRestablecerAdmin({ empresa, onCerrar, onExito }: Propieda
 
   return (
     <div
+      ref={refModal}
       className={styles.fondo}
       role="dialog"
       aria-modal="true"

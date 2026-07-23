@@ -7,6 +7,7 @@
  */
 
 import { Boton } from '../../core/ui/Boton';
+import { useModal } from '../../core/ui/useModal';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import type { RegistroAuditoria } from './tipos';
 import styles from './DetalleCorreccion.module.css';
@@ -35,11 +36,14 @@ interface Propiedades {
 }
 
 export function DetalleCorreccion({ registro, onCerrar }: Propiedades) {
+  // Accesibilidad compartida del modal (Escape, trampa de foco, foco de vuelta);
+  // el drawer es de solo lectura, así que Escape siempre puede cerrar.
+  const refModal = useModal<HTMLDivElement>(onCerrar);
   const { t } = useTraduccion();
   const esAnulacion = registro.accion === 'anulacion';
 
   return (
-    <div className={styles.fondo} role="dialog" aria-modal="true" aria-labelledby="titulo-detalle-correccion">
+    <div ref={refModal} className={styles.fondo} role="dialog" aria-modal="true" aria-labelledby="titulo-detalle-correccion">
       <div className={styles.panel}>
         <div className={styles.encabezado}>
           <div>

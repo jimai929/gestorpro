@@ -7,6 +7,7 @@
 import { useState, type FormEvent } from 'react';
 import { Boton } from '../../core/ui/Boton';
 import { Entrada } from '../../core/ui/Entrada';
+import { useModal } from '../../core/ui/useModal';
 import { useTraduccion } from '../../core/i18n/ContextoIdioma';
 import { registrarPago } from './servicioCuentas';
 import { formatearDinero } from './utilidades';
@@ -24,6 +25,11 @@ export function DialogoPago({ cuenta, onPagado, onCerrar }: PropiedadesDialogo) 
   const [monto, setMonto] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Accesibilidad compartida del modal; mientras guarda NO se cierra (misma
+  // regla que el botón de cerrar, que se deshabilita).
+  const refModal = useModal<HTMLDivElement>(() => {
+    if (!guardando) onCerrar();
+  });
 
   const manejarEnvio = async (evento: FormEvent) => {
     evento.preventDefault();
@@ -51,7 +57,7 @@ export function DialogoPago({ cuenta, onPagado, onCerrar }: PropiedadesDialogo) 
   };
 
   return (
-    <div className={styles.fondo} role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo">
+    <div ref={refModal} className={styles.fondo} role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo">
       <div className={styles.dialogo}>
         <div className={styles.encabezado}>
           <h2 className={styles.titulo} id="titulo-dialogo">{t('fin.abono.registrar')}</h2>

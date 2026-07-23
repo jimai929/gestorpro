@@ -13,6 +13,7 @@
 import { useState, type FormEvent } from 'react';
 import { Boton } from '../ui/Boton';
 import { Entrada } from '../ui/Entrada';
+import { useModal } from '../ui/useModal';
 import { ErrorHttp } from '../api';
 import { useTraduccion } from '../i18n/ContextoIdioma';
 import { cambiarContrasenaApi } from './servicioAuth';
@@ -38,6 +39,12 @@ export function DialogoCambiarContrasena({ onCerrar, onExito, forzado = false }:
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
+  // Accesibilidad compartida del modal. En el cambio FORZADO no hay onCerrar
+  // (el diálogo no es descartable) → Escape no hace nada; y mientras guarda
+  // tampoco se cierra (misma regla que los botones).
+  const refModal = useModal<HTMLDivElement>(() => {
+    if (!guardando) onCerrar?.();
+  });
 
   const manejarEnvio = async (evento: FormEvent) => {
     evento.preventDefault();
@@ -82,6 +89,7 @@ export function DialogoCambiarContrasena({ onCerrar, onExito, forzado = false }:
 
   return (
     <div
+      ref={refModal}
       className={styles.fondo}
       role="dialog"
       aria-modal="true"
