@@ -7,9 +7,12 @@ import { expect, type Page } from '@playwright/test';
  * super-admin es redirigido a /plataforma por RutaNegocio).
  *
  * Rutas que NO existen como página propia (se reportan en docs/E2E_VISIBLE_TESTS.md):
- *   ventas, compras, salario/nómina y auditoría NO tienen ruta dedicada; compras se
- *   registran dentro de /cuentas-por-pagar; las correcciones de dinero y la auditoría
- *   son API-only (sin UI).
+ *   ventas, compras y salario/nómina no tienen ruta dedicada; compras se registran
+ *   dentro de /cuentas-por-pagar. OJO (actualizado 2026-07-23): desde la v1.0 las
+ *   correcciones de dinero SÍ tienen UI (DialogoCorreccion en gastos/dashboard/pagos)
+ *   y la auditoría tiene página propia (/auditoria-financiera), igual que flujo de
+ *   caja, historial de pagos, estado de cuenta, antigüedad y plan de pagos — ver los
+ *   helpers de abajo.
  */
 
 /**
@@ -57,6 +60,14 @@ export const goto = {
   gastos: (p: Page) => irA(p, '/gastos'),
   cuentasPorPagar: (p: Page) => irA(p, '/cuentas-por-pagar'),
   proveedores: (p: Page) => irA(p, '/proveedores'),
+  // Pantallas de finanzas de la v1.0 (todas de lectura al cargar; las de gestión
+  // exigen supervisor/admin — el smoke corre con el admin del tenant).
+  flujoCaja: (p: Page) => irA(p, '/finanzas/flujo-caja'),
+  pagos: (p: Page) => irA(p, '/pagos'),
+  estadoCuenta: (p: Page) => irA(p, '/estado-cuenta'),
+  auditoriaFinanciera: (p: Page) => irA(p, '/auditoria-financiera'),
+  antiguedad: (p: Page) => irA(p, '/cuentas-por-pagar/antiguedad'),
+  planPagos: (p: Page) => irA(p, '/cuentas-por-pagar/plan-pagos'),
   jornadas: (p: Page) => irA(p, '/asistencia/jornadas'),
   revision: (p: Page) => irA(p, '/asistencia/revision'),
   cobros: (p: Page) => irA(p, '/asistencia/cobros'),

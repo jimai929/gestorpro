@@ -61,6 +61,38 @@ test.describe('@smoke @readonly — navegación de solo lectura', () => {
     await expect(page.getByText('GestorPro').first()).toBeVisible();
   });
 
+  // ── Pantallas de finanzas de la v1.0 (las más nuevas = las más propensas a
+  //    romperse en producción; todas de SOLO LECTURA al cargar) ────────────────
+  test('flujo de caja carga', async ({ page }) => {
+    await goto.flujoCaja(page);
+    await expect(page.getByText('GestorPro').first()).toBeVisible();
+  });
+
+  test('historial de pagos carga', async ({ page }) => {
+    await goto.pagos(page);
+    await expect(page.getByText('GestorPro').first()).toBeVisible();
+  });
+
+  test('estado de cuenta carga', async ({ page }) => {
+    await goto.estadoCuenta(page);
+    await expect(page.getByText('GestorPro').first()).toBeVisible();
+  });
+
+  test('auditoría financiera carga', async ({ page }) => {
+    await goto.auditoriaFinanciera(page);
+    await expect(page.getByText('GestorPro').first()).toBeVisible();
+  });
+
+  test('antigüedad de cuentas por pagar carga', async ({ page }) => {
+    await goto.antiguedad(page);
+    await expect(page.getByText('GestorPro').first()).toBeVisible();
+  });
+
+  test('plan de pagos carga (solo la pantalla; NO se genera ningún plan)', async ({ page }) => {
+    await goto.planPagos(page);
+    await expect(page.getByText('GestorPro').first()).toBeVisible();
+  });
+
   test('NINGUNA página del recorrido queda en /login ni con error de aplicación', async ({ page }) => {
     for (const ir of [goto.dashboard, goto.usuarios, goto.empleados, goto.gastos, goto.jornadas]) {
       // irA() ya afirma que NO caímos a /login y que estamos en la ruta pedida.
