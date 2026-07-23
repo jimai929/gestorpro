@@ -307,7 +307,8 @@ export function PantallaEmpleados() {
           )}
 
           {!errorCarga && !cargando && empleados.length > 0 && (
-            <table className={styles.tabla}>
+            <div className={styles.contenedorTabla}>
+              <table className={styles.tabla}>
               <thead>
                 <tr>
                   <th>{t('adm.emp.thNumero')}</th>
@@ -371,6 +372,7 @@ export function PantallaEmpleados() {
                 ))}
               </tbody>
             </table>
+          </div>
           )}
         </div>
       </div>

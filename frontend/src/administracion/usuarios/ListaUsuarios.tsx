@@ -71,7 +71,8 @@ export function ListaUsuarios({
       {/* La tabla NO se gatea por `error` (mismo criterio que ListaEmpresas): si un
           refresh posterior falla, los datos ya cargados siguen visibles bajo el banner. */}
       {usuarios && usuarios.length > 0 && (
-        <table className={styles.tabla}>
+        <div className={styles.contenedorTabla}>
+          <table className={styles.tabla}>
           <thead>
             <tr>
               <th>{t('adm.usu.thNombre')}</th>
@@ -168,6 +169,7 @@ export function ListaUsuarios({
             ))}
           </tbody>
         </table>
+      </div>
       )}
     </div>
   );

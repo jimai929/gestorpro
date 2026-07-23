@@ -205,7 +205,8 @@ export function PantallaCuentasPorPagar() {
           )}
 
           {!errorCarga && !cargando && cuentas.length > 0 && (
-            <table className={styles.tabla}>
+            <div className={styles.contenedorTabla}>
+              <table className={styles.tabla}>
               <thead>
                 <tr>
                   <th>{t('fin.cxp.thProveedor')}</th>
@@ -249,6 +250,7 @@ export function PantallaCuentasPorPagar() {
                 ))}
               </tbody>
             </table>
+          </div>
           )}
         </div>
       </div>

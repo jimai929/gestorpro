@@ -207,7 +207,8 @@ export function PantallaGastos() {
 
           {!errorCarga && !cargando && gastos.length > 0 && (
             <>
-              <table className={styles.tabla}>
+              <div className={styles.contenedorTabla}>
+                <table className={styles.tabla}>
                 <thead>
                   <tr>
                     <th>{t('fin.gasto.thCategoria')}</th>
@@ -305,6 +306,7 @@ export function PantallaGastos() {
                   ))}
                 </tbody>
               </table>
+            </div>
 
               {/* Resumen total del período */}
               <div className={styles.resumen}>

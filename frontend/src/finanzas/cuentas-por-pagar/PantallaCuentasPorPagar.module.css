@@ -228,3 +228,10 @@
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
+
+/* La tabla scrollea DENTRO de su tarjeta (patrón de PantallaPagos): la tarjeta
+   tiene overflow hidden y en móvil cortaba las columnas del final sin forma de
+   alcanzarlas. */
+.contenedorTabla {
+  overflow-x: auto;
+}

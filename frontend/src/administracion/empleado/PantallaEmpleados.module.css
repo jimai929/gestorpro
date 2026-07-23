@@ -274,3 +274,10 @@
   padding: 0.5rem 0.75rem;
   text-align: left;
 }
+
+/* La tabla scrollea DENTRO de su tarjeta (patrón de PantallaPagos): la tarjeta
+   tiene overflow hidden y en móvil cortaba las columnas del final sin forma de
+   alcanzarlas. */
+.contenedorTabla {
+  overflow-x: auto;
+}

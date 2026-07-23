@@ -149,7 +149,8 @@ export function PantallaProveedores() {
           )}
 
           {!errorCarga && !cargando && proveedores.length > 0 && (
-            <table className={styles.tabla}>
+            <div className={styles.contenedorTabla}>
+              <table className={styles.tabla}>
               <thead>
                 <tr>
                   <th>{t('fin.prov.thNombre')}</th>
@@ -205,6 +206,7 @@ export function PantallaProveedores() {
                 ))}
               </tbody>
             </table>
+          </div>
           )}
         </div>
       </div>
