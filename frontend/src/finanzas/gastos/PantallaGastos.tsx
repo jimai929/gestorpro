@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -51,9 +51,26 @@ export function PantallaGastos() {
   const [cargando, setCargando] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
-  // Filtros de período
-  const [desde, setDesde] = useState(primerDiaDelMes());
-  const [hasta, setHasta] = useState(fechaHoy());
+  // Filtros de período — inicializados desde la URL y sincronizados a ella
+  // (mismo patrón que las pantallas nuevas): sobreviven al volver de la
+  // auditoría y son compartibles por enlace.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [desde, setDesde] = useState(searchParams.get('desde') ?? primerDiaDelMes());
+  const [hasta, setHasta] = useState(searchParams.get('hasta') ?? fechaHoy());
+
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (desde) p.set('desde', desde);
+        else p.delete('desde');
+        if (hasta) p.set('hasta', hasta);
+        else p.delete('hasta');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [desde, hasta, setSearchParams]);
 
   // Estado de UI
   const [mostrarFormulario, setMostrarFormulario] = useState(false);

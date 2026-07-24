@@ -8,7 +8,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, useLocation } from 'react-router';
 import { PantallaCuentasPorPagar } from './PantallaCuentasPorPagar';
 import * as servicio from './servicioCuentas';
 import type { CuentaPorPagar } from './tipos';
@@ -58,6 +59,40 @@ function montar() {
     </MemoryRouter>,
   );
 }
+
+describe('PantallaCuentasPorPagar — el filtro de estado vive en la URL', () => {
+  function SondaUrl() {
+    const location = useLocation();
+    return <div data-testid="url">{location.search || '(sin)'}</div>;
+  }
+
+  it('inicializa desde ?estado= y escribe el filtro elegido en la URL', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/cuentas-por-pagar?estado=pagado']}>
+        <PantallaCuentasPorPagar />
+        <SondaUrl />
+      </MemoryRouter>,
+    );
+    await screen.findByText('Distri88');
+    // Inicializó desde la URL: pidió la lista filtrada por 'pagado'.
+    expect(vi.mocked(servicio.obtenerCuentasPorPagar)).toHaveBeenCalledWith({ estado: 'pagado' });
+
+    // Cambiar el filtro reescribe la URL (compartible / sobrevive al volver).
+    await user.click(screen.getByRole('button', { name: 'Vencidas' }));
+    expect(screen.getByTestId('url').textContent).toBe('?estado=vencida');
+  });
+
+  it('un ?estado= inválido cae al filtro "todos" (sin romper)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/cuentas-por-pagar?estado=inventado']}>
+        <PantallaCuentasPorPagar />
+      </MemoryRouter>,
+    );
+    await screen.findByText('Distri88');
+    expect(vi.mocked(servicio.obtenerCuentasPorPagar)).toHaveBeenCalledWith(undefined);
+  });
+});
 
 describe('PantallaCuentasPorPagar — gating de gestión', () => {
   it('la gestión ve registrar factura, abonar y planificar pagos', async () => {

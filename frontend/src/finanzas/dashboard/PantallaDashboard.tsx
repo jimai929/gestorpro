@@ -19,7 +19,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { TrendingUp } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
@@ -60,14 +60,39 @@ export function PantallaDashboard() {
     };
   }, []);
 
-  // Filtros
+  // Filtros — inicializados desde la URL (mismo patrón que flujo-caja/antigüedad):
+  // así sobreviven al botón de volver desde la auditoría y son compartibles.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const turnoUrl = searchParams.get('turno');
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [cajeras, setCajeras] = useState<string[]>([]);
-  const [desde, setDesde] = useState(primerDiaDelMes());
-  const [hasta, setHasta] = useState(fechaHoy());
-  const [sedeId, setSedeId] = useState('');
-  const [cajera, setCajera] = useState('');
-  const [turno, setTurno] = useState<TurnoVenta | ''>('');
+  const [desde, setDesde] = useState(searchParams.get('desde') ?? primerDiaDelMes());
+  const [hasta, setHasta] = useState(searchParams.get('hasta') ?? fechaHoy());
+  const [sedeId, setSedeId] = useState(searchParams.get('sedeId') ?? '');
+  const [cajera, setCajera] = useState(searchParams.get('cajera') ?? '');
+  const [turno, setTurno] = useState<TurnoVenta | ''>(
+    turnoUrl === 'manana' || turnoUrl === 'tarde' || turnoUrl === 'noche' ? turnoUrl : '',
+  );
+
+  // Sincroniza filtros → URL (replace: sin ensuciar el historial).
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        const fijar = (clave: string, valor: string) => {
+          if (valor) p.set(clave, valor);
+          else p.delete(clave);
+        };
+        fijar('desde', desde);
+        fijar('hasta', hasta);
+        fijar('sedeId', sedeId);
+        fijar('cajera', cajera);
+        fijar('turno', turno);
+        return p;
+      },
+      { replace: true },
+    );
+  }, [desde, hasta, sedeId, cajera, turno, setSearchParams]);
 
   // Datos del dashboard
   const [resumen, setResumen] = useState<ResumenGanancia | null>(null);
@@ -248,7 +273,12 @@ export function PantallaDashboard() {
             </p>
             {/* Movimientos reales de caja del período (gestión: admin/supervisor). */}
             {puedeGestionar && (
-              <Link to="/finanzas/flujo-caja" className={styles.enlaceFlujo}>
+              /* Lleva el rango y la sede actuales: PantallaFlujoCaja los lee de
+                 la URL, así no hay que re-teclear el período al cruzar. */
+              <Link
+                to={`/finanzas/flujo-caja?desde=${desde}&hasta=${hasta}${sedeId ? `&sedeId=${sedeId}` : ''}`}
+                className={styles.enlaceFlujo}
+              >
                 <TrendingUp size={14} strokeWidth={1.75} aria-hidden /> {t('fin.flujo.verFlujo')}
               </Link>
             )}

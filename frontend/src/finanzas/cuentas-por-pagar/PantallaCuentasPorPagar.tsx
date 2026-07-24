@@ -16,7 +16,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { History, FileText, PieChart, Wallet } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
@@ -65,8 +65,25 @@ export function PantallaCuentasPorPagar() {
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
-  // Filtros
-  const [filtroEstado, setFiltroEstado] = useState('');
+  // Filtro de estado — inicializado desde la URL y sincronizado a ella
+  // (sobrevive a recargas/volver y es compartible por enlace).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const estadoUrl = searchParams.get('estado') ?? '';
+  const [filtroEstado, setFiltroEstado] = useState(
+    OPCIONES_ESTADO.some((op) => op.valor === estadoUrl) ? estadoUrl : '',
+  );
+
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (filtroEstado) p.set('estado', filtroEstado);
+        else p.delete('estado');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [filtroEstado, setSearchParams]);
 
   // Estado de UI
   const [mostrarFormFactura, setMostrarFormFactura] = useState(false);
