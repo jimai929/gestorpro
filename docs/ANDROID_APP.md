@@ -142,9 +142,23 @@ adb install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
 - `versionCode`/`versionName` en `app/build.gradle` (hoy 1 / "1.0"): **subir
   `versionCode` en cada upload a Play**.
 
-## Próximos pasos (Fase 3 — Play Store)
+## Fase 3 — Iconos y splash propios (HECHA 2026-07-23)
 
-- Generar iconos + splash propios (`npx @capacitor/assets generate`; hoy iconos default).
+- Identidad: insignia **GP** con la paleta Grafito cálido del sistema de diseño
+  (ámbar `#D9954F` + tinta `#151413`; splash sobre grafito `#1A1917`). El favicon
+  `public/icono.svg` también se migró (usaba el azul legado `#1a56db`).
+- Fuentes en `frontend/assets/` (icon-only / icon-foreground / icon-background /
+  splash / splash-dark), generadas por `scripts/generar-assets-android.mjs`
+  (renderiza con Chromium de Playwright — tipografía y colores exactos, sin
+  depender de librsvg). Regenerar: `node scripts/generar-assets-android.mjs`.
+- Recursos Android: `npx capacitor-assets generate --android` (74 archivos en
+  `android/app/src/main/res/`: mipmaps adaptativos + splash port/land, claro y
+  oscuro — idénticos: la app es siempre oscura). `@capacitor/assets` quedó como
+  devDependency.
+- AAB/APK regenerados y verificados con los iconos nuevos (2026-07-23).
+
+## Próximos pasos (Play Store)
+
 - Ficha de Google Play (permisos, política de privacidad, screenshots) + Play App Signing.
-- `npm audit` antes del primer release público (3 avisos transitivos conocidos).
+- `npm audit` antes del primer release público (avisos transitivos conocidos).
 - CI opcional para builds firmados.
