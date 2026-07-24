@@ -46,3 +46,18 @@ como "de paso": cada uno merece su commit.
   (aviso de conflicto ⚠, con tests que lo afirman por texto) y
   `FormularioCrearEmpresa` (check de éxito). Migrarlos a lucide implica tocar
   también sus tests; tarea propia.
+
+- **Restos de la auditoría 2026-07-21 (tras los paquetes A-E y los lotes
+  MEDIUM).** Pendiente, cada uno tarea propia: (1) E2E con stack local — spec
+  de dinero (gasto→corrección→auditoría→segunda corrección rechazada), gates
+  de empleado sobre /auditoria-financiera+/finanzas/flujo-caja+plan-pagos,
+  terminar plataforma-superadmin.spec con la empresa SUSPENDIDA (hoy queda
+  activa con la clave e2e commiteada), y bajar retries:2 + bucles de reintento
+  de nav.ts ahora que el catch del refresh está arreglado; (2) unificar 400 vs
+  404 para "id de body inexistente" entre módulos (hoy compra→404, resto→400)
+  o documentarlo como excepción; (3) `deudaTotal` no viene en POST/PUT
+  /proveedores pero el tipo lo promete (front); (4) mensajes de error sin
+  `codigo` estable → intraducibles (UI trilingüe); (5) LOWs de UX: botón
+  sólido "Regenerar QR" sin confirmación, fuente 0.68rem del flujo móvil,
+  deep-link por fila CxP→estado-cuenta, catch silencioso de proveedores en
+  PantallaPlanPagos.
