@@ -36,7 +36,7 @@ import {
 } from './servicioDashboard';
 import { formatearDinero, formatearFecha, primerDiaDelMes, fechaHoy } from './utilidades';
 import { TURNOS } from './tipos';
-import type { Sede, ResumenGanancia, GastoPorCategoria, VentaDiaria, TurnoVenta } from './tipos';
+import type { Sede, ResumenGanancia, GastoPorCategoria, VentaDiaria, VentaCreada, TurnoVenta } from './tipos';
 import styles from './PantallaDashboard.module.css';
 
 export function PantallaDashboard() {
@@ -206,7 +206,7 @@ export function PantallaDashboard() {
    * visible en el dashboard (sobrevive al cierre del formulario), marcar la fila
    * nueva para resaltarla y refrescar el dashboard y la lista.
    */
-  const manejarVentaRegistrada = (venta: VentaDiaria) => {
+  const manejarVentaRegistrada = (venta: VentaCreada) => {
     setMostrarFormulario(false);
     setAvisoExito(
       t('fin.dash.avisoExito', {

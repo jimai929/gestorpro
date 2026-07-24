@@ -31,7 +31,7 @@ import {
   type TipoArqueo,
   type TurnoVenta,
   type LineaArqueo,
-  type VentaDiaria,
+  type VentaCreada,
 } from './tipos';
 import styles from './FormularioVenta.module.css';
 
@@ -57,7 +57,7 @@ function ordenarPorSede(lista: EmpleadoCierre[], sedeId: string): EmpleadoCierre
 interface PropiedadesFormulario {
   /** Callback tras registrar con éxito; recibe el cierre creado para que el
    *  dashboard lo confirme y lo resalte aunque el formulario ya se haya cerrado. */
-  onRegistrada: (venta: VentaDiaria) => void;
+  onRegistrada: (venta: VentaCreada) => void;
 }
 
 const ARQUEO_VACIO: Record<TipoArqueo, string> = {

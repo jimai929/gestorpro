@@ -9,6 +9,7 @@ import type {
   CategoriaGastoCreada,
   Sede,
   Gasto,
+  GastoCreado,
   CuerpoRegistrarGasto,
   CuerpoCrearCategoria,
   CuerpoActualizarCategoria,
@@ -80,8 +81,8 @@ export function obtenerEmpleados(): Promise<EmpleadoResumen[]> {
  *   - Categoría normal → empleadoId y tipoPago deben estar ausentes.
  * Devuelve 400 con { mensaje } si la coherencia falla.
  */
-export function registrarGasto(cuerpo: CuerpoRegistrarGasto): Promise<Gasto> {
-  return api.post<Gasto>('/gastos', cuerpo);
+export function registrarGasto(cuerpo: CuerpoRegistrarGasto): Promise<GastoCreado> {
+  return api.post<GastoCreado>('/gastos', cuerpo);
 }
 
 /**

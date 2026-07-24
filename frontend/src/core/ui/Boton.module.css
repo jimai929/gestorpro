@@ -22,6 +22,14 @@
   transform: translateY(1px);
 }
 
+/* Foco de teclado con el ring de marca (mismo patrón que los enlaces de las
+   pantallas): el componente más pulsado de la app no puede depender del
+   outline por defecto del navegador, inconsistente sobre el tema oscuro. */
+.boton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
 .boton:disabled {
   opacity: 0.55;
   cursor: not-allowed;

@@ -77,6 +77,26 @@ export interface VentaDiaria {
   detallesVigentes: LineaArqueo[]; // arqueo que vale hoy ([] si se anuló)
 }
 
+/**
+ * Respuesta REAL del POST /ventas: el cierre recién creado, SIN los campos
+ * que solo calcula el listado (estado, montoVigente, motivoCorreccion,
+ * detallesVigentes). Tiparla como `VentaDiaria` mentía: un consumidor que
+ * leyera esos campos obtendría undefined sin aviso del compilador.
+ */
+export interface VentaCreada {
+  id: string;
+  sedeId: string;
+  fechaOperacion: string;
+  turno: TurnoVenta;
+  cajera: string;
+  cerradoPor: string;
+  horaApertura: string | null;
+  horaCierre: string | null;
+  monto: number;
+  tipo: string;
+  detalles: LineaArqueo[];
+}
+
 /** Empleado para los selects de cajera/verificador del cierre. */
 export interface EmpleadoCierre {
   id: string;

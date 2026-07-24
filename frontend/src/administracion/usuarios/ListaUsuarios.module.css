@@ -66,12 +66,12 @@
 }
 
 .sinDato {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary); /* muted no pasa AA sobre surface (4.18) */
   font-size: 0.8125rem;
 }
 
 .filaInactiva td {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary); /* muted no pasa AA sobre surface (4.18) */
 }
 
 /* ── Badges de estado ── */

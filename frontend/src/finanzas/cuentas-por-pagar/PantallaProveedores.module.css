@@ -80,7 +80,7 @@
 }
 
 .filaInactiva td {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary); /* muted no pasa AA sobre surface (4.18) */
 }
 
 .contacto {
@@ -88,7 +88,7 @@
 }
 
 .vacio {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary); /* muted no pasa AA sobre surface (4.18) */
 }
 
 /* ── Columna de deuda total ── */
@@ -105,7 +105,7 @@
 }
 
 .deudaCero {
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary); /* muted no pasa AA sobre surface (4.18) */
 }
 
 /* ── Badges de estado ── */

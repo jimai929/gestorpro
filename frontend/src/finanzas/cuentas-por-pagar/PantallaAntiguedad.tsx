@@ -182,7 +182,7 @@ export function PantallaAntiguedad() {
         </span>
       </td>
       <td className={`${styles.celdaAcciones} ${styles.noImprimir}`}>
-        <Link to={`/estado-cuenta?proveedorId=${f.proveedorId}`} className={styles.enlaceMini} title={t('fin.ant.accEstadoCuenta')}>
+        <Link to={`/estado-cuenta?proveedorId=${f.proveedorId}`} className={styles.enlaceMini} title={t('fin.ant.accEstadoCuenta')} aria-label={t('fin.ant.accEstadoCuenta')}>
           <FileText size={14} strokeWidth={1.75} aria-hidden />
         </Link>
       </td>
@@ -398,13 +398,13 @@ export function PantallaAntiguedad() {
                       <td className={styles.monto}>{formatearDinero(p.deuda90Mas)}</td>
                       <td className={styles.colNum}>{t('fin.ant.diasValor', { dias: p.facturaMasAntiguaDias })}</td>
                       <td className={`${styles.celdaAcciones} ${styles.noImprimir}`}>
-                        <Link to={`/estado-cuenta?proveedorId=${p.proveedorId}`} className={styles.enlaceMini} title={t('fin.ant.accEstadoCuenta')}>
+                        <Link to={`/estado-cuenta?proveedorId=${p.proveedorId}`} className={styles.enlaceMini} title={t('fin.ant.accEstadoCuenta')} aria-label={t('fin.ant.accEstadoCuenta')}>
                           <FileText size={14} strokeWidth={1.75} aria-hidden />
                         </Link>
-                        <Link to={`/pagos?proveedorId=${p.proveedorId}`} className={styles.enlaceMini} title={t('fin.ant.accHistorial')}>
+                        <Link to={`/pagos?proveedorId=${p.proveedorId}`} className={styles.enlaceMini} title={t('fin.ant.accHistorial')} aria-label={t('fin.ant.accHistorial')}>
                           <History size={14} strokeWidth={1.75} aria-hidden />
                         </Link>
-                        <Link to="/cuentas-por-pagar" className={styles.enlaceMini} title={t('fin.ant.accRegistrarPago')}>
+                        <Link to="/cuentas-por-pagar" className={styles.enlaceMini} title={t('fin.ant.accRegistrarPago')} aria-label={t('fin.ant.accRegistrarPago')}>
                           <Receipt size={14} strokeWidth={1.75} aria-hidden />
                         </Link>
                       </td>

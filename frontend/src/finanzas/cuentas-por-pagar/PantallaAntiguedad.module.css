@@ -473,6 +473,15 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
+/* Objetivo táctil: en pantallas táctiles 28px es demasiado pequeño (el
+   mínimo global de 44px solo cubre button/select/input, no <a>). */
+@media (max-width: 480px) { /* 480px = --bp-mobile */
+  .enlaceMini {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* ── Paginación / estados ── */
 
 .paginacion {

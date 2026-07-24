@@ -109,6 +109,13 @@
   color: var(--color-sidebar-text-hover);
 }
 
+/* Foco de teclado sobre el rail SIEMPRE oscuro: ring ámbar fijo del rail
+   (los tokens del rail no dependen de data-theme, este ring tampoco). */
+.item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-sidebar-text-active) 45%, transparent);
+}
+
 .itemActivo {
   background: var(--color-sidebar-item-active);
   color: var(--color-sidebar-text-active);

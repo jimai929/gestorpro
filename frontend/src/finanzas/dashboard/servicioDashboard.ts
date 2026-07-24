@@ -9,6 +9,7 @@ import type {
   ResumenGanancia,
   GastoPorCategoria,
   VentaDiaria,
+  VentaCreada,
   EmpleadoCierre,
   CuerpoRegistrarVenta,
   FiltrosDashboard,
@@ -87,9 +88,9 @@ export class ErrorCierreDuplicado extends Error {
  * temporal que el resto de la app — con el fetch crudo anterior, un token
  * expirado durante el llenado del arqueo hacía fallar el envío sin recuperación.
  */
-export async function registrarVenta(cuerpo: CuerpoRegistrarVenta): Promise<VentaDiaria> {
+export async function registrarVenta(cuerpo: CuerpoRegistrarVenta): Promise<VentaCreada> {
   try {
-    return await api.post<VentaDiaria>('/ventas', cuerpo);
+    return await api.post<VentaCreada>('/ventas', cuerpo);
   } catch (err) {
     if (err instanceof ErrorHttp && err.status === 409) {
       const mensaje =

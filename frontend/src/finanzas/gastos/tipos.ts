@@ -32,6 +32,25 @@ export interface Sede {
  */
 export type EstadoMovimiento = 'vigente' | 'anulado' | 'corregido';
 
+/**
+ * Respuesta REAL del POST /gastos: la fila recién creada, SIN los campos que
+ * solo calcula el listado (categoria anidada, estado, montoVigente,
+ * motivoCorreccion). Tiparla como `Gasto` mentía: cualquier consumidor que
+ * leyera esos campos obtendría undefined sin aviso del compilador.
+ */
+export interface GastoCreado {
+  id: string;
+  categoriaId: string;
+  sedeId: string;
+  monto: number;
+  fechaOperacion: string;
+  descripcion: string | null;
+  empleadoId: string | null;
+  tipoPago: string | null;
+  tipo: string;
+  creadoEn: string;
+}
+
 export interface Gasto {
   id: string;
   categoriaId: string;
