@@ -74,9 +74,24 @@ export async function ventasRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // Querystring tipado: una fecha malformada o un turno inventado responde 400
+  // con mensaje claro, en vez de llegar a Prisma como Invalid Date y dar 500.
+  const esquemaListarVentas = {
+    querystring: {
+      type: 'object',
+      properties: {
+        desde: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        hasta: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        sedeId: { type: 'string', minLength: 1 },
+        cajera: { type: 'string' },
+        turno: { type: 'string', enum: ['manana', 'tarde', 'noche'] },
+      },
+    },
+  } as const;
+
   app.get<{
     Querystring: { desde?: string; hasta?: string; sedeId?: string; cajera?: string; turno?: string };
-  }>('/ventas', autenticado, async (request, reply) => {
+  }>('/ventas', { ...autenticado, schema: esquemaListarVentas }, async (request, reply) => {
     try {
       const { desde, hasta, sedeId, cajera, turno } = request.query;
       return await reply.send(await listarVentas({ desde, hasta, sedeId, cajera, turno }));

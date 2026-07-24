@@ -35,8 +35,12 @@ const esquemaRango = {
     type: 'object',
     required: ['desde', 'hasta'],
     properties: {
-      desde: { type: 'string', minLength: 1 },
-      hasta: { type: 'string', minLength: 1 },
+      // El formato se exige aquí (400 del schema); un mes fuera de rango
+      // (2026-13-01) lo remata fechaDeFiltro en el servicio (400 también).
+      // Un desborde de DÍA (2026-02-31) rueda de mes — límite documentado
+      // en core/fechas.ts.
+      desde: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+      hasta: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
       sedeId: { type: 'string' },
       // Acotan solo las ventas (auditoría de descuadres por cajera/turno).
       cajera: { type: 'string' },

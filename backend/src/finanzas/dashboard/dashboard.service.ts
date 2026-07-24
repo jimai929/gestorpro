@@ -1,4 +1,5 @@
 import { txEmpresa } from '../../core/tenant/contexto.js';
+import { fechaDeFiltro } from '../../core/fechas.js';
 import { escaparComodinesLike } from './ventas.service.js';
 
 export interface RangoFiltro {
@@ -34,7 +35,7 @@ function redondear(n: number): number {
 export async function gananciaDelPeriodo(filtros: RangoFiltro) {
   const { desde, hasta, sedeId, cajera, turno } = filtros;
   const sede = sedeId ? { sedeId } : {};
-  const enRango = { gte: new Date(desde), lte: new Date(hasta) };
+  const enRango = { gte: fechaDeFiltro(desde, 'desde'), lte: fechaDeFiltro(hasta, 'hasta') };
   const filtroCierre = {
     ...sede,
     // Cajera CASE-INSENSITIVE: tolera el texto libre legacy en cierres viejos.
@@ -117,7 +118,7 @@ export async function gastosPorCategoria(filtros: RangoFiltro) {
     tx.gasto.findMany({
       where: {
         ...(sedeId ? { sedeId } : {}),
-        fechaOperacion: { gte: new Date(desde), lte: new Date(hasta) },
+        fechaOperacion: { gte: fechaDeFiltro(desde, 'desde'), lte: fechaDeFiltro(hasta, 'hasta') },
       },
       include: { categoria: true },
     }),

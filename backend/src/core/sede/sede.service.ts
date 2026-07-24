@@ -12,6 +12,15 @@ function esErrorPrisma(error: unknown, codigo: string): boolean {
 
 type ModoExcepcion = 'pin' | 'supervisor' | 'ambos';
 
+/** DTO público de una sede: sin `empresaId` (el tenant no se filtra en respuestas). */
+const SELECT_SEDE = {
+  id: true,
+  nombre: true,
+  activo: true,
+  modoExcepcion: true,
+  creadoEn: true,
+} as const;
+
 export interface DatosSede {
   nombre: string;
   modoExcepcion?: ModoExcepcion;
@@ -25,6 +34,7 @@ export function crearSede(datos: DatosSede) {
         nombre: datos.nombre,
         ...(datos.modoExcepcion ? { modoExcepcion: datos.modoExcepcion } : {}),
       },
+      select: SELECT_SEDE,
     }),
   );
 }
@@ -49,7 +59,7 @@ export async function editarSede(id: string, datos: DatosEditarSede) {
   try {
     // Bajo RLS, where {id} solo ve filas del tenant del GUC → un id de otra
     // empresa da P2025 → 404 (anti cross-tenant).
-    return await txEmpresa((tx) => tx.sede.update({ where: { id }, data }));
+    return await txEmpresa((tx) => tx.sede.update({ where: { id }, data, select: SELECT_SEDE }));
   } catch (error) {
     if (esErrorPrisma(error, 'P2025')) {
       throw new ErrorNoEncontrado('La sede indicada no existe.');
@@ -64,6 +74,7 @@ export function listarSedes(filtros?: { incluirInactivas?: boolean }) {
     tx.sede.findMany({
       where: filtros?.incluirInactivas ? {} : { activo: true },
       orderBy: { nombre: 'asc' },
+      select: SELECT_SEDE,
     }),
   );
 }

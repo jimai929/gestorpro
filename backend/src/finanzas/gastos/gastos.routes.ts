@@ -156,9 +156,22 @@ export async function gastosRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
+  // Querystring tipado: una fecha malformada responde 400 con mensaje claro,
+  // en vez de llegar a Prisma como Invalid Date y dar 500.
+  const esquemaListarGastos = {
+    querystring: {
+      type: 'object',
+      properties: {
+        desde: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        hasta: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        sedeId: { type: 'string', minLength: 1 },
+      },
+    },
+  } as const;
+
   app.get<{ Querystring: { desde?: string; hasta?: string; sedeId?: string } }>(
     '/gastos',
-    autenticado,
+    { ...autenticado, schema: esquemaListarGastos },
     async (request, reply) => {
       try {
         const { desde, hasta, sedeId } = request.query;

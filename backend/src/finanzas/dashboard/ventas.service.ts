@@ -1,5 +1,6 @@
 import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorConflicto, ErrorValidacion } from '../../core/errors.js';
+import { fechaDeFiltro } from '../../core/fechas.js';
 import { resumirCorreccion } from '../../shared/services/correccion.estado.js';
 
 function esErrorPrisma(error: unknown, codigo: string): boolean {
@@ -40,10 +41,14 @@ interface VentaConDetalles {
   detalles?: Array<{ monto: { toString(): string } }>;
 }
 
-/** Serializa los montos (Decimal) a number para el contrato de la API. */
-function aVentaDto<T extends VentaConDetalles>(venta: T) {
+/**
+ * Serializa los montos (Decimal) a number y RETIRA `usuarioId` del contrato de
+ * la API (dato interno de auditoría: el frontend no lo consume).
+ */
+function aVentaDto<T extends VentaConDetalles & { usuarioId?: unknown }>(venta: T) {
+  const { usuarioId: _usuarioId, ...resto } = venta;
   return {
-    ...venta,
+    ...resto,
     monto: Number(venta.monto),
     detalles: (venta.detalles ?? []).map((d) => ({ ...d, monto: Number(d.monto) })),
   };
@@ -155,8 +160,8 @@ export async function listarVentas(filtros: {
         ...(filtros.desde || filtros.hasta
           ? {
               fechaOperacion: {
-                ...(filtros.desde ? { gte: new Date(filtros.desde) } : {}),
-                ...(filtros.hasta ? { lte: new Date(filtros.hasta) } : {}),
+                ...(filtros.desde ? { gte: fechaDeFiltro(filtros.desde, 'desde') } : {}),
+                ...(filtros.hasta ? { lte: fechaDeFiltro(filtros.hasta, 'hasta') } : {}),
               },
             }
           : {}),

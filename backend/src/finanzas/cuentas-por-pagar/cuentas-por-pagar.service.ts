@@ -23,6 +23,17 @@ function esErrorPrisma(error: unknown, codigo: string): boolean {
 
 // ─── Proveedores ────────────────────────────────────────────────────────────
 
+/** DTO público de un proveedor: sin `empresaId` (el tenant no se filtra en respuestas). */
+const SELECT_PROVEEDOR = {
+  id: true,
+  nombre: true,
+  identificacionFiscal: true,
+  telefono: true,
+  personaContacto: true,
+  activo: true,
+  creadoEn: true,
+} as const;
+
 export interface DatosProveedor {
   nombre: string;
   identificacionFiscal?: string;
@@ -39,6 +50,7 @@ export function crearProveedor(datos: DatosProveedor) {
         telefono: datos.telefono ?? null,
         personaContacto: datos.personaContacto ?? null,
       },
+      select: SELECT_PROVEEDOR,
     }),
   );
 }
@@ -69,7 +81,9 @@ export async function editarProveedor(id: string, datos: DatosEditarProveedor) {
     ...(datos.activo !== undefined ? { activo: datos.activo } : {}),
   };
   try {
-    return await txEmpresa((tx) => tx.proveedor.update({ where: { id }, data }));
+    return await txEmpresa((tx) =>
+      tx.proveedor.update({ where: { id }, data, select: SELECT_PROVEEDOR }),
+    );
   } catch (error) {
     if (esErrorPrisma(error, 'P2025')) {
       throw new ErrorNoEncontrado('El proveedor indicado no existe.');
@@ -93,6 +107,7 @@ export function listarProveedores(filtros?: { soloActivos?: boolean }) {
     const proveedores = await tx.proveedor.findMany({
       where: filtros?.soloActivos ? { activo: true } : {},
       orderBy: { nombre: 'asc' },
+      select: SELECT_PROVEEDOR,
     });
     const deudas = await tx.$queryRaw<Array<{ proveedor_id: string; deuda_total: string }>>`
       SELECT proveedor_id, SUM(saldo) AS deuda_total
@@ -138,7 +153,7 @@ export async function registrarCompra(datos: DatosCompra) {
   try {
     const compra = await txEmpresa(async (tx) => {
       // Validar que proveedor y sede son VISIBLES para el tenant. Bajo RLS, uno de
-      // OTRA empresa (o inexistente) no se ve → "no existen" (422), en vez de un
+      // OTRA empresa (o inexistente) no se ve → "no existen" (400), en vez de un
       // 500 por violación de WITH CHECK. Cubre además la FK-injection cross-tenant
       // vía body (§6c): el padre se valida contra el empresaId del token.
       const proveedor = await tx.proveedor.findUnique({
@@ -186,7 +201,9 @@ export async function listarCompras(filtros: { sedeId?: string }) {
     tx.compra.findMany({
       where: filtros.sedeId ? { sedeId: filtros.sedeId } : {},
       orderBy: { fechaEmision: 'desc' },
-      include: { proveedor: true },
+      // Solo el nombre: `proveedor: true` anidaba la fila completa del
+      // proveedor (incluido su empresaId), que el frontend no consume.
+      include: { proveedor: { select: { nombre: true } } },
     }),
   );
   return compras.map(aCompraDto);
@@ -243,7 +260,7 @@ export async function registrarPago(datos: DatosPago) {
       );
     }
 
-    return tx.pagoProveedor.create({
+    const pago = await tx.pagoProveedor.create({
       data: {
         compraId: datos.compraId,
         monto: datos.monto,
@@ -251,7 +268,21 @@ export async function registrarPago(datos: DatosPago) {
         tipo: 'normal',
         usuarioId: datos.usuarioId,
       },
+      // DTO público: sin usuarioId (dato interno de auditoría; el historial de
+      // pagos resuelve nombres por su propia vía). `monto` se expone como
+      // number — sin el select+conversión, el Decimal serializaba a STRING,
+      // rompiendo la convención "dinero siempre number" del módulo.
+      select: {
+        id: true,
+        compraId: true,
+        monto: true,
+        fechaPago: true,
+        tipo: true,
+        motivo: true,
+        creadoEn: true,
+      },
     });
+    return { ...pago, monto: Number(pago.monto) };
   }, { tx: { isolationLevel: 'ReadCommitted', timeout: 15000 } });
 }
 

@@ -1,11 +1,16 @@
 import type { ClienteTx } from '../../core/prisma.js';
 import { txEmpresa } from '../../core/tenant/contexto.js';
 import { ErrorConflicto, ErrorNoEncontrado, ErrorValidacion } from '../../core/errors.js';
+import { fechaDeFiltro } from '../../core/fechas.js';
 import { resumirCorreccion } from '../../shared/services/correccion.estado.js';
 
-/** Serializa el monto (Decimal) a number para el contrato de la API. */
-function aGastoDto<T extends { monto: { toString(): string } }>(gasto: T) {
-  return { ...gasto, monto: Number(gasto.monto) };
+/**
+ * Serializa el monto (Decimal) a number y RETIRA `usuarioId` del contrato de la
+ * API (dato interno de auditoría: el frontend no lo consume y no debe viajar).
+ */
+function aGastoDto<T extends { monto: { toString(): string }; usuarioId?: unknown }>(gasto: T) {
+  const { usuarioId: _usuarioId, ...resto } = gasto;
+  return { ...resto, monto: Number(gasto.monto) };
 }
 
 function esErrorPrisma(error: unknown, codigo: string): boolean {
@@ -306,15 +311,17 @@ export async function listarGastos(filtros: {
       ...(filtros.desde || filtros.hasta
         ? {
             fechaOperacion: {
-              ...(filtros.desde ? { gte: new Date(filtros.desde) } : {}),
-              ...(filtros.hasta ? { lte: new Date(filtros.hasta) } : {}),
+              ...(filtros.desde ? { gte: fechaDeFiltro(filtros.desde, 'desde') } : {}),
+              ...(filtros.hasta ? { lte: fechaDeFiltro(filtros.hasta, 'hasta') } : {}),
             },
           }
         : {}),
     },
     orderBy: { fechaOperacion: 'desc' },
     include: {
-      categoria: true,
+      // Solo el DTO público de la categoría: `categoria: true` anidaba la fila
+      // completa (incluido su empresaId).
+      categoria: { select: SELECT_CATEGORIA },
       // Asientos que corrigen este gasto (reverso y, si la hubo, corrección). El
       // original es INMUTABLE: su estado real solo se conoce mirando sus asientos.
       correcciones: { select: { id: true, tipo: true, monto: true, motivo: true } },

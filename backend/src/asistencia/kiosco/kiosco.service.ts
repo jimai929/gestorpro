@@ -39,7 +39,7 @@ export async function crearKiosco(datos: DatosKiosco) {
   const token = generarToken();
   const tokenHash = await hashearContrasena(token); // argon2 FUERA de la tx
   const kiosco = await txEmpresa(async (tx) => {
-    // Bajo RLS (contexto del admin), la sede de OTRA empresa no es visible → 422.
+    // Bajo RLS (contexto del admin), la sede de OTRA empresa no es visible → 400.
     const sede = await tx.sede.findUnique({ where: { id: datos.sedeId } });
     if (!sede) {
       throw new ErrorValidacion('La sede indicada no existe.');
