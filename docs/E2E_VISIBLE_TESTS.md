@@ -235,3 +235,22 @@ seed), que recrea toda la BD y **solo es válida en desarrollo** — nunca contr
 | ventas / cierre caja | — | — | — | **sin ruta UI** | API/futuro |
 | auditoría | — | — | — | **sin ruta UI** | API-only |
 | salario / nómina | — | — | — | **sin ruta UI** | backend/API |
+
+## Stack local para la suite (actualizado 2026-07-23)
+
+El backend del stack E2E debe arrancar con los límites de rate ampliados —
+cada `page.goto` rehidrata sesión (`/auth/refresh`) y los specs de roles
+inician sesión decenas de veces por minuto desde una sola IP; con los topes
+de producción la suite se caía a /login por 429 (esa era la causa raíz de
+los "6 flaky", no la rehidratación en sí):
+
+```powershell
+$env:RATE_LIMIT_REFRESH_MAX = '2000'
+$env:RATE_LIMIT_LOGIN_MAX   = '500'
+npm run dev   # backend
+```
+
+En producción esas variables NO se definen y aplican los defaults estrictos
+(30/min y 10/min). Con esto + el fix del catch del refresh (ContextoAuth,
+2026-07-23) la suite corre 0-flaky con `retries: 1`; si un test aparece como
+"flaky" en el reporte, es una regresión real que hay que mirar, no ruido.

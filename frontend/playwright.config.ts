@@ -22,13 +22,17 @@ export default defineConfig({
   // Teardown dev-only: da de BAJA LÓGICA (reversible, nunca borra) las cuentas/empleados
   // e2e-* al terminar. Fail-safe: no hace nada en producción ni sin E2E_ALLOW_WRITES.
   globalTeardown: './e2e/global-teardown.ts',
-  // Reintentos: la rehidratación de sesión (async, /auth/refresh + /auth/me) puede
-  // abortarse bajo carga del backend dev de una sola instancia → caída transitoria a
-  // /login. Es flakiness de ENTORNO (en aislamiento la página carga bien, verificado),
-  // no un bug: 2 reintentos la absorben. En verde no reintenta (coste 0).
+  // Reintentos: la "flakiness de entorno" que justificaba 2 reintentos tenía DOS
+  // causas raíz, ambas arregladas el 2026-07-23: (1) el catch del refresh borraba el
+  // token ante cualquier fallo transitorio (ContextoAuth distingue ahora el 401 real)
+  // y (2) el rate limit de /auth/refresh (30/min) se agotaba con las recargas de la
+  // suite → 429 → /login; el stack de E2E debe correr el backend con
+  // RATE_LIMIT_REFRESH_MAX alto (p. ej. 2000). Con ambo arreglos la suite corre
+  // 0-flaky; queda UN reintento como red para hipos reales del entorno dev — si algo
+  // reintenta, aparece como "flaky" en el reporte y hay que MIRARLO, no subir esto.
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: 2,
+  retries: 1,
   workers: 1,
   timeout: 30_000,
   expect: { timeout: 7_000 },

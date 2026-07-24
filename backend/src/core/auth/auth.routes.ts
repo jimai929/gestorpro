@@ -83,7 +83,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     {
       schema: esquemaLogin,
       // Estricto: el login es el objetivo de fuerza bruta de contraseñas.
-      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      // RATE_LIMIT_LOGIN_MAX: SOLO para el stack local de E2E (los specs de
+      // roles inician sesión muchas veces por minuto desde una IP). En
+      // producción no se define y aplica el default de 10.
+      config: {
+        rateLimit: {
+          max: Number(process.env.RATE_LIMIT_LOGIN_MAX ?? '') || 10,
+          timeWindow: '1 minute',
+        },
+      },
     },
     async (request, reply) => {
       try {
@@ -106,7 +114,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       schema: esquemaRefresh,
       // Más holgado que el login: el refresco es automático (refresh-on-401) y
       // una sede comparte IP de salida; aun así acotado contra abuso.
-      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+      // RATE_LIMIT_REFRESH_MAX: SOLO para el stack local de E2E (cada page.goto
+      // de Playwright rehidrata la sesión → decenas de refresh por minuto desde
+      // una IP; con el tope de producción la suite se caía a /login por 429).
+      // En producción no se define y aplica el default de 30.
+      config: {
+        rateLimit: {
+          max: Number(process.env.RATE_LIMIT_REFRESH_MAX ?? '') || 30,
+          timeWindow: '1 minute',
+        },
+      },
     },
     async (request, reply) => {
       try {

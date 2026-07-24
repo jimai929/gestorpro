@@ -80,4 +80,39 @@ test.describe('@full — permisos a nivel de operación', () => {
       await ctx.close();
     }
   });
+
+  test('empleado: las pantallas soloGestion de finanzas degradan con error VISIBLE y sin acciones', async ({ page, browser }) => {
+    test.setTimeout(120_000);
+    const u = await crearUsuarioConRol(page, 'empleado');
+
+    const ctx = await browser.newContext();
+    const e = await ctx.newPage();
+    try {
+      await loginConCambioForzado(e, u.email, CLAVE_E2E, CLAVE_E2E_2);
+
+      // El sidebar NO ofrece los destinos de gestión (gating 2026-07-23)…
+      await irComoRol(e, '/dashboard');
+      await expect(e.getByRole('link', { name: 'Flujo de caja' })).toHaveCount(0);
+      await expect(e.getByRole('link', { name: 'Auditoría financiera' })).toHaveCount(0);
+      // …ni el dashboard le ofrece registrar un cierre (backend soloGestion).
+      await expect(e.getByRole('button', { name: /Registrar cierre/ })).toHaveCount(0);
+
+      // Tecleando la URL a mano: la página carga (no crashea) y la carga de
+      // datos muestra el 403 del backend como error visible, no pantalla vacía.
+      await irComoRol(e, '/auditoria-financiera');
+      await expect(e.getByText('No tiene permiso para esta operación.').first()).toBeVisible();
+
+      // Flujo de caja tiene su propio gate de UI con mensaje amable (no el 403 crudo).
+      await irComoRol(e, '/finanzas/flujo-caja');
+      await expect(e.getByText('No tienes acceso al flujo de caja.')).toBeVisible();
+
+      // CxP: puede CONSULTAR la lista, pero sin acciones de gestión.
+      await irComoRol(e, '/cuentas-por-pagar');
+      await expect(e.getByRole('button', { name: /Registrar factura/ })).toHaveCount(0);
+      await expect(e.getByRole('button', { name: 'Abonar' })).toHaveCount(0);
+      await expect(e.getByRole('link', { name: 'Planificar pagos' })).toHaveCount(0);
+    } finally {
+      await ctx.close();
+    }
+  });
 });

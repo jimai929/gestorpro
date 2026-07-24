@@ -64,9 +64,17 @@ test.describe('@full — plataforma / super-admin', () => {
       await fila.getByRole('button', { name: '¿Confirmar suspensión?' }).click();
       await expect(fila.getByText('Suspendida', { exact: true })).toBeVisible();
 
-      // REACTIVAR (vuelve a Activa). Fin del alcance SEGURO: no se cancela ni se resetea admin.
+      // REACTIVAR (vuelve a Activa): cubre la transición inversa.
       await fila.getByRole('button', { name: 'Reactivar', exact: true }).click();
       await expect(fila.getByText('Activa', { exact: true })).toBeVisible();
+
+      // Cierre HIGIÉNICO: la empresa e2e queda SUSPENDIDA. Antes terminaba
+      // Activa — un tenant vivo cuya contraseña de admin (CLAVE_E2E) está
+      // commiteada en el repo; inaceptable el día que esto corra en staging.
+      // El teardown global no toca empresas, así que se hace aquí.
+      await fila.getByRole('button', { name: 'Suspender', exact: true }).click();
+      await fila.getByRole('button', { name: '¿Confirmar suspensión?' }).click();
+      await expect(fila.getByText('Suspendida', { exact: true })).toBeVisible();
     });
   });
 });

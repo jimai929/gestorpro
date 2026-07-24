@@ -24,16 +24,14 @@ import { expect, type Page } from '@playwright/test';
  * sesión pre-cargada (storageState) la rehidratación resuelve y NO se cae a /login.
  */
 export async function irA(page: Page, ruta: string): Promise<void> {
-  // La rehidratación (/auth/refresh + /auth/me) es async; si una navegación previa la
-  // ABORTA (goto encadenados cancelan requests en vuelo), su catch limpia la sesión y
-  // RutaProtegida cae a /login. La sesión sigue VÁLIDA en el backend (el refresh token no
-  // rota), así que un reintento con la sesión ya tibia rehidrata bien. Hasta 3 intentos.
   // Señal POSITIVA de sesión activa: la barra autenticada (link "Ir al inicio",
   // LayoutPrincipal). En /login el logo es un <div> sin ese rol/nombre, así que este
-  // wait distingue "autenticado en la app" de "caído a /login". Reintenta el goto si la
-  // rehidratación se abortó y cayó a /login.
+  // wait distingue "autenticado en la app" de "caído a /login". Desde 2026-07-23 la
+  // rehidratación ya NO pierde la sesión ante aborts/429 transitorios (fix en
+  // ContextoAuth + RATE_LIMIT_REFRESH_MAX en el backend del stack E2E); queda UN
+  // reintento de goto como red mínima para el arranque frío del dev server.
   const barra = page.getByRole('link', { name: 'Ir al inicio' });
-  for (let intento = 1; intento <= 4; intento++) {
+  for (let intento = 1; intento <= 2; intento++) {
     await page.goto(ruta);
     try {
       await barra.waitFor({ state: 'visible', timeout: 6_000 });
