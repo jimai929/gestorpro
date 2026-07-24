@@ -108,12 +108,43 @@ adb install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
    transitivas de Capacitor; no se corrieron `audit fix` (podría alterar el lockfile).
    Revisar con `npm audit` antes de release.
 
-## Próximos pasos (Fase 2+ — release / Play Store)
+## Fase 2 — Firma de release (HECHA 2026-07-23)
 
-- Instalar Android Studio + SDK; construir y probar el APK debug en equipo real.
-- Añadir `https://localhost` (u origen del WebView) a `CORS_ORIGEN` del VPS, o migrar las
-  llamadas a `@capacitor/http` (nativo, sin CORS).
-- Generar iconos + splash (`npx @capacitor/assets generate`).
-- Crear keystore, firmar **release**, generar **AAB** (`gradlew bundleRelease`).
-- Configurar ficha de Google Play (permisos, política de privacidad, screenshots).
+- **Keystore de upload**: `C:\Users\jimfe\claves-android\gestorpro-upload.keystore`
+  (RSA 4096, alias `gestorpro-upload`, validez 10 000 días, DN CN=GestorPro/C=PA).
+  La contraseña vive SOLO en `C:\Users\jimfe\claves-android\gestorpro-keystore-pass.txt`
+  y en `frontend/android/keystore.properties` (ambos FUERA de git; el segundo está
+  gitignored junto con `*.keystore`/`*.jks`). **NUNCA commitear ni pegar en un chat.**
+- **⚠ RESPALDAR el keystore + contraseña** (gestor de contraseñas / USB / offsite
+  cifrado, misma práctica que PAS.txt): perderlo = no poder actualizar la app firmada.
+  Recomendado: al primer subir a Play, inscribirse en **Play App Signing** (Google
+  custodia la clave de firma; esta pasa a ser solo la de upload, reseteable).
+- **Gradle**: `app/build.gradle` lee `android/keystore.properties` si existe
+  (storeFile/storePassword/keyAlias/keyPassword); sin el archivo, release queda sin
+  firmar (no rompe assembleDebug ni CI). Plantilla:
+
+  ```properties
+  storeFile=C:/Users/jimfe/claves-android/gestorpro-upload.keystore
+  storePassword=...
+  keyAlias=gestorpro-upload
+  keyPassword=...
+  ```
+
+- **Builds** (desde `frontend/android`, con JAVA_HOME = JBR):
+
+  ```bash
+  gradlew.bat bundleRelease     # AAB → app/build/outputs/bundle/release/app-release.aab
+  gradlew.bat assembleRelease   # APK release firmado (sideload) → outputs/apk/release/
+  ```
+
+  Verificados: `apksigner verify` (V2, cert CN=GestorPro) y `jarsigner -verify` (AAB)
+  el 2026-07-23. AAB 3.26 MB, APK release 3.4 MB.
+- `versionCode`/`versionName` en `app/build.gradle` (hoy 1 / "1.0"): **subir
+  `versionCode` en cada upload a Play**.
+
+## Próximos pasos (Fase 3 — Play Store)
+
+- Generar iconos + splash propios (`npx @capacitor/assets generate`; hoy iconos default).
+- Ficha de Google Play (permisos, política de privacidad, screenshots) + Play App Signing.
+- `npm audit` antes del primer release público (3 avisos transitivos conocidos).
 - CI opcional para builds firmados.
