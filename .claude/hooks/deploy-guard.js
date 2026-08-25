@@ -346,7 +346,7 @@ const LIMPIEZA_LOCAL = new RegExp(
   "i"
 );
 const LIMPIEZA_SSH = new RegExp(
-  "^ssh\\s+" + LIMPIEZA_SSH_OPTS + "root@45\\.77\\.198\\.133\\s+(['\"])bash\\s+/root/gestorpro/deploy/limpiar-backups\\.sh" + LIMPIEZA_ARGS + "\\1$",
+  "^ssh\\s+" + LIMPIEZA_SSH_OPTS + "root@45\\.77\\.198\\.133\\s+(['\"])bash\\s+/srv/gestorpro/deploy/limpiar-backups\\.sh" + LIMPIEZA_ARGS + "\\1$",
   "i"
 );
 

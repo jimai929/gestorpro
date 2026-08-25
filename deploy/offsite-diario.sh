@@ -15,7 +15,7 @@
 set -euo pipefail
 
 VPS="root@45.77.198.133"
-REMOTO="/root/gestorpro/deploy/backups"
+REMOTO="/srv/gestorpro/deploy/backups"
 DESTINO="/c/Users/jimfe/backups/gestorpro"
 CLAVE="3ED5860220978524755F98851FEC3C754C15C7D0"
 
