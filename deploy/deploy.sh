@@ -268,14 +268,21 @@ echo "==> Validando el borde compartido con el fragmento nuevo de GestorPro"
 # heredada de deploy/.env para que no la pise y no recree el proxy por un cambio
 # de env (eso cortaría a TODOS los proyectos).
 edge_compose=(env -u ACME_EMAIL docker compose --project-directory "${EDGE_DIR}" -f "${EDGE_DIR}/docker-compose.yml")
+# La validación monta un directorio de ENSAYO (copia de los fragmentos actuales +
+# el nuevo de GestorPro) en lugar de sites/: un montaje anidado sobre sites/ (que
+# es :ro) falla si el archivo aún no existe ("read-only file system").
 sed "s/__DOMINIO__/${DOMINIO}/g" edge/sites/gestorpro.caddy > "${EDGE_DIR}/sites/gestorpro.caddy.tmp"
+ensayo="$(mktemp -d "${EDGE_DIR}/.validar.XXXXXX")"
+cp "${EDGE_DIR}"/sites/*.caddy "${ensayo}/" 2>/dev/null || true
+cp "${EDGE_DIR}/sites/gestorpro.caddy.tmp" "${ensayo}/gestorpro.caddy"
 if ! "${edge_compose[@]}" run --rm --no-deps -T \
-     -v "${EDGE_DIR}/sites/gestorpro.caddy.tmp:/etc/caddy/sites/gestorpro.caddy:ro" \
+     -v "${ensayo}:/etc/caddy/sites:ro" \
      proxy caddy validate --config /etc/caddy/Caddyfile; then
-  rm -f "${EDGE_DIR}/sites/gestorpro.caddy.tmp"
+  rm -rf "${ensayo}" "${EDGE_DIR}/sites/gestorpro.caddy.tmp"
   echo "ERROR: la configuración del borde no valida; nada se ha tocado (fragmento anterior intacto, caddy interno sin recrear)." >&2
   exit 1
 fi
+rm -rf "${ensayo}"
 
 echo "==> Levantando caddy (interno: HTTP en la red 'edge', sin puertos del host)"
 docker compose up -d caddy
