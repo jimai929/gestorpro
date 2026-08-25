@@ -22,6 +22,19 @@ como "de paso": cada uno merece su commit.
 
 ## LOW
 
+- **Textos de pantalla desactualizados detectados al escribir el manual de usuario
+  (2026-08-25, ver `docs/MANUAL_USUARIO.md` Anexo C).** Cada uno es un cambio de
+  texto (i18n `es` + en/zh por paridad) y tarea propia: (1) Categorías de gasto:
+  la ayuda de "Es categoría de pago a empleado" dice "No se puede cambiar
+  después." pero la edición sí lo acepta; (2) Usuarios: el aviso de "Tu cuenta"
+  dice que la propia contraseña se cambia desde la "barra superior" (está en el
+  menú lateral); (3) Auditoría financiera → Ver detalle (pagos): el total de la
+  factura se rotula "Saldo inicial"; (4) Kiosco: el subtítulo de "Identificación"
+  invita a pasar la tarjeta QR pero el kiosco envía todo como número de empleado;
+  (5) segunda corrección: el front dice "Este movimiento ya fue corregido: no
+  admite otra corrección." y el backend "El movimiento ya fue corregido: no admite
+  una segunda corrección." — unificar. Al cambiar cualquiera, actualizar el manual.
+
 - **Bundle del frontend > 500 kB tras minificar (aviso de Vite).** El chunk
   `index-*.js` supera el umbral de aviso de Vite (≈764 kB / 212 kB gzip). Es un
   aviso informativo preexistente, no un error de build. Posible mejora futura:
