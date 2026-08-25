@@ -5,6 +5,7 @@ import {
   ErrorValidacion,
 } from '../../core/errors.js';
 import { resumirCorreccion } from '../../shared/services/correccion.estado.js';
+import { Prisma } from '../../generated/prisma/client.js';
 
 /** Redondea a 2 decimales (los montos ya vienen de Decimal; esto solo evita 0.1+0.2). */
 function redondearDinero(n: number): number {
@@ -196,17 +197,117 @@ export async function registrarCompra(datos: DatosCompra) {
   }
 }
 
-export async function listarCompras(filtros: { sedeId?: string }) {
+export type EstadoFactura = 'debido' | 'vencida' | 'parcial' | 'pagado';
+
+export interface FiltrosCompras {
+  sedeId?: string;
+  proveedorId?: string;
+  tipo?: 'contado' | 'credito';
+  estado?: EstadoFactura;
+}
+
+/** Fila mínima de cuenta_por_pagar para el estado real de una factura a crédito. */
+interface FilaEstadoCompra {
+  compra_id: string;
+  total_pagado: string;
+  saldo: string;
+  estado: string;
+}
+
+type CompraConProveedor = Prisma.CompraGetPayload<{
+  include: { proveedor: { select: { nombre: true } } };
+}>;
+
+/**
+ * DTO de una fila de GET /compras: TODAS las facturas (contado y crédito), cada
+ * una con su estado REAL. Distinto de `aCompraDto` (que sigue sirviendo solo a
+ * `registrarCompra`, sin cambiar su contrato).
+ */
+function aFacturaDto(
+  c: CompraConProveedor,
+  extra: { totalPagado: number; saldo: number; estado: EstadoFactura },
+) {
+  return {
+    compraId: c.id,
+    proveedorId: c.proveedorId,
+    proveedorNombre: c.proveedor.nombre,
+    sedeId: c.sedeId,
+    numeroFactura: c.numeroFactura,
+    montoTotal: Number(c.montoTotal),
+    tipo: c.tipo,
+    fechaEmision: c.fechaEmision,
+    fechaVencimiento: c.fechaVencimiento,
+    creadoEn: c.creadoEn,
+    ...extra,
+  };
+}
+
+/**
+ * Lista TODAS las compras (contado y crédito) con su estado real. A diferencia
+ * de `listarCuentasPorPagar` (que excluye contado por diseño: migración
+ * 20260529130000), esta es la única vía que muestra una factura contado
+ * después de registrada — antes invisible en todo el frontend salvo el total
+ * agregado del dashboard.
+ *
+ * Para crédito: estado/saldo/pagado salen de la vista `cuenta_por_pagar` (una
+ * sola consulta batch, no N+1). Para contado: se derivan sin consultar la
+ * vista (que las excluye a propósito) — pagada en el acto es la DEFINICIÓN
+ * del tipo, no un cálculo.
+ */
+export async function listarCompras(filtros: FiltrosCompras) {
   const compras = await txEmpresa((tx) =>
     tx.compra.findMany({
-      where: filtros.sedeId ? { sedeId: filtros.sedeId } : {},
+      where: {
+        ...(filtros.sedeId ? { sedeId: filtros.sedeId } : {}),
+        ...(filtros.proveedorId ? { proveedorId: filtros.proveedorId } : {}),
+        ...(filtros.tipo ? { tipo: filtros.tipo } : {}),
+      },
       orderBy: { fechaEmision: 'desc' },
       // Solo el nombre: `proveedor: true` anidaba la fila completa del
       // proveedor (incluido su empresaId), que el frontend no consume.
       include: { proveedor: { select: { nombre: true } } },
     }),
   );
-  return compras.map(aCompraDto);
+
+  const idsCredito = compras.filter((c) => c.tipo === 'credito').map((c) => c.id);
+  const filasEstado = idsCredito.length
+    ? await txEmpresa((tx) =>
+        tx.$queryRaw<FilaEstadoCompra[]>`
+          SELECT compra_id, total_pagado, saldo, estado
+          FROM cuenta_por_pagar
+          WHERE compra_id IN (${Prisma.join(idsCredito.map((id) => Prisma.sql`${id}::uuid`))})`,
+      )
+    : [];
+  const estadoPorCompra = new Map(filasEstado.map((f) => [f.compra_id, f]));
+
+  const facturas = compras.map((c) => {
+    if (c.tipo === 'contado') {
+      // Contado = pagada en el acto, por definición: no está en la vista (la
+      // excluye a propósito), no hay nada que consultar.
+      return aFacturaDto(c, { totalPagado: Number(c.montoTotal), saldo: 0, estado: 'pagado' });
+    }
+    const f = estadoPorCompra.get(c.id);
+    if (!f) {
+      // Estructuralmente no debería pasar: la vista hace LEFT JOIN sobre TODA
+      // compra a crédito (migración 20260529130000), así que toda fila crédito
+      // visible bajo RLS tiene una fila en la vista. Fail-loud en vez de
+      // inventar un estado: mejor un 500 ruidoso que un saldo/estado
+      // silenciosamente incorrecto en pantalla.
+      throw new Error(
+        `Inconsistencia de datos: la compra ${c.id} es a crédito pero no aparece en cuenta_por_pagar.`,
+      );
+    }
+    return aFacturaDto(c, {
+      totalPagado: Number(f.total_pagado),
+      saldo: Number(f.saldo),
+      estado: f.estado as EstadoFactura,
+    });
+  });
+
+  // `estado` es campo derivado (no existe como columna filtrable en SQL para
+  // contado): se filtra en JS tras el merge, mismo patrón que usa
+  // antiguedad.service.ts para sus propios filtros en memoria.
+  return filtros.estado ? facturas.filter((f) => f.estado === filtros.estado) : facturas;
 }
 
 // ─── Pagos ──────────────────────────────────────────────────────────────────

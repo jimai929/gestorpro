@@ -17,7 +17,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { History, FileText, PieChart, Wallet } from 'lucide-react';
+import { History, FileText, PieChart, Wallet, FileStack } from 'lucide-react';
 import { LayoutPrincipal } from '../../core/ui/LayoutPrincipal';
 import { Boton } from '../../core/ui/Boton';
 import { useAuth } from '../../core/auth/ContextoAuth';
@@ -136,6 +136,12 @@ export function PantallaCuentasPorPagar() {
             </p>
           </div>
           <div className={styles.accionesEncabezado}>
+            {/* Única pantalla que también muestra las facturas de contado: esta
+                vista de CxP las excluye a propósito (no generan deuda). */}
+            <Link to="/cuentas-por-pagar/facturas" className={styles.enlaceHistorial}>
+              <FileStack size={16} strokeWidth={1.75} aria-hidden />
+              {t('fin.facturas.verFacturas')}
+            </Link>
             {/* Entrada visible al historial: desde aquí se ve qué se pagó y se corrige. */}
             <Link to="/pagos" className={styles.enlaceHistorial}>
               <History size={16} strokeWidth={1.75} aria-hidden />

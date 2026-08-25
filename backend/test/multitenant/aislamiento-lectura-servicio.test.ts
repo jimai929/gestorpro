@@ -59,7 +59,10 @@ describe('Fase 8 ① — lectura cross-tenant rechazada (servicio)', () => {
   });
 
   it('compra: A solo ve la suya; nunca la de B', async () => {
-    const deA = idsDe(await comoEmpresa(f.A.empresaId, () => listarCompras({})));
+    // listarCompras devuelve `compraId` (no `id`, para no colisionar con el
+    // nombre que ya usan CuentaPorPagar/PagoHistorial en este mismo módulo).
+    const compras = await comoEmpresa(f.A.empresaId, () => listarCompras({}));
+    const deA = idsDe(compras.map((c) => ({ id: c.compraId })));
     expect(deA).toEqual(new Set([f.A.compraId]));
     expect(deA.has(f.B.compraId)).toBe(false);
   });

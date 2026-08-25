@@ -1,10 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import type { FastifyInstance } from 'fastify';
+import { construirApp } from '../../src/app.js';
 import { semilla, comoEmpresa, crearEmpresa } from '../helpers/db.js';
 import {
   crearProveedor,
   editarProveedor,
   listarProveedores,
   registrarCompra,
+  listarCompras,
   registrarPago,
   listarCuentasPorPagar,
 } from '../../src/finanzas/cuentas-por-pagar/cuentas-por-pagar.service.js';
@@ -300,6 +303,242 @@ describe('compras contado vs crédito', () => {
     // Egreso REAL: solo el contado (300) salió de caja; el crédito impago (700) es deuda.
     expect(resumen.pagosProveedor).toBe(300);
     expect(resumen.ganancia).toBe(-300); // caja: 0 ventas − 300 egreso − 0 gastos
+  });
+});
+
+describe('listarCompras (GET /compras) — todas las facturas con estado real', () => {
+  it('contado: estado pagado, saldo 0, totalPagado = montoTotal (antes invisible en todo el módulo)', async () => {
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const prov = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `LC-Contado ${contador}` }));
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'LC-CONT-1',
+        montoTotal: 250, tipo: 'contado', fechaEmision: '2026-05-01',
+      }),
+    );
+
+    const facturas = await comoEmpresa(empresaId, () => listarCompras({ sedeId: sede.id }));
+    const factura = facturas.find((f) => f.numeroFactura === 'LC-CONT-1');
+    expect(factura).toMatchObject({ estado: 'pagado', saldo: 0, totalPagado: 250 });
+    expect(factura?.fechaVencimiento).toBeNull();
+  });
+
+  it('crédito sin pagos: debido si no vence aún, vencida si ya venció', async () => {
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const prov = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `LC-Credito ${contador}` }));
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'LC-DEBIDO',
+        montoTotal: 100, tipo: 'credito', fechaEmision: '2026-05-01', fechaVencimiento: '2099-01-01',
+      }),
+    );
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'LC-VENCIDA',
+        montoTotal: 100, tipo: 'credito', fechaEmision: '2026-05-01', fechaVencimiento: '2020-01-01',
+      }),
+    );
+
+    const facturas = await comoEmpresa(empresaId, () => listarCompras({ sedeId: sede.id }));
+    expect(facturas.find((f) => f.numeroFactura === 'LC-DEBIDO')?.estado).toBe('debido');
+    expect(facturas.find((f) => f.numeroFactura === 'LC-VENCIDA')?.estado).toBe('vencida');
+  });
+
+  it('crédito con abono parcial: estado parcial y cuadra con listarCuentasPorPagar', async () => {
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const prov = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `LC-Parcial ${contador}` }));
+    const usuario = await nuevoUsuario();
+    const compra = await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'LC-PARCIAL',
+        montoTotal: 1000, tipo: 'credito', fechaEmision: '2026-05-01', fechaVencimiento: '2099-01-01',
+      }),
+    );
+    await comoEmpresa(empresaId, () =>
+      registrarPago({ compraId: compra.id, monto: 300, usuarioId: usuario.id }),
+    );
+
+    const facturas = await comoEmpresa(empresaId, () => listarCompras({ sedeId: sede.id }));
+    const factura = facturas.find((f) => f.numeroFactura === 'LC-PARCIAL');
+    const [cuenta] = await comoEmpresa(empresaId, () => listarCuentasPorPagar({ sedeId: sede.id }));
+    expect(factura?.estado).toBe('parcial');
+    expect(factura?.totalPagado).toBe(300);
+    expect(factura?.saldo).toBe(700);
+    // Misma fuente de verdad que el listado de CxP para la misma compra.
+    expect(factura?.saldo).toBe(cuenta?.saldo);
+    expect(factura?.totalPagado).toBe(cuenta?.totalPagado);
+  });
+
+  it('crédito saldado por completo: estado pagado, saldo 0', async () => {
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const prov = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `LC-Saldado ${contador}` }));
+    const usuario = await nuevoUsuario();
+    const compra = await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'LC-SALDADO',
+        montoTotal: 500, tipo: 'credito', fechaEmision: '2026-05-01', fechaVencimiento: '2099-01-01',
+      }),
+    );
+    await comoEmpresa(empresaId, () =>
+      registrarPago({ compraId: compra.id, monto: 500, usuarioId: usuario.id }),
+    );
+
+    const facturas = await comoEmpresa(empresaId, () => listarCompras({ sedeId: sede.id }));
+    const factura = facturas.find((f) => f.numeroFactura === 'LC-SALDADO');
+    expect(factura?.estado).toBe('pagado');
+    expect(factura?.saldo).toBe(0);
+  });
+
+  it('filtra por tipo, por proveedor y por estado', async () => {
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const provA = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `LC-FiltroA ${contador}` }));
+    const provB = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `LC-FiltroB ${contador}` }));
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: provA.id, sedeId: sede.id, numeroFactura: 'LC-F-CONT',
+        montoTotal: 100, tipo: 'contado', fechaEmision: '2026-05-01',
+      }),
+    );
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: provA.id, sedeId: sede.id, numeroFactura: 'LC-F-CRED',
+        montoTotal: 100, tipo: 'credito', fechaEmision: '2026-05-01', fechaVencimiento: '2099-01-01',
+      }),
+    );
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: provB.id, sedeId: sede.id, numeroFactura: 'LC-F-OTRO',
+        montoTotal: 100, tipo: 'contado', fechaEmision: '2026-05-01',
+      }),
+    );
+
+    const soloContado = await comoEmpresa(empresaId, () => listarCompras({ sedeId: sede.id, tipo: 'contado' }));
+    expect(soloContado.map((f) => f.numeroFactura).sort()).toEqual(['LC-F-CONT', 'LC-F-OTRO']);
+
+    const soloProvA = await comoEmpresa(empresaId, () => listarCompras({ sedeId: sede.id, proveedorId: provA.id }));
+    expect(soloProvA.map((f) => f.numeroFactura).sort()).toEqual(['LC-F-CONT', 'LC-F-CRED']);
+
+    // Contado siempre 'pagado'; el crédito recién creado NO (está 'debido').
+    const soloPagadas = await comoEmpresa(empresaId, () => listarCompras({ sedeId: sede.id, estado: 'pagado' }));
+    expect(soloPagadas.map((f) => f.numeroFactura).sort()).toEqual(['LC-F-CONT', 'LC-F-OTRO']);
+  });
+
+  it('mezcla contado y crédito: devuelve ambos, ordenados por fecha de emisión descendente', async () => {
+    const empresaId = await crearEmpresa();
+    const sede = await nuevaSede(empresaId);
+    const prov = await comoEmpresa(empresaId, () => crearProveedor({ nombre: `LC-Mix ${contador}` }));
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'LC-MIX-VIEJA',
+        montoTotal: 100, tipo: 'contado', fechaEmision: '2026-05-01',
+      }),
+    );
+    await comoEmpresa(empresaId, () =>
+      registrarCompra({
+        proveedorId: prov.id, sedeId: sede.id, numeroFactura: 'LC-MIX-NUEVA',
+        montoTotal: 100, tipo: 'credito', fechaEmision: '2026-05-15', fechaVencimiento: '2099-01-01',
+      }),
+    );
+
+    const facturas = await comoEmpresa(empresaId, () => listarCompras({ sedeId: sede.id }));
+    expect(facturas.map((f) => f.numeroFactura)).toEqual(['LC-MIX-NUEVA', 'LC-MIX-VIEJA']);
+  });
+
+  it('sin contexto de tenant, fail-closed: no devuelve nada', async () => {
+    expect(await comoEmpresa(null, () => listarCompras({}))).toHaveLength(0);
+  });
+});
+
+describe('GET /compras (HTTP)', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    process.env.JWT_ACCESS_SECRET ??= 'test-secret-cuentas-por-pagar';
+    app = construirApp();
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('devuelve solo las facturas de la empresa del token (aislamiento entre tenants)', async () => {
+    const empresaA = await crearEmpresa();
+    const empresaB = await crearEmpresa();
+    const sedeA = await nuevaSede(empresaA);
+    const sedeB = await nuevaSede(empresaB);
+    const provA = await comoEmpresa(empresaA, () => crearProveedor({ nombre: `HTTP-A ${contador}` }));
+    const provB = await comoEmpresa(empresaB, () => crearProveedor({ nombre: `HTTP-B ${contador}` }));
+    const usuarioA = await nuevoUsuario();
+
+    await comoEmpresa(empresaA, () =>
+      registrarCompra({
+        proveedorId: provA.id, sedeId: sedeA.id, numeroFactura: 'HTTP-A-CONT',
+        montoTotal: 111, tipo: 'contado', fechaEmision: '2026-05-01',
+      }),
+    );
+    await comoEmpresa(empresaB, () =>
+      registrarCompra({
+        proveedorId: provB.id, sedeId: sedeB.id, numeroFactura: 'HTTP-B-CONT',
+        montoTotal: 999, tipo: 'contado', fechaEmision: '2026-05-01',
+      }),
+    );
+
+    const token = app.jwt.sign({
+      sub: usuarioA.id, rol: 'administrador', empresaId: empresaA, esSuperAdmin: false,
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/compras',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const cuerpo = res.json();
+    expect(cuerpo).toHaveLength(1);
+    expect(cuerpo[0].numeroFactura).toBe('HTTP-A-CONT');
+    // Ni un solo dato de la empresa B, ni siquiera en un campo inesperado.
+    expect(JSON.stringify(cuerpo)).not.toContain('HTTP-B');
+    expect(JSON.stringify(cuerpo)).not.toContain('999');
+  });
+
+  it('sin token → 401; con tipo o estado inválidos → 400', async () => {
+    const sinToken = await app.inject({ method: 'GET', url: '/compras' });
+    expect(sinToken.statusCode).toBe(401);
+
+    const empresaId = await crearEmpresa();
+    const usuario = await nuevoUsuario();
+    const token = app.jwt.sign({
+      sub: usuario.id, rol: 'administrador', empresaId, esSuperAdmin: false,
+    });
+
+    const tipoInvalido = await app.inject({
+      method: 'GET',
+      url: '/compras?tipo=invalido',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(tipoInvalido.statusCode).toBe(400);
+
+    const estadoInvalido = await app.inject({
+      method: 'GET',
+      url: '/compras?estado=invalido',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(estadoInvalido.statusCode).toBe(400);
+
+    // `sedeId` sigue aceptado (regresión: el nuevo schema no debe romper el filtro existente).
+    const conSede = await app.inject({
+      method: 'GET',
+      url: '/compras?sedeId=00000000-0000-0000-0000-000000000000',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(conSede.statusCode).toBe(200);
   });
 });
 

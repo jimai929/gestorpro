@@ -23,7 +23,7 @@ import {
   Receipt, Truck, CreditCard, Tags, BarChart3,
   MapPin, Users, Monitor, UserCog,
   ClipboardCheck, CalendarDays, Banknote,
-  KeyRound, LogOut, History, FileText, ScrollText, PieChart, Wallet, TrendingUp,
+  KeyRound, LogOut, History, FileText, ScrollText, PieChart, Wallet, TrendingUp, FileStack,
 } from 'lucide-react';
 import { useAuth } from '../auth/ContextoAuth';
 import { DialogoCambiarContrasena } from '../auth/DialogoCambiarContrasena';
@@ -99,6 +99,9 @@ export function LayoutPrincipal({ children }: PropiedadesLayout) {
             : []),
           // Estado de cuenta: conciliar con el proveedor (imprimible / CSV).
           { to: '/estado-cuenta', clave: 'nav.estadoCuenta', icono: FileText },
+          // Todas las facturas: única pantalla que muestra también las de contado
+          // (la vista de CxP las excluye a propósito, no generan deuda).
+          { to: '/cuentas-por-pagar/facturas', clave: 'nav.facturas', icono: FileStack },
           { to: '/gastos', clave: 'nav.gastos', icono: CreditCard },
           // Empleados es página de GESTIÓN (backend `soloGestion`): el empleado no la ve.
           ...(puedeGestionar

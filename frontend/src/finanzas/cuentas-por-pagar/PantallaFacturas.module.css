@@ -1,0 +1,193 @@
+/* ── Todas las facturas ─────────────────────────────────────────────────
+   Mismo lenguaje visual que el resto de cuentas por pagar: solo tokens, sin
+   hexadecimales nuevos. */
+
+.contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ── Encabezado ── */
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tituloPagina {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.subtitulo {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  margin: 0.15rem 0 0;
+}
+
+/* ── Filtros (selects reales: proveedor es una lista dinámica) ── */
+
+.filtros {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border);
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.grupoFiltro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.etiquetaFiltro {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.selectFiltro {
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  outline: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.selectFiltro:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+/* ── Tarjeta de la tabla ── */
+
+.tarjeta {
+  background: var(--color-surface);
+  border-radius: 16px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.contenedorTabla {
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  min-width: 760px;
+}
+
+.tabla thead {
+  background: var(--color-table-header);
+  border-bottom: 1.5px solid var(--color-border);
+}
+
+.tabla th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.tabla td {
+  padding: 0.875rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tabla tbody tr:hover {
+  background: var(--color-surface-raised);
+}
+
+.monto {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.celdaSecundaria {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Estados vacío / carga / error ── */
+
+.estadoVacio,
+.estadoCarga {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+.errorCarga {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  color: var(--color-danger);
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Fallo NO crítico (catálogo de proveedores del filtro): la lista sigue usable. */
+.errorSuave {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  border-radius: 12px;
+  padding: 0.875rem 1.25rem;
+  color: var(--color-warning);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Móvil: los filtros se apilan y ocupan el ancho; la tabla scrollea dentro
+   de su tarjeta (no rompe el layout de la página). */
+@media (max-width: 640px) {
+  .filtros {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .grupoFiltro {
+    width: 100%;
+  }
+
+  .selectFiltro {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}

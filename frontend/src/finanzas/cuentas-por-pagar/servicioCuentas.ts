@@ -13,6 +13,9 @@ import type {
   CuerpoCrearCompra,
   CuerpoRegistrarPago,
   Compra,
+  Factura,
+  TipoCompra,
+  EstadoCuenta,
   FiltrosPagos,
   RespuestaHistorialPagos,
   EstadoCuentaProveedor,
@@ -56,9 +59,23 @@ export function editarProveedor(id: string, cuerpo: CuerpoEditarProveedor): Prom
 
 // ── Compras (facturas) ────────────────────────────────────────────────────
 
-/** Lista todas las compras registradas. */
-export function obtenerCompras(): Promise<Compra[]> {
-  return api.get<Compra[]>('/compras');
+/**
+ * Lista TODAS las facturas (contado y crédito), con su estado real. A
+ * diferencia de `obtenerCuentasPorPagar` (que excluye contado por diseño),
+ * esta es la única vía para encontrar una factura de contado después de
+ * registrada.
+ */
+export function obtenerCompras(filtros?: {
+  proveedorId?: string;
+  tipo?: TipoCompra;
+  estado?: EstadoCuenta;
+}): Promise<Factura[]> {
+  const params = new URLSearchParams();
+  if (filtros?.proveedorId) params.set('proveedorId', filtros.proveedorId);
+  if (filtros?.tipo) params.set('tipo', filtros.tipo);
+  if (filtros?.estado) params.set('estado', filtros.estado);
+  const query = params.toString();
+  return api.get<Factura[]>(`/compras${query ? `?${query}` : ''}`);
 }
 
 /**

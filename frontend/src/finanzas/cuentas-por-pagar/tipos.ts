@@ -37,8 +37,6 @@ export interface Compra {
   tipo: TipoCompra;
   fechaEmision: string;
   fechaVencimiento: string | null;
-  // Solo el listado (GET /compras) incluye la relación; el alta no la devuelve.
-  proveedor?: { nombre: string };
 }
 
 // ── Cuenta por pagar (vista derivada) ────────────────────────────────────
@@ -57,6 +55,30 @@ export interface CuentaPorPagar {
   totalPagado: number;
   saldo: number;
   estado: EstadoCuenta;
+}
+
+// ── Todas las facturas (GET /compras) ────────────────────────────────────
+
+/**
+ * Fila de GET /compras: TODAS las facturas (contado y crédito) con su estado
+ * real. A diferencia de `CuentaPorPagar` (que excluye contado por diseño),
+ * esta incluye ambos tipos; para contado, estado/saldo/totalPagado son
+ * derivados (pagada en el acto), no vienen de la vista `cuenta_por_pagar`.
+ */
+export interface Factura {
+  compraId: string;
+  proveedorId: string;
+  proveedorNombre: string;
+  sedeId: string;
+  numeroFactura: string;
+  montoTotal: number;
+  tipo: TipoCompra;
+  fechaEmision: string;
+  fechaVencimiento: string | null;
+  totalPagado: number;
+  saldo: number;
+  estado: EstadoCuenta;
+  creadoEn: string;
 }
 
 // ── Cuerpos de petición ───────────────────────────────────────────────────

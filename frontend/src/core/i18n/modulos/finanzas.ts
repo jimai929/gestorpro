@@ -124,11 +124,24 @@ export const finanzas: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'fin.cxp.vacioFiltrado': 'No hay cuentas por pagar con estado "{estado}".',
     'fin.cxp.thProveedor': 'Proveedor',
     'fin.cxp.thFactura': 'Factura',
+    'fin.cxp.thTipo': 'Tipo',
     'fin.cxp.thTotal': 'Total',
     'fin.cxp.thPagado': 'Pagado',
     'fin.cxp.thSaldo': 'Saldo',
     'fin.cxp.thVencimiento': 'Vencimiento',
     'fin.cxp.abonar': 'Abonar',
+
+    // Todas las facturas (contado y crédito) — única pantalla que muestra
+    // también las de contado, invisibles en el resto del módulo.
+    'fin.facturas.titulo': 'Todas las facturas',
+    'fin.facturas.subtitulo': 'Todas las facturas de compra, contado y crédito, con su estado real.',
+    'fin.facturas.verFacturas': 'Todas las facturas',
+    'fin.facturas.cargandoLista': 'Cargando facturas…',
+    'fin.facturas.vacio': 'No hay facturas registradas.',
+    'fin.facturas.vacioFiltrado': 'Ninguna factura coincide con los filtros.',
+    'fin.facturas.errCargar': 'Error al cargar las facturas.',
+    'fin.facturas.filtrarPorTipo': 'Tipo',
+    'fin.facturas.todosTipos': 'Todos los tipos',
 
     // Historial de pagos a proveedor
     'fin.pagos.titulo': 'Historial de pagos',
@@ -721,11 +734,24 @@ export const finanzas: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'fin.cxp.vacioFiltrado': 'No accounts payable with status "{estado}".',
     'fin.cxp.thProveedor': 'Supplier',
     'fin.cxp.thFactura': 'Invoice',
+    'fin.cxp.thTipo': 'Type',
     'fin.cxp.thTotal': 'Total',
     'fin.cxp.thPagado': 'Paid',
     'fin.cxp.thSaldo': 'Balance',
     'fin.cxp.thVencimiento': 'Due date',
     'fin.cxp.abonar': 'Pay',
+
+    // All invoices (cash and credit) — the only screen that also shows cash
+    // invoices, invisible everywhere else in the module.
+    'fin.facturas.titulo': 'All invoices',
+    'fin.facturas.subtitulo': 'All purchase invoices, cash and credit, with their real status.',
+    'fin.facturas.verFacturas': 'All invoices',
+    'fin.facturas.cargandoLista': 'Loading invoices…',
+    'fin.facturas.vacio': 'No invoices recorded.',
+    'fin.facturas.vacioFiltrado': 'No invoice matches the filters.',
+    'fin.facturas.errCargar': 'Error loading invoices.',
+    'fin.facturas.filtrarPorTipo': 'Type',
+    'fin.facturas.todosTipos': 'All types',
 
     // Supplier payment history
     'fin.pagos.titulo': 'Payment history',
@@ -1314,11 +1340,23 @@ export const finanzas: Record<'es' | 'en' | 'zh', Record<string, string>> = {
     'fin.cxp.vacioFiltrado': '没有状态为“{estado}”的应付账款。',
     'fin.cxp.thProveedor': '供应商',
     'fin.cxp.thFactura': '发票',
+    'fin.cxp.thTipo': '类型',
     'fin.cxp.thTotal': '总额',
     'fin.cxp.thPagado': '已付',
     'fin.cxp.thSaldo': '余额',
     'fin.cxp.thVencimiento': '到期日',
     'fin.cxp.abonar': '付款',
+
+    // 全部发票（现付和赊购）—— 唯一同时显示现付发票的屏幕，其它地方都看不到。
+    'fin.facturas.titulo': '全部发票',
+    'fin.facturas.subtitulo': '全部采购发票（现付和赊购），含真实状态。',
+    'fin.facturas.verFacturas': '全部发票',
+    'fin.facturas.cargandoLista': '正在加载发票…',
+    'fin.facturas.vacio': '暂无发票记录。',
+    'fin.facturas.vacioFiltrado': '没有符合筛选条件的发票。',
+    'fin.facturas.errCargar': '加载发票出错。',
+    'fin.facturas.filtrarPorTipo': '类型',
+    'fin.facturas.todosTipos': '全部类型',
 
     // 供应商付款历史
     'fin.pagos.titulo': '付款历史',

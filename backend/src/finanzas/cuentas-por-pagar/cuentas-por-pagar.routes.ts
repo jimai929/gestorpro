@@ -10,6 +10,7 @@ import {
   listarCuentasPorPagar,
   listarPagos,
   type EstadoPago,
+  type EstadoFactura,
 } from './cuentas-por-pagar.service.js';
 import { estadoCuentaProveedor } from './estado-cuenta.service.js';
 import { antiguedadCuentasPorPagar, type TramoAntiguedad, type OrdenAntiguedad } from './antiguedad.service.js';
@@ -148,6 +149,20 @@ const esquemaCompra = {
   },
 } as const;
 
+/** GET /compras — todas las facturas (contado y crédito); todo opcional. */
+const esquemaCompras = {
+  querystring: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      sedeId: { type: 'string', minLength: 1 },
+      proveedorId: { type: 'string', minLength: 1 },
+      tipo: { type: 'string', enum: ['contado', 'credito'] },
+      estado: { type: 'string', enum: ['debido', 'vencida', 'parcial', 'pagado'] },
+    },
+  },
+} as const;
+
 const esquemaPago = {
   body: {
     type: 'object',
@@ -237,12 +252,14 @@ export async function cuentasPorPagarRoutes(app: FastifyInstance): Promise<void>
     }
   });
 
-  app.get<{ Querystring: { sedeId?: string } }>(
+  app.get<{
+    Querystring: { sedeId?: string; proveedorId?: string; tipo?: 'contado' | 'credito'; estado?: EstadoFactura };
+  }>(
     '/compras',
-    autenticado,
+    { ...autenticado, schema: esquemaCompras },
     async (request, reply) => {
       try {
-        return await reply.send(await listarCompras({ sedeId: request.query.sedeId }));
+        return await reply.send(await listarCompras(request.query));
       } catch (error) {
         return responderError(error, request, reply);
       }
