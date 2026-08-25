@@ -1,0 +1,8 @@
+# Fragmento de GestorPro para el borde compartido. deploy.sh lo renderiza
+# (sustituye __DOMINIO__) en /srv/edge/sites/gestorpro.caddy y recarga el proxy.
+# El borde solo termina TLS: el enrutado app/api y el SPA los hace el caddy
+# INTERNO de GestorPro (alias `gestorpro-web` en la red `edge`, HTTP plano).
+app.__DOMINIO__, api.__DOMINIO__ {
+	encode zstd gzip
+	reverse_proxy gestorpro-web:80
+}

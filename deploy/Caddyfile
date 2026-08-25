@@ -1,13 +1,20 @@
-# Caddyfile de GestorPro. Dos subdominios (no path-routing: las rutas del backend
-# colisionan con las del SPA). TLS automático vía Let's Encrypt. Las variables
-# {$DOMINIO}, {$ACME_EMAIL} y {$SEDE_IPS} las inyecta docker-compose desde .env.
+# Caddyfile INTERNO de GestorPro. Dos subdominios (no path-routing: las rutas del
+# backend colisionan con las del SPA). Este caddy NO termina TLS ni escucha en
+# 80/443 del host: el TLS lo hace el borde compartido del VPS (deploy/edge/), que
+# le reenvía por HTTP plano (alias `gestorpro-web`, red `edge`). Las variables
+# {$DOMINIO} y {$SEDE_IPS} las inyecta docker-compose desde deploy/.env.
 
 {
-	email {$ACME_EMAIL}
+	auto_https off
+	servers {
+		# El borde reenvía X-Forwarded-For: confiar en él (red docker) para que
+		# la IP real del cliente llegue al backend y al matcher client_ip.
+		trusted_proxies static private_ranges
+	}
 }
 
 # SPA (frontend estático). Imagen construida con VITE_API_URL=https://api.<dominio>.
-app.{$DOMINIO} {
+http://app.{$DOMINIO} {
 	root * /srv/www
 	encode gzip
 	try_files {path} /index.html
@@ -15,7 +22,7 @@ app.{$DOMINIO} {
 }
 
 # API (backend Fastify). El mismo binario sirve finanzas y asistencia.
-api.{$DOMINIO} {
+http://api.{$DOMINIO} {
 	reverse_proxy backend:3000
 
 	# --- Allowlist de IPs del kiosco (gate de P2) -----------------------------
@@ -32,19 +39,21 @@ api.{$DOMINIO} {
 	#
 	# Para activarlo: define SEDE_IPS en deploy/.env (IPs separadas por espacio) y
 	# descomenta los DOS bloques. Si una sede no tiene IP fija, déjalo comentado: el
-	# token de dispositivo sigue protegiendo el fichaje.
+	# token de dispositivo sigue protegiendo el fichaje. Se usa client_ip (no
+	# remote_ip): remote_ip sería siempre el borde; client_ip lee X-Forwarded-For
+	# gracias a trusted_proxies del bloque global.
 	#
 	# @fichaje_fuera_de_sede {
 	# 	method POST
 	# 	path /fichajes
-	# 	not remote_ip {$SEDE_IPS}
+	# 	not client_ip {$SEDE_IPS}
 	# }
 	# respond @fichaje_fuera_de_sede "Forbidden" 403
 	#
 	# @catalogo_fuera_de_sede {
 	# 	method GET
 	# 	path /kioscos
-	# 	not remote_ip {$SEDE_IPS}
+	# 	not client_ip {$SEDE_IPS}
 	# }
 	# respond @catalogo_fuera_de_sede "Forbidden" 403
 }

@@ -1,0 +1,41 @@
+# Borde compartido del VPS ("edge"): UN solo Caddy que ocupa 80/443, termina TLS
+# (Let's Encrypt) y enruta por host a cada proyecto co-hospedado (GestorPro,
+# WinFleet, ...). NO pertenece a ningún proyecto: vive instalado en /srv/edge del
+# VPS (este archivo es la FUENTE versionada; deploy.sh lo copia allí).
+#
+# Cada proyecto aporta SOLO su fragmento en /srv/edge/sites/<proyecto>.caddy y se
+# conecta a la red docker externa `edge`. Así ningún proyecto tiene que tocar la
+# configuración de otro (antes el bloque de WinFleet vivía dentro del Caddyfile
+# de GestorPro, sin versionar).
+#
+# Requisitos en el host:  docker network create edge   y   /srv/edge/.env con
+# ACME_EMAIL=<correo para Let's Encrypt>.
+name: edge
+
+services:
+  proxy:
+    image: caddy:2
+    container_name: edge-proxy
+    restart: unless-stopped
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?define ACME_EMAIL en /srv/edge/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      # Certificados y estado ACME. En la migración se copia aquí el contenido de
+      # deploy_caddy_data para NO reemitir certificados (rate limit de Let's Encrypt).
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+    external: true

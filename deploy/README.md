@@ -11,11 +11,20 @@ append-only de `auditoria`) y verifica la integridad antes de exponer la app.
 
 ## Arquitectura
 
-- `app.<dominio>` → SPA estático (Vite, `VITE_API_URL=https://api.<dominio>` en build).
+- **Borde compartido** (`edge/`, instalado en `/srv/edge` del VPS): el ÚNICO Caddy
+  que ocupa 80/443 y termina TLS (Let's Encrypt) para todos los proyectos
+  co-hospedados en el VPS. Enruta por host: `app.<dominio>` y `api.<dominio>` van
+  al caddy interno de GestorPro (alias `gestorpro-web`, HTTP, red docker `edge`).
+  Cada proyecto solo instala su fragmento `/srv/edge/sites/<proyecto>.caddy`;
+  `deploy.sh` instala/valida el de GestorPro y recarga el proxy. Nunca se edita
+  a mano el fragmento de otro proyecto.
+- `app.<dominio>` → SPA estático (Vite, `VITE_API_URL=https://api.<dominio>` en build),
+  servido por el caddy interno (`Caddyfile`, sin TLS ni puertos del host).
 - `api.<dominio>` → backend (`CORS_ORIGEN=https://app.<dominio>`), sin puerto público.
 - Postgres en la red interna (sin puerto público). TZ `America/Panama` en todo.
 - El backend corre con `gestorpro_app` (datos, sin DDL; en `auditoria` solo
   SELECT/INSERT). Las migraciones corren con `gestorpro_migrador` (dueño).
+- Nombre de proyecto compose fijado a `deploy` (volumen `deploy_pgdata`): no cambiar.
 
 ## Requisitos del VPS
 
@@ -56,7 +65,10 @@ append-only de `auditoria`) y verifica la integridad antes de exponer la app.
    `migrate deploy` (migrador) → grants + append-only → seed base → **verifica el
    append-only exigiendo que el UPDATE de `auditoria` como app sea rechazado por
    permisos** (con aserción positiva de que la tabla existe) → levanta backend,
-   **espera a que esté `healthy`** y solo entonces levanta caddy.
+   **espera a que esté `healthy`** y solo entonces levanta el caddy interno; por
+   último instala el fragmento de GestorPro en el borde (`/srv/edge/sites/`),
+   valida la configuración completa del borde y lo recarga (`caddy reload`).
+   La primera vez crea la red `edge` y siembra `/srv/edge/.env` (`ACME_EMAIL`).
 4. Verificar:
    ```bash
    curl -fsS https://api.<dominio>/health        # {"estado":"ok",...}

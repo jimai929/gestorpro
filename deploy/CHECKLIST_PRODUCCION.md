@@ -117,6 +117,13 @@ Puntos que faltan ANTES (o justo DESPUÉS) de poner la app en producción. Cada
   - La imagen caddy no tiene ENTRYPOINT, por eso el comando lleva `caddy` (sin él:
     `exec: "validate": not found`). `deploy.sh` ya valida el Caddyfile antes de
     levantar caddy en cada despliegue.
+  - Ese `Caddyfile` es el caddy INTERNO (HTTP, sin TLS). El TLS y los puertos
+    80/443 los tiene el **borde compartido** en `/srv/edge` (fuente: `edge/`);
+    su configuración completa se valida con
+    `docker compose --project-directory /srv/edge run --rm --no-deps proxy caddy validate --config /etc/caddy/Caddyfile`
+    y se recarga con `... exec proxy caddy reload --config /etc/caddy/Caddyfile`.
+    El borde también sirve a otros proyectos del VPS (WinFleet): no tocar sus
+    fragmentos en `/srv/edge/sites/`.
 - Servidor en zona horaria `America/Panama` (afecta la clasificación
   diurna/nocturna del motor de jornada).
 - Tras cada `git pull` en el VPS: `prisma migrate deploy` (la BD persistente

@@ -2,6 +2,11 @@
 # (Fastify) + postgres (con roles separados migrador/app). Los secretos y el
 # dominio vienen de deploy/.env (ver .env.example). Levantar con deploy.sh, que
 # orquesta migrate deploy, grants y verificación append-only antes de exponer.
+#
+# El nombre de proyecto se fija a `deploy` (histórico: el directorio) porque los
+# volúmenes/red de producción se llaman deploy_pgdata / deploy_interna. Cambiarlo
+# dejaría huérfano el volumen con los datos reales. NO cambiar.
+name: deploy
 
 services:
   postgres:
@@ -70,22 +75,23 @@ services:
     restart: unless-stopped
     environment:
       DOMINIO: ${DOMINIO}
-      ACME_EMAIL: ${ACME_EMAIL}
       SEDE_IPS: ${SEDE_IPS:-}
-    ports:
-      - "80:80"
-      - "443:443"
     depends_on:
       - backend
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    networks: [interna]
+    # Sin puertos publicados ni TLS: el borde compartido (deploy/edge/, instalado
+    # en /srv/edge del VPS) escucha en 80/443 y reenvía a este servicio por HTTP
+    # a través de la red externa `edge`, usando el alias gestorpro-web.
+    networks:
+      interna:
+      edge:
+        aliases: [gestorpro-web]
 
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:
 
 networks:
   interna:
+  # Red compartida con el borde (docker network create edge). Solo caddy entra:
+  # backend y postgres siguen únicamente en `interna`.
+  edge:
+    external: true

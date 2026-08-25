@@ -2,7 +2,8 @@
 # Despliegue/actualización de GestorPro en el VPS. Idempotente y seguro de
 # repetir. Orquesta: build → Postgres → migrate deploy (rol migrador) → grants y
 # append-only → seed base → verificación append-only → backend → validar
-# Caddyfile → caddy.
+# Caddyfile → caddy interno → fragmento en el borde compartido (/srv/edge) +
+# reload del proxy.
 #
 # Requiere deploy/.env (copiar de .env.example y rellenar). Ejecutar desde
 # cualquier ruta: el script se sitúa en su propio directorio.
@@ -45,6 +46,27 @@ for _var in POSTGRES_SUPER_PASSWORD GESTORPRO_MIGRADOR_PASSWORD GESTORPRO_APP_PA
 done
 
 MIGRATOR_DATABASE_URL="postgresql://gestorpro_migrador:${GESTORPRO_MIGRADOR_PASSWORD}@postgres:5432/gestorpro?schema=public"
+
+# Borde compartido del VPS (ver edge/docker-compose.yml): un único Caddy en
+# /srv/edge que termina TLS para TODOS los proyectos co-hospedados. GestorPro
+# solo instala sus archivos base del borde y su fragmento sites/gestorpro.caddy;
+# nunca toca fragmentos de otros proyectos. Sobreescribible para pruebas.
+EDGE_DIR="${EDGE_DIR:-/srv/edge}"
+
+echo "==> 0/7 Prerrequisitos del borde compartido (${EDGE_DIR}, red docker 'edge')"
+# La red es externa al compose de GestorPro: si no existe, 'docker compose build'
+# no falla pero 'up'/'run' sí. Crearla es idempotente e inocuo.
+docker network inspect edge >/dev/null 2>&1 || docker network create edge >/dev/null
+mkdir -p "${EDGE_DIR}/sites"
+# ACME_EMAIL vive en /srv/edge/.env (propiedad del borde, no de GestorPro). Si el
+# borde es nuevo se siembra desde el .env de GestorPro; si ya existe NO se toca.
+if [[ ! -f "${EDGE_DIR}/.env" ]]; then
+  ( umask 077; printf 'ACME_EMAIL=%s\n' "${ACME_EMAIL}" > "${EDGE_DIR}/.env" )
+fi
+# Archivos base del borde: siempre desde el repo (fuente versionada). NO se
+# copia sites/: ahí conviven fragmentos de otros proyectos.
+install -m 0644 edge/docker-compose.yml "${EDGE_DIR}/docker-compose.yml"
+install -m 0644 edge/Caddyfile "${EDGE_DIR}/Caddyfile"
 
 echo "==> 1/7 Construyendo imágenes"
 docker compose build
@@ -237,7 +259,32 @@ echo "==> Validando el Caddyfile antes de exponer caddy"
 # 'caddy'; --no-deps evita arrancar backend/postgres solo para validar.
 docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
 
-echo "==> Levantando caddy"
+echo "==> Validando el borde compartido con el fragmento nuevo de GestorPro"
+# Se renderiza el fragmento (solo __DOMINIO__) en un temporal y se valida el
+# borde COMPLETO (con los fragmentos de los demás proyectos) ANTES de tocar el
+# caddy interno: si no valida, se aborta con todo como estaba (el caddy interno
+# viejo sigue sirviendo y los otros proyectos no se enteran).
+# El borde tiene su propio .env (ACME_EMAIL): se quita del entorno la variable
+# heredada de deploy/.env para que no la pise y no recree el proxy por un cambio
+# de env (eso cortaría a TODOS los proyectos).
+edge_compose=(env -u ACME_EMAIL docker compose --project-directory "${EDGE_DIR}" -f "${EDGE_DIR}/docker-compose.yml")
+sed "s/__DOMINIO__/${DOMINIO}/g" edge/sites/gestorpro.caddy > "${EDGE_DIR}/sites/gestorpro.caddy.tmp"
+if ! "${edge_compose[@]}" run --rm --no-deps -T \
+     -v "${EDGE_DIR}/sites/gestorpro.caddy.tmp:/etc/caddy/sites/gestorpro.caddy:ro" \
+     proxy caddy validate --config /etc/caddy/Caddyfile; then
+  rm -f "${EDGE_DIR}/sites/gestorpro.caddy.tmp"
+  echo "ERROR: la configuración del borde no valida; nada se ha tocado (fragmento anterior intacto, caddy interno sin recrear)." >&2
+  exit 1
+fi
+
+echo "==> Levantando caddy (interno: HTTP en la red 'edge', sin puertos del host)"
 docker compose up -d caddy
+
+echo "==> Borde compartido: instalando sites/gestorpro.caddy y recargando el proxy"
+mv -f "${EDGE_DIR}/sites/gestorpro.caddy.tmp" "${EDGE_DIR}/sites/gestorpro.caddy"
+# 'up -d' es idempotente: crea el proxy la primera vez (o si cambió su compose) y
+# no hace nada si ya corre. El reload aplica el fragmento sin cortar conexiones.
+"${edge_compose[@]}" up -d
+"${edge_compose[@]}" exec -T proxy caddy reload --config /etc/caddy/Caddyfile
 
 echo "Despliegue completo. Verifica https://api.${DOMINIO}/health"

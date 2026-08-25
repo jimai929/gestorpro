@@ -1,0 +1,8 @@
+# Caddyfile del borde compartido (/srv/edge). Solo TLS + enrutado por host.
+# NO poner aquí sitios: cada proyecto instala su fragmento en sites/<proyecto>.caddy
+# (GestorPro: deploy.sh lo renderiza desde deploy/edge/sites/gestorpro.caddy).
+{
+	email {$ACME_EMAIL}
+}
+
+import /etc/caddy/sites/*.caddy
