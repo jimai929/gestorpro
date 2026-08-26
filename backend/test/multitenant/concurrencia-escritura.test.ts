@@ -52,12 +52,24 @@ describe('Fase 8 ⑧.1 — escrituras concurrentes A/B caen cada una en su tenan
     });
     const resultados = await Promise.all(peticiones);
 
-    // Todas crean (201) y devuelven la sede con su empresaId del token (no del body).
-    for (const { esA, res } of resultados) {
+    // Todas crean (201). El DTO de sede NO expone empresaId (el tenant no se filtra
+    // en respuestas), así que el tenant real de CADA fila se comprueba en god-view
+    // (BYPASSRLS) por su id: la sede que respondió a un token de A debe estar en A.
+    const creadas = resultados.map(({ esA, res }) => {
       expect(res.statusCode).toBe(201);
-      const sede = res.json() as { id: string; empresaId: string };
-      expect(sede.empresaId).toBe(esA ? empresaA : empresaB);
-    }
+      const sede = res.json() as { id: string };
+      expect(sede.id).toBeTruthy();
+      return { esA, id: sede.id };
+    });
+    const ids = creadas.map((c) => c.id);
+    expect(new Set(ids).size).toBe(2 * N);
+
+    const filas = await semilla().sede.findMany({ where: { id: { in: ids } }, select: { id: true, empresaId: true } });
+    const empresaPorId = new Map(filas.map((f) => [f.id, f.empresaId]));
+    expect(filas).toHaveLength(2 * N);
+    creadas.forEach(({ esA, id }, i) => {
+      expect(empresaPorId.get(id), `petición ${i} (${esA ? 'A' : 'B'})`).toBe(esA ? empresaA : empresaB);
+    });
 
     // God-view (BYPASSRLS): exactamente N sedes con ese nombre en CADA empresa, y
     // ninguna en la empresa ajena.
