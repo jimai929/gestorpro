@@ -1,15 +1,23 @@
-// Uso: node scripts/docs/manual-a-html.js docs/MANUAL_USUARIO.md <salida.html>
+// Uso: node scripts/docs/manual-a-html.js <manual.md> <salida.html> [es|zh]
+//   es → docs/MANUAL_USUARIO.md   ·   zh → docs/MANUAL_USUARIO.zh.md
 // Genera la página del manual para el cliente (artifact). Sigue docs/DESIGN_SYSTEM.md
-// (tokens claro/oscuro de global.css, Inter para UI, Source Serif 4 para lectura).
-// Convierte docs/MANUAL_USUARIO.md → página HTML autocontenida (artifact).
-// Sin dependencias. Excluye los anexos B y C (internos), conserva la línea de versión.
+// (tokens claro/oscuro de global.css, Inter para UI, Source Serif 4 para lectura;
+// en chino añade Noto Sans/Serif SC). Sin dependencias. Excluye los anexos B y C
+// (internos), conserva la línea de versión.
 const fs = require('fs');
-const [,, inPath, outPath] = process.argv;
+const [,, inPath, outPath, langArg] = process.argv;
+const lang = langArg === 'zh' ? 'zh' : 'es';
 let md = fs.readFileSync(inPath, 'utf8').replace(/\r\n/g, '\n');
 
-// --- recortar Anexo B..C (internos), conservar la línea "Versión del manual" ---
-const versionLine = (md.match(/^Versión del manual:.*$/m) || [''])[0];
-const iB = md.indexOf('\n## Anexo B');
+// Textos de la página (cabecera, índice, pie) por idioma.
+const UI = {
+  es: { title: 'Manual de GestorPro', h1: 'Manual de usuario', meta: 'Guía por tareas para el dueño, los supervisores y el personal', contenido: 'Contenido', indice: 'Índice del manual', pie: 'Los textos en negrita reproducen exactamente lo que se ve en pantalla.', htmlLang: 'es' },
+  zh: { title: 'GestorPro 使用手册', h1: '使用手册', meta: '面向业主、主管和员工的分任务指南', contenido: '目录', indice: '手册目录', pie: '加粗文字与屏幕上显示的内容完全一致。', htmlLang: 'zh-CN' },
+}[lang];
+
+// --- recortar Anexo B..C (internos), conservar la línea de versión ---
+const versionLine = (md.match(lang === 'zh' ? /^手册版本[:：].*$/m : /^Versión del manual:.*$/m) || [''])[0];
+const iB = md.indexOf(lang === 'zh' ? '\n## 附录 B' : '\n## Anexo B');
 if (iB > 0) md = md.slice(0, iB) + '\n';
 
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -27,7 +35,7 @@ for (const l of lines) {
   headings.push({ level: m[1].length, text, id });
   const n = text.match(/^(\d+(?:\.\d+)?)\.?\s/);
   if (n) secIds[n[1]] = id;
-  const a = text.match(/^(Anexo [A-C])/);
+  const a = text.match(/^(Anexo [A-C]|附录 [A-C])/);
   if (a) secIds[a[1]] = id;
 }
 
@@ -37,7 +45,7 @@ function inline(s) {
   t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   t = t.replace(/(^|[^*\w])\*([^*\n]+?)\*(?=[^*\w]|$)/g, '$1<em>$2</em>');
   // enlaces a secciones: "(3.4)", "ver 6.2", "Detalle en 6.1", "sección 4.6", "capítulo 7"
-  t = t.replace(/(\(|ver |Detalle en |sección |capítulo |Vaya a )(\d+(?:\.\d+)?|Anexo [A-C])(?=[\s).,;:]|$)/g, (m0, pre, num) =>
+  t = t.replace(/(\(|（|ver |Detalle en |sección |capítulo |Vaya a |见 ?|详见 ?|参见 ?)(\d+(?:\.\d+)?|Anexo [A-C]|附录 [A-C])(?=[\s).,;:）。，；、]|$)/g, (m0, pre, num) =>
     secIds[num] ? `${pre}<a href="#${secIds[num]}">${num}</a>` : m0);
   return t;
 }
@@ -72,7 +80,7 @@ function parseBlocks(ls) {
       const inner = [];
       while (i < ls.length && ls[i].startsWith('>')) inner.push(ls[i++].replace(/^> ?/, ''));
       const first = inner[0] || '';
-      const tipo = /^\*\*(Aviso|Importante|Recomendaci|En GestorPro nada|Contado vs)/i.test(first) ? ' aviso' : '';
+      const tipo = /^\*\*(Aviso|Importante|Recomendaci|En GestorPro nada|Contado vs|重要|注意|提示|建议|关于|在 GestorPro|现付|现金)/i.test(first) ? ' aviso' : '';
       out.push(`<aside class="nota${tipo}">${parseBlocks(inner).join('\n')}</aside>`);
       continue;
     }
@@ -94,8 +102,8 @@ function parseBlocks(ls) {
     if (p.length) {
       const txt = p.join(' ');
       // "Roles: ..." como etiqueta; "Pasos:", "Errores frecuentes:", etc. como subtítulos
-      if (/^Roles?: /.test(txt)) out.push(`<p class="roles">${inline(txt)}</p>`);
-      else if (/^\*\*(Pasos|Errores frecuentes|Qué verá al terminar|Tenga en cuenta|Ejemplo|Cómo leer este manual)[^*]*\*\*:?$/.test(txt)) out.push(`<p class="sub">${inline(txt.replace(/\*\*/g, ''))}</p>`);
+      if (/^(Roles?: |角色[:：])/.test(txt)) out.push(`<p class="roles">${inline(txt)}</p>`);
+      else if (/^\*\*(Pasos|Errores frecuentes|Qué verá al terminar|Tenga en cuenta|Ejemplo|Cómo leer este manual|步骤|常见错误|完成后您会看到|请注意|示例|如何阅读本手册)[^*]*\*\*[:：]?$/.test(txt)) out.push(`<p class="sub">${inline(txt.replace(/\*\*/g, ''))}</p>`);
       else out.push(`<p>${inline(txt)}</p>`);
     }
   }
@@ -129,13 +137,16 @@ const body = parseBlocks(lines).join('\n');
 // --- índice lateral ---
 let toc = '';
 for (const h of headings) {
-  if (/^Anexo [BC]/.test(h.text)) continue;
+  if (/^(Anexo|附录) [BC]/.test(h.text)) continue;
   toc += `<li class="l${h.level}"><a href="#${h.id}">${esc(h.text)}</a></li>`;
 }
 
-const html = `<title>Manual de GestorPro</title>
+const fuentes = lang === 'zh'
+  ? 'family=Inter:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@400;600'
+  : 'family=Inter:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400';
+const html = `<title>${UI.title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${fuentes}&display=swap">
 <style>
 :root{
   --bg:#F7F8FA; --surface:#FFFFFF; --raised:#EFF2F6; --border:#E3E6EA; --border-strong:#CBD1D8;
@@ -143,8 +154,8 @@ const html = `<title>Manual de GestorPro</title>
   --primary:#1E3A5F; --primary-bg:#EAF0F6; --link:#1E3A5F;
   --warn:#8A5A12; --warn-bg:#FBF1E0; --warn-border:#EBD2A4;
   --code-bg:#EFF2F6; --rail:#151413; --rail-text:#A79E92; --rail-active:#E0A96A;
-  --serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
-  --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --serif:'Source Serif 4', 'Noto Serif SC', Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  --sans:'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto, Helvetica, Arial, sans-serif;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#1A1917; --surface:#232120; --raised:#2A2724; --border:#34312E; --border-strong:#413D39;
@@ -230,20 +241,20 @@ td strong{font-size:1em}
   a{color:inherit;text-decoration:none}
 }
 </style>
-<header class="cab"><div class="in">
+<header class="cab" lang="${UI.htmlLang}"><div class="in">
   <span class="logo"><b>GP</b> GestorPro</span>
-  <h1>Manual de usuario</h1>
-  <p class="meta"><span>Guía por tareas para el dueño, los supervisores y el personal</span><span>${esc(versionLine.replace(/^Versión del manual:\s*/, ''))}</span></p>
+  <h1>${UI.h1}</h1>
+  <p class="meta"><span>${UI.meta}</span><span>${esc(versionLine.replace(/^(Versión del manual:|手册版本[:：])\s*/, ''))}</span></p>
 </div></header>
-<div class="marco">
-<nav class="indice" aria-label="Índice">
-  <p class="t">Contenido</p>
+<div class="marco" lang="${UI.htmlLang}">
+<nav class="indice" aria-label="${UI.contenido}">
+  <p class="t">${UI.contenido}</p>
   <ul>${toc}</ul>
-  <details><summary>Índice del manual</summary><ul>${toc}</ul></details>
+  <details><summary>${UI.indice}</summary><ul>${toc}</ul></details>
 </nav>
 <main>
 ${body}
-<p class="pie">${esc(versionLine)}. Los textos en negrita reproducen exactamente lo que se ve en pantalla.</p>
+<p class="pie">${esc(versionLine)}${lang === 'zh' ? '。' : '.'} ${UI.pie}</p>
 </main>
 </div>
 <script>
