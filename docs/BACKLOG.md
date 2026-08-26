@@ -35,6 +35,20 @@ como "de paso": cada uno merece su commit.
   admite otra corrección." y el backend "El movimiento ya fue corregido: no admite
   una segunda corrección." — unificar. Al cambiar cualquiera, actualizar el manual.
 
+- **Signo de la "Diferencia" inconsistente entre la tabla y el detalle de auditoría
+  (hallado al escribir el E2E de dinero, 2026-08-25).** `PantallaAuditoria.tsx` muestra la
+  diferencia con signo invertido y explícito (`+B/. 7.66` para 12.34 → 20.00; `−B/. 12.34`
+  para una anulación), pero `DetalleCorreccion.tsx` imprime el valor crudo
+  `formatearDinero(registro.diferencia)` (`B/. -7.66`). Mismo dato, dos convenciones; el
+  E2E solo afirma la de la tabla. Unificar (probablemente el detalle debe usar la misma
+  regla que la tabla) y añadir la aserción al spec.
+
+- **`<label>` sin `htmlFor` en los selects de Categoría y Sede de `FormularioGasto.tsx`
+  (accesibilidad).** Los `<select>` no están asociados a su etiqueta: lectores de pantalla
+  no los anuncian y Playwright no puede usar `getByLabel` (el helper `e2e/helpers/finanzas.ts`
+  los localiza como hermano del label, frágil). Añadir `id` + `htmlFor` (patrón de `Entrada`)
+  y simplificar el helper.
+
 - **Bundle del frontend > 500 kB tras minificar (aviso de Vite).** El chunk
   `index-*.js` supera el umbral de aviso de Vite (≈764 kB / 212 kB gzip). Es un
   aviso informativo preexistente, no un error de build. Posible mejora futura:

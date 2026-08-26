@@ -124,8 +124,17 @@ sembrada (seed base).
 - `e2e/specs/plataforma-superadmin.spec.ts` (`@full`) — parte NEGATIVA (corre): admin de
   tenant → /plataforma redirige a `/`. Parte super-admin (crea empresa `e2e-*` + suspende↔
   reactiva): **SKIPEA** sin `E2E_SUPERADMIN_*` (no hay super-admin en dev local).
+- `e2e/specs/dinero-correccion-auditoria.spec.ts` (`@full`) — **crea gastos** `e2e-*` por UI
+  y los **corrige** (reverso + corrección de importe) o **anula** (solo reverso); verifica la
+  fila (original tachado + vigente, badge Corregido/Anulado, sin botón "Corregir"), la
+  **auditoría financiera** filtrada por el registro (montos, diferencia con signo, motivo,
+  línea de tiempo del detalle) y que una **segunda corrección** por API responde **409**.
+  Solo con escritura. Residual: gastos e2e corregidos/anulados + filas de auditoría
+  (inmutables / append-only por diseño, ver §9).
 - Los helpers de rol (crear usuario con rol, login con cambio forzado, navegación de rol)
   están en `e2e/helpers/roles.ts`, compartidos por `permisos-roles` y `permisos-operaciones`.
+- Los helpers de finanzas (crear gasto, corregir/anular desde el diálogo, segunda corrección
+  por API) están en `e2e/helpers/finanzas.ts`.
 - Los helpers de UI de asistencia (crear empleado/kiosco, fichar) están en
   `e2e/helpers/asistencia.ts`, compartidos por `fichaje`, `jornada-cobro` y `empleado-editar-baja`.
 - El resto de specs actuales (`production-smoke`, `negocio-estructura`) son de **lectura**
@@ -168,6 +177,12 @@ Verificado: tras una corrida completa, usuarios y empleados `e2e-*` quedan en 0 
   quedan listados pero inertes (sin dispositivo real). Identificables por nombre.
 - **Fichajes / Jornadas / Cobros / Auditoría**: inmutables / append-only por diseño; quedan
   como histórico dev.
+- **Gastos e2e y sus asientos** (`dinero-correccion-auditoria`): por corrida quedan 4 gastos
+  `E2E Gasto e2e-…` (12.34 c/u) con sus reversos y correcciones (20.00 y 15.00) y 3 filas de
+  auditoría con motivo `e2e: …`; el dinero es INMUTABLE, no hay endpoint de retiro. Efecto
+  en dev: el total vigente del mes de /gastos, dashboard y flujo de caja sube +35.00 por
+  corrida. Los reversos/correcciones NO llevan descripción (solo `corrigeId`): se rastrean
+  por el gasto original o por el prefijo `e2e:` del motivo en /auditoria-financiera.
 
 La única limpieza **TOTAL** en dev es `npm run db:reset` (backend: `prisma migrate reset` +
 seed), que recrea toda la BD y **solo es válida en desarrollo** — nunca contra producción.
@@ -185,6 +200,7 @@ seed), que recrea toda la BD y **solo es válida en desarrollo** — nunca contr
 | `empleado-editar-baja` (Phase 2) | `@full` | crea un empleado `e2e-*`; lo **edita** (nombre + salario fijo) y confirma los valores nuevos en la fila (localizada por número); lo **desactiva** (baja LÓGICA) y confirma el badge "Inactivo" + botón "Activar". Sin borrado físico. |
 | `permisos-roles` (Phase 2) | `@full` | límites de permiso por rol. **admin**: accede a /empleados, /usuarios (con datos, sin 403) y /asistencia/jornadas. **supervisor** y **empleado**: /plataforma redirige a `/`; /usuarios muestra el 403 "No tiene permiso para esta operación."; supervisor SÍ ve /empleados y /jornadas. Login de rol nuevo resuelve el cambio de contraseña FORZADO; cada rol en contexto aislado. |
 | `permisos-operaciones` (Phase 2) | `@full` | permiso a nivel de OPERACIÓN. **admin** crea un empleado e2e (gestión OK). **supervisor** y **empleado** pulsan "Desactivar" empleado (admin-only): el backend responde **403** "No tiene permiso para esta operación." y, al recargar, el empleado sigue **Activo** (sin efecto). Prueba el 403 real del submit, no el ocultamiento de botón (los botones de /empleados son estáticos). |
+| `dinero-correccion-auditoria` (2026-08-25) | `@full` | **cadena de dinero**: crea un gasto `e2e-*` por UI (categoría normal + primera sede), lo **corrige** de 12.34 → 20.00 desde `DialogoCorreccion` (fila: original tachado + vigente, badge "Corregido", sin "Corregir", enlace "Ver auditoría"); abre `/auditoria-financiera?entidad=gasto&registroId=…` y afirma la fila Gasto · Corrección (12.34 / 20.00 / `+B/. 7.66` / motivo) y la línea de tiempo del detalle (original → reverso → corrección); una **segunda corrección por API** recibe **409** "ya fue corregido" y la fila sigue en 20.00. Segundo test: **anulación** (queda en `B/. 0.00`, "Anulado", auditoría "Anulación" con `−B/. 12.34`). Tercer test, **matriz de roles**: el **supervisor** corrige desde la UI (soloGestion); el **empleado** consulta /gastos pero sin "+ Registrar gasto" / "Corregir" / "Ver auditoría", y `POST /correcciones` sobre un gasto vigente le devuelve **403** sin efecto (la fila sigue Vigente y corregible). El "Total del período" de /gastos se afirma como suma de VIGENTES (sube +7.66 / baja −12.34). |
 | `plataforma-superadmin` (Phase 2) | `@full` | **admin de tenant** → /plataforma redirige a `/` (RutaSoloPlataforma). Parte **super-admin** (accede a /plataforma, ve empresas, crea empresa e2e, suspende↔reactiva — seguro/reversible, NUNCA cancela ni resetea admin): tras `requireSuperAdmin()`, **SKIPEA** sin credenciales (no hay super-admin en dev local; andamiaje LISTO, no verificado en local). |
 
 ### Personas / roles del sistema
@@ -203,9 +219,9 @@ seed), que recrea toda la BD y **solo es válida en desarrollo** — nunca contr
 | **salario / cobro** | **cubierto (parcial, Phase 2)** | NO hay página de nómina dedicada; el salario/horas-extra se hace visible en `/asistencia/cobros` (saldo, % cobrable, disponible). `jornada-cobro.spec.ts` verifica ese saldo calculado del empleado. El cálculo de nómina completo sigue en backend (cubrible a nivel API). |
 | **ventas / cierre de cajera** | **sin ruta UI dedicada** | no hay `/ventas`; el cierre de caja se teclea desde Firestec. Cubrir a nivel API o cuando exista pantalla. |
 | **compras** | dentro de `/cuentas-por-pagar` | registrar factura = crear compra; flujo de escritura Phase 2. |
-| **gastos (crear)** | pendiente | `/gastos` tiene alta; requiere categoría+sede sembradas. |
-| **correcciones de dinero** | **API-only** | `POST /correcciones` no tiene consumidor en el front; probar por API o cuando haya UI. |
-| **auditoría** | **API-only / sin UI** | la `Auditoria`/`AuditoriaPlataforma` es append-only sin pantalla de lectura. |
+| **gastos (crear)** | **cubierto (2026-08-25)** | `dinero-correccion-auditoria.spec.ts` crea gastos por UI (`helpers/finanzas.ts`: categoría normal del seed + primera sede activa). |
+| **correcciones de dinero** | **cubierto (2026-08-25, gasto)** | `DialogoCorreccion` desde /gastos: corrección de importe y anulación; regla "una sola corrección" (botón retirado + 409 por API). **Pendiente**: la misma cadena para **pago a proveedor** (`/pagos`, incluye sobrepago rechazado) y **cierre de caja** (dashboard, arqueo corregido), y el caso negativo de rol **empleado** (sin botón / 403 en `POST /correcciones`). |
+| **auditoría** | **cubierto (2026-08-25)** | `/auditoria-financiera` con deep-link `?entidad=&registroId=`: fila (módulo, acción, montos, diferencia con signo, motivo) y detalle (línea de tiempo). `AuditoriaPlataforma` sigue sin pantalla. |
 | **plataforma / super-admin (flujo de escritura)** | **PENDIENTE por falta de cuenta** | `plataforma-superadmin.spec.ts` tiene el andamiaje LISTO (crear empresa e2e + suspender↔reactivar, seguro) tras `requireSuperAdmin()`, pero **HOY SKIPEA**: no hay super-admin sembrado en dev local (`backend/.env` sin `SUPER_ADMIN_EMAIL`; `global-setup` solo crea storageState de admin de tenant). Para habilitarlo (fuera del código de test): sembrar un super-admin (seed con `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD`), exportar `E2E_SUPERADMIN_EMAIL`/`PASSWORD`, y manejar su cambio de contraseña forzado (patrón `loginConCambioForzado`). El caso NEGATIVO (no-super-admin → redirect) SÍ está cubierto. NO se cubren acciones IRREVERSIBLES por diseño: "Cancelar empresa" (terminal) ni "Restablecer admin" (destruye sesiones). Endpoints `PATCH /plataforma/usuarios/:id/estado` y `.../restablecer-contrasena` existen en backend pero **no tienen UI** (no testeables por UI). |
 | **riesgo hallado (no es cobertura, es nota)** | **revisar** | `POST /cobros` (solicitar adelanto) NO tiene restricción de rol (solo `autenticar`) y NO valida que el `empleadoId` del body sea el del propio solicitante: un empleado autenticado podría solicitar cobros a nombre de OTRO empleado (solo se valida saldo). Posible riesgo menor; documentado, no cubierto por E2E. Backend, no tocado. |
 | **permisos por rol** | **cubierto (Phase 2)** | `permisos-roles.spec.ts`. **Hallazgo honesto del comportamiento REAL** (observado, no asumido): el FRONTEND solo guarda `/plataforma` (RutaSoloPlataforma → cualquier NO super-admin va a `/`). NO restringe /empleados, /usuarios ni /asistencia/* por rol de tenant — esas páginas CARGAN para supervisor y empleado. La frontera real es el BACKEND: `/usuarios` es admin-only (GET → 403, la UI muestra "No tiene permiso para esta operación."); GET /empleados y /jornadas NO son admin-only (supervisor y empleado sí los ven). El botón "+ Crear usuario" se renderiza estático para todos los roles (no distingue permiso). Por eso los asserts son sobre el redirect de /plataforma y el 403 de /usuarios, NO sobre "empleado no puede abrir /empleados" (que sería falso). |
@@ -224,7 +240,8 @@ seed), que recrea toda la BD y **solo es válida en desarrollo** — nunca contr
 | `/empleados` | CRUD empleados | admin (escribe) | **sí** | solo lectura | Phase 2 |
 | `/sedes` | CRUD sedes | admin | **sí** | solo lectura | Phase 2 |
 | `/kioscos` | CRUD kioscos + token | admin | **sí** | solo lectura | Phase 2 |
-| `/gastos` | Registrar gasto | tenant | **sí** | solo lectura | Phase 2 |
+| `/gastos` | Registrar / corregir gasto | supervisor/admin (escribe) | **sí** | solo lectura | **sí** (`dinero-correccion-auditoria`) |
+| `/auditoria-financiera` | Auditoría de correcciones | supervisor/admin | no | sí (lectura) | **sí** (`dinero-correccion-auditoria`) |
 | `/cuentas-por-pagar` | Facturas/compras + pagos | tenant | **sí** | solo lectura | Phase 2 |
 | `/proveedores` | CRUD proveedores | tenant | **sí** | solo lectura | Phase 2 |
 | `/asistencia/jornadas` | Ver/corregir jornadas | supervisor/admin | **sí** (corrección) | solo lectura | Phase 2 |
@@ -233,7 +250,6 @@ seed), que recrea toda la BD y **solo es válida en desarrollo** — nunca contr
 | `/kiosco` | Fichaje (device token) | público+token | **sí** (fichaje) | NO tocar | Phase 2 |
 | `/plataforma` | Gestión de empresas/cuentas | super-admin | **sí** | solo lectura | Phase 2 |
 | ventas / cierre caja | — | — | — | **sin ruta UI** | API/futuro |
-| auditoría | — | — | — | **sin ruta UI** | API-only |
 | salario / nómina | — | — | — | **sin ruta UI** | backend/API |
 
 ## Stack local para la suite (actualizado 2026-07-23)
