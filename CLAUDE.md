@@ -1,5 +1,8 @@
 # CLAUDE.md — GestorPro
 
+**VPS 45.77.198.133 dado de baja el 2026-11-06 (cuenta Vultr cerrada). GestorPro no tiene
+entorno de producción. Prohibido ssh/scp/deploy.sh contra esa IP.**
+
 Reglas permanentes para Claude Code en este proyecto. Archivo corto: solo reglas
 que aplican siempre. El detalle vive en `docs/` — aquí se apunta, no se repite.
 Lo que ya cubre el CLAUDE.md global (git, secretos, frontend, validación) no se
@@ -18,9 +21,7 @@ inventario: eso lo cubre Firestec (sistema externo).
 Stack: Node.js + TypeScript strict + Fastify · Prisma + PostgreSQL · React +
 Vite · JWT con refresh · Vitest + Testcontainers.
 
-**PRODUCCIÓN ACTIVA desde 2026-06-25**: VPS `45.77.198.133`, dominio
-`gestorpro.us` (HTTPS vía Caddy/Let's Encrypt). Este proyecto ya no es solo dev:
-toda operación tiene que considerar que existe un entorno productivo real.
+Producción 2026-06-25 → 2026-11-06 en VPS 45.77.198.133 (dado de baja). Hoy sin entorno desplegado.
 
 ---
 
