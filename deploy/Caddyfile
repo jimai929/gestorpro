@@ -17,6 +17,9 @@
 http://app.{$DOMINIO} {
 	root * /srv/www
 	encode gzip
+	# Política de privacidad de Yappy Voz (página estática de frontend/public; la pide Google
+	# para el acceso OAuth a Gmail). Sin la reescritura, file_server redirigiría al directorio.
+	rewrite /yappyvoz/privacidad /yappyvoz/privacidad.html
 	try_files {path} /index.html
 	file_server
 }
